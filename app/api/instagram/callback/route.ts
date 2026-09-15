@@ -161,6 +161,32 @@ export async function GET(request: NextRequest) {
           (metaError?.code ? ` (code ${metaError.code})` : "")
       );
     }
+
+    // TEMPORARY DIAGNOSTIC — remove once webhook delivery is confirmed working.
+    // Re-fetch the subscription state right after subscribing, to see what
+    // Meta actually recorded (as opposed to what the subscribe call claimed).
+    try {
+      const verifyUrl = new URL(
+        `https://graph.instagram.com/${API_VERSION}/${me.user_id}/subscribed_apps`
+      );
+      verifyUrl.searchParams.set("access_token", longLived.access_token);
+
+      const verifyResponse = await fetch(verifyUrl);
+      const verifyBody = await verifyResponse.json().catch(() => null);
+
+      console.log("[DIAGNOSTIC] subscribed_apps check", {
+        instagramUserId: me.user_id,
+        httpStatus: verifyResponse.status,
+        responseJson: verifyBody,
+        metaErrorCode: verifyBody?.error?.code,
+        metaErrorMessage: verifyBody?.error?.message,
+      });
+    } catch (diagErr) {
+      console.error("[DIAGNOSTIC] subscribed_apps check failed", {
+        instagramUserId: me.user_id,
+        error: diagErr instanceof Error ? diagErr.message : String(diagErr),
+      });
+    }
   } catch (err) {
     console.error("Instagram connect failed:", err);
     return redirectWithError(
