@@ -118,6 +118,23 @@ export async function GET(request: NextRequest) {
     if (upsertError) {
       throw new Error(upsertError.message);
     }
+
+    // 5. Subscribe this Instagram account to the app's webhook so Meta
+    // actually delivers comment events for it (dashboard-level webhook
+    // config alone does not enable per-account delivery).
+    const subscribeUrl = new URL(
+      `https://graph.instagram.com/${API_VERSION}/${me.user_id}/subscribed_apps`
+    );
+    subscribeUrl.searchParams.set("subscribed_fields", "comments");
+    subscribeUrl.searchParams.set("access_token", longLived.access_token);
+
+    const subscribeResponse = await fetch(subscribeUrl, { method: "POST" });
+
+    if (!subscribeResponse.ok) {
+      throw new Error(
+        `Webhook subscription failed: ${await subscribeResponse.text()}`
+      );
+    }
   } catch (err) {
     console.error("Instagram connect failed:", err);
     return redirectWithError(
