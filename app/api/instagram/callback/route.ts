@@ -121,7 +121,11 @@ export async function GET(request: NextRequest) {
 
     // 5. Subscribe this Instagram account to the app's webhook so Meta
     // actually delivers comment events for it (dashboard-level webhook
-    // config alone does not enable per-account delivery).
+    // config alone only enables the *app*; each connected IG user must
+    // separately opt in via this call, or Meta never sends events for
+    // that account). Calling this again on reconnect just re-asserts the
+    // same subscription (it's a set, not an append), so it's naturally
+    // idempotent — no dedup bookkeeping needed on our side.
     const subscribeUrl = new URL(
       `https://graph.instagram.com/${API_VERSION}/${me.user_id}/subscribed_apps`
     );
@@ -129,17 +133,41 @@ export async function GET(request: NextRequest) {
     subscribeUrl.searchParams.set("access_token", longLived.access_token);
 
     const subscribeResponse = await fetch(subscribeUrl, { method: "POST" });
+    const subscribeBody = await subscribeResponse.json().catch(() => null);
 
-    if (!subscribeResponse.ok) {
+    if (!subscribeResponse.ok || subscribeBody?.success !== true) {
+      const metaError = subscribeBody?.error as
+        | { message?: string; type?: string; code?: number; error_subcode?: number; fbtrace_id?: string }
+        | undefined;
+
+      // Safe to log: HTTP status + Meta's error fields + the IG account id.
+      // Never log longLived.access_token or any other secret.
+      console.error("Instagram webhook subscription failed", {
+        instagramUserId: me.user_id,
+        httpStatus: subscribeResponse.status,
+        metaErrorCode: metaError?.code,
+        metaErrorSubcode: metaError?.error_subcode,
+        metaErrorType: metaError?.type,
+        metaErrorMessage: metaError?.message,
+        fbtraceId: metaError?.fbtrace_id,
+      });
+
+      // The account row is already stored at this point — don't pretend
+      // the connection is fully working when comments won't actually
+      // arrive. Surface a distinct, specific error instead.
       throw new Error(
-        `Webhook subscription failed: ${await subscribeResponse.text()}`
+        `Instagram account connected, but webhook subscription failed` +
+          (metaError?.message ? `: ${metaError.message}` : "") +
+          (metaError?.code ? ` (code ${metaError.code})` : "")
       );
     }
   } catch (err) {
     console.error("Instagram connect failed:", err);
     return redirectWithError(
       request,
-      "Could not connect that Instagram account. Please try again."
+      err instanceof Error
+        ? err.message
+        : "Could not connect that Instagram account. Please try again."
     );
   }
 
