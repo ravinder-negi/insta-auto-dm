@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
       console.log("[DIAGNOSTIC] subscribed_apps check", {
         instagramUserId: me.user_id,
         httpStatus: verifyResponse.status,
-        responseJson: verifyBody,
+        responseJson: JSON.stringify(verifyBody, null, 2),
         metaErrorCode: verifyBody?.error?.code,
         metaErrorMessage: verifyBody?.error?.message,
       });
