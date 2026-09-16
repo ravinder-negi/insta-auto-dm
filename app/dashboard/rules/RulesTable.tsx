@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { Avatar } from "../components/Avatar";
 import { ConfirmAction } from "../components/ConfirmAction";
 import { RowMenu } from "../components/RowMenu";
@@ -187,26 +188,7 @@ export function RulesTable({
                           !rule.is_active
                         )}
                       >
-                        <button
-                          type="submit"
-                          role="switch"
-                          aria-checked={rule.is_active}
-                          aria-label={
-                            rule.is_active ? "Pause this rule" : "Activate this rule"
-                          }
-                          title={rule.is_active ? "Pause rule" : "Activate rule"}
-                          className={`flex h-6 w-11 items-center rounded-full p-0.5 transition-colors ${
-                            rule.is_active
-                              ? "brand-gradient"
-                              : "bg-zinc-200 dark:bg-zinc-700"
-                          }`}
-                        >
-                          <span
-                            className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                              rule.is_active ? "translate-x-5" : "translate-x-0"
-                            }`}
-                          />
-                        </button>
+                        <ToggleSwitchButton isActive={rule.is_active} />
                       </form>
 
                       <Link
@@ -276,5 +258,33 @@ export function RulesTable({
         )}
       </div>
     </div>
+  );
+}
+
+function ToggleSwitchButton({ isActive }: { isActive: boolean }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      role="switch"
+      aria-checked={isActive}
+      disabled={pending}
+      aria-label={isActive ? "Pause this rule" : "Activate this rule"}
+      title={isActive ? "Pause rule" : "Activate rule"}
+      className={`relative flex h-6 w-11 items-center rounded-full p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
+        isActive ? "brand-gradient" : "bg-zinc-200 dark:bg-zinc-700"
+      }`}
+    >
+      {pending ? (
+        <span className="mx-auto h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/60 border-t-white" />
+      ) : (
+        <span
+          className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${
+            isActive ? "translate-x-5" : "translate-x-0"
+          }`}
+        />
+      )}
+    </button>
   );
 }

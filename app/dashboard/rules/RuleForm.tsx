@@ -48,6 +48,7 @@ interface InstagramMediaOption {
   id: string;
   caption: string | null;
   media_type: string;
+  thumbnail_url: string | null;
   permalink: string;
   timestamp: string;
 }
@@ -109,6 +110,9 @@ export function RuleForm({
   const visibleMediaOptions = settled?.items ?? [];
   const mediaError = settled?.error ?? null;
   const mediaLoading = Boolean(selectedAccountId) && settled === null;
+  const selectedMedia = visibleMediaOptions.find(
+    (item) => item.id === selectedMediaId
+  );
 
   useEffect(() => {
     if (!selectedAccountId) return;
@@ -325,6 +329,32 @@ export function RuleForm({
               </span>
               Preview
             </p>
+
+            {selectedMedia && (
+              <div className="mt-3 flex items-start gap-3 rounded-xl border border-black/5 bg-white p-3 dark:border-white/8 dark:bg-white/5">
+                {selectedMedia.thumbnail_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={selectedMedia.thumbnail_url}
+                    alt=""
+                    className="h-24 w-24 shrink-0 rounded-lg object-cover"
+                  />
+                ) : (
+                  <span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-400 dark:bg-zinc-800">
+                    <InstagramIcon className="h-7 w-7" />
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                    {selectedMedia.media_type.toLowerCase()} ·{" "}
+                    {new Date(selectedMedia.timestamp).toLocaleDateString("en-US")}
+                  </p>
+                  <p className="mt-1 line-clamp-4 text-sm text-zinc-700 dark:text-zinc-300">
+                    {selectedMedia.caption?.trim() || "(no caption)"}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="mt-3 flex items-start gap-2 rounded-xl border border-black/5 bg-white px-3 py-2.5 dark:border-white/8 dark:bg-white/5">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 dark:bg-zinc-800">

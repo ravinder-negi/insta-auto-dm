@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Avatar } from "../components/Avatar";
+import { ConfirmAction } from "../components/ConfirmAction";
 import { EmptyState } from "../components/EmptyState";
 import { RowMenu } from "../components/RowMenu";
 import { SearchField, SelectField } from "../components/controls";
@@ -163,15 +164,21 @@ export function AccountsList({
                         </button>
                       </form>
 
-                      <form action={disconnectAccount.bind(null, account.id)}>
-                        <button
-                          type="submit"
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 px-3.5 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-500/40 dark:text-rose-400 dark:hover:bg-rose-500/15"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                          Disconnect
-                        </button>
-                      </form>
+                      <ConfirmAction
+                        action={disconnectAccount.bind(null, account.id)}
+                        title="Disconnect this account?"
+                        description={`@${handle} will stop listening for comments and its rules will pause. This can't be undone.`}
+                        confirmLabel="Disconnect"
+                        trigger={
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 px-3.5 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-500/40 dark:text-rose-400 dark:hover:bg-rose-500/15"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                            Disconnect
+                          </button>
+                        }
+                      />
 
                       <RowMenu
                         label={`More actions for @${handle}`}
