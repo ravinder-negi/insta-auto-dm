@@ -67,7 +67,9 @@ export async function GET(request: NextRequest) {
     };
 
     // 2. Exchange the short-lived token for a long-lived one (~60 days).
-    const longLivedUrl = new URL("https://graph.instagram.com/access_token");
+    const longLivedUrl = new URL(
+      `https://graph.instagram.com/${API_VERSION}/access_token`
+    );
     longLivedUrl.searchParams.set("grant_type", "ig_exchange_token");
     longLivedUrl.searchParams.set("client_secret", appSecret);
     longLivedUrl.searchParams.set("access_token", shortLived.access_token);
