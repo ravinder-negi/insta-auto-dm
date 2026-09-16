@@ -15,6 +15,24 @@ import type { RuleFormState } from "./actions";
 
 const DM_MAX_LENGTH = 1000;
 
+const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
+const HAS_URL_PATTERN = /https?:\/\/[^\s]+/;
+
+// Mirrors Instagram's own behavior: plain-text DMs auto-linkify bare URLs,
+// so the preview should render them the same way instead of as flat text.
+function renderMessageWithLinks(message: string) {
+  const parts = message.split(URL_PATTERN);
+  return parts.map((part, index) =>
+    part.startsWith("http://") || part.startsWith("https://") ? (
+      <span key={index} className="underline underline-offset-2">
+        {part}
+      </span>
+    ) : (
+      <span key={index}>{part}</span>
+    )
+  );
+}
+
 const QUICK_EMOJI = [
   "😀", "😍", "🔥", "🙌", "🎉", "✨", "👍", "🙏",
   "💜", "📩", "🚀", "💡", "✅", "👀", "💬", "🎁",
@@ -290,6 +308,12 @@ export function RuleForm({
                 )}
               </div>
             </div>
+            {HAS_URL_PATTERN.test(dmMessage) && (
+              <p className="mt-1.5 text-xs text-zinc-500">
+                Links are sent as plain text — Instagram automatically turns
+                them into a tappable link for the recipient.
+              </p>
+            )}
           </Field>
         </div>
 
@@ -316,7 +340,9 @@ export function RuleForm({
 
             <div className="mt-3 flex items-end gap-2">
               <p className="brand-gradient min-w-0 flex-1 rounded-2xl rounded-br-md px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap text-white">
-                {dmMessage || "Your automated reply will appear here..."}
+                {dmMessage
+                  ? renderMessageWithLinks(dmMessage)
+                  : "Your automated reply will appear here..."}
               </p>
               <SendIcon className="mb-1 h-4 w-4 shrink-0 text-indigo-400" />
             </div>
