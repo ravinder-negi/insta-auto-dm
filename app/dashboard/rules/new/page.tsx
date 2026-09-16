@@ -1,5 +1,10 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { EmptyState } from "../../components/EmptyState";
+import { InstagramIcon, PlusIcon } from "../../components/icons";
+import { primaryButtonClass } from "../../components/styles";
 import { RuleForm } from "../RuleForm";
+import { RuleFormPageHeader } from "../RuleFormPageHeader";
 import { createRule } from "../actions";
 
 export default async function NewRulePage() {
@@ -9,18 +14,38 @@ export default async function NewRulePage() {
     .select("id, username, instagram_user_id")
     .order("created_at", { ascending: false });
 
-  const accounts = (data ?? []).map((account) => ({
-    id: account.id as string,
-    label: `@${account.username ?? account.instagram_user_id}`,
-  }));
+  const accounts = (data ?? []).map((account) => {
+    const handle = (account.username ?? account.instagram_user_id) as string;
+    return {
+      id: account.id as string,
+      handle,
+      label: `@${handle}`,
+    };
+  });
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold">New rule</h1>
+    <div className="flex flex-col gap-8">
+      <RuleFormPageHeader
+        eyebrow="Create rule"
+        title="New automation rule"
+        description="Set up a keyword and automated reply for Instagram comments."
+      />
+
       {accounts.length === 0 ? (
-        <p className="text-sm text-zinc-500">
-          Connect an Instagram account before creating a rule.
-        </p>
+        <EmptyState
+          icon={<InstagramIcon className="h-6 w-6" />}
+          title="Connect an account first"
+          description="A rule needs an Instagram account to listen to."
+          action={
+            <Link
+              href="/dashboard/accounts"
+              className={`${primaryButtonClass} mt-2`}
+            >
+              <PlusIcon className="h-4 w-4" />
+              Connect Instagram account
+            </Link>
+          }
+        />
       ) : (
         <RuleForm accounts={accounts} action={createRule} submitLabel="Create rule" />
       )}

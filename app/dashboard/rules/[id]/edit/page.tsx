@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { RuleForm } from "../../RuleForm";
+import { RuleFormPageHeader } from "../../RuleFormPageHeader";
 import { updateRule } from "../../actions";
 
 export default async function EditRulePage(
@@ -27,14 +28,23 @@ export default async function EditRulePage(
     notFound();
   }
 
-  const accounts = (accountsData ?? []).map((account) => ({
-    id: account.id as string,
-    label: `@${account.username ?? account.instagram_user_id}`,
-  }));
+  const accounts = (accountsData ?? []).map((account) => {
+    const handle = (account.username ?? account.instagram_user_id) as string;
+    return {
+      id: account.id as string,
+      handle,
+      label: `@${handle}`,
+    };
+  });
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold">Edit rule</h1>
+    <div className="flex flex-col gap-8">
+      <RuleFormPageHeader
+        eyebrow="Edit rule"
+        title={rule.name}
+        description="Update the keyword and automated reply for this rule."
+      />
+
       <RuleForm
         accounts={accounts}
         action={updateRule.bind(null, id)}

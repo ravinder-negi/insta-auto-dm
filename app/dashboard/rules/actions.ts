@@ -110,3 +110,33 @@ export async function toggleRuleActive(id: string, isActive: boolean) {
 
   revalidatePath("/dashboard/rules");
 }
+
+export async function duplicateRule(id: string) {
+  const supabase = await createClient();
+  const { data: rule, error: readError } = await supabase
+    .from("automation_rules")
+    .select(
+      "instagram_account_id, name, trigger_type, keyword, instagram_media_id, dm_message"
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (readError) {
+    throw new Error(readError.message);
+  }
+  if (!rule) {
+    throw new Error("Rule not found.");
+  }
+
+  const { error } = await supabase.from("automation_rules").insert({
+    ...rule,
+    name: `${rule.name} (copy)`,
+    is_active: false,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard/rules");
+}
