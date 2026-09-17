@@ -18,6 +18,7 @@ import {
   SearchIcon,
   TrashIcon,
 } from "../components/icons";
+import { Spinner } from "../components/Spinner";
 import { StatusBadge } from "../components/StatusBadge";
 import { deleteRule, duplicateRule, toggleRuleActive } from "./actions";
 
@@ -201,14 +202,7 @@ export function RulesTable({
                       </Link>
 
                       <form action={duplicateRule.bind(null, rule.id)}>
-                        <button
-                          type="submit"
-                          title="Duplicate rule"
-                          aria-label={`Duplicate ${rule.name}`}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-                        >
-                          <CopyIcon className="h-4 w-4" />
-                        </button>
+                        <DuplicateRuleButton ruleName={rule.name} />
                       </form>
 
                       <ConfirmAction
@@ -258,6 +252,26 @@ export function RulesTable({
         )}
       </div>
     </div>
+  );
+}
+
+function DuplicateRuleButton({ ruleName }: { ruleName: string }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      title="Duplicate rule"
+      aria-label={`Duplicate ${ruleName}`}
+      className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+    >
+      {pending ? (
+        <Spinner className="h-4 w-4 border-current/30 border-t-current" />
+      ) : (
+        <CopyIcon className="h-4 w-4" />
+      )}
+    </button>
   );
 }
 

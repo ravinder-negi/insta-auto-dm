@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AlertIcon } from "./icons";
+import { DialogActions } from "./DialogActions";
 
 export function ConfirmAction({
   action,
@@ -49,23 +50,12 @@ export function ConfirmAction({
               <h2 className="mt-4 text-base font-semibold tracking-tight">{title}</h2>
               <p className="mt-1.5 text-sm text-zinc-500">{description}</p>
 
-              <div className="mt-6 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="rounded-xl border border-black/10 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-                >
-                  Cancel
-                </button>
-                <form action={action}>
-                  <button
-                    type="submit"
-                    className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-rose-500"
-                  >
-                    {confirmLabel}
-                  </button>
-                </form>
-              </div>
+              <form action={action} className="mt-6 flex justify-end gap-2">
+                <DialogActions
+                  onCancel={() => setOpen(false)}
+                  confirmLabel={confirmLabel}
+                />
+              </form>
             </div>
           </div>,
           document.body

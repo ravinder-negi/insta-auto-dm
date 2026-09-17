@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LockIcon } from "@/app/dashboard/components/icons";
 
 export function PasswordField({
   id,
@@ -28,15 +29,16 @@ export function PasswordField({
         {labelAction}
       </div>
       <div className="relative">
+        <LockIcon className="pointer-events-none absolute inset-y-0 left-3.5 my-auto h-4.5 w-4.5 text-zinc-400" />
         <input
           id={id}
           name={name}
           type={visible ? "text" : "password"}
           required
           minLength={minLength}
-          placeholder="••••••••"
+          placeholder="Enter your password"
           autoComplete={autoComplete}
-          className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 pr-10 text-sm outline-none transition-all duration-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 dark:border-white/15 dark:focus:border-indigo-400/70"
+          className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pr-10 pl-10 text-sm outline-none transition-all duration-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 dark:border-white/15 dark:focus:border-indigo-400/70"
         />
         <button
           type="button"

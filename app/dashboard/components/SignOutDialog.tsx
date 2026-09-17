@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { SignOutIcon } from "./icons";
+import { DialogActions } from "./DialogActions";
 
 /** Rendered through a portal, so it must live outside any menu that closes on
  *  outside clicks — otherwise the menu unmounts it before the form submits. */
@@ -43,23 +44,9 @@ export function SignOutDialog({
           You&apos;ll need to sign in again to access your dashboard.
         </p>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-black/10 px-4 py-2 text-sm font-medium transition-colors hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-          >
-            Cancel
-          </button>
-          <form action={signOutAction}>
-            <button
-              type="submit"
-              className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-rose-500"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
+        <form action={signOutAction} className="mt-6 flex justify-end gap-2">
+          <DialogActions onCancel={onClose} confirmLabel="Sign out" />
+        </form>
       </div>
     </div>,
     document.body

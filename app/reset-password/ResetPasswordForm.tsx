@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { AuthBrandHeader } from "@/app/AuthBrandHeader";
+import { AuthCard } from "@/app/AuthCard";
 import { PasswordField } from "@/app/components/PasswordField";
+import { ArrowRightIcon } from "@/app/dashboard/components/icons";
 import { updatePassword, type ResetPasswordState } from "./actions";
 
 export function ResetPasswordForm({ hasSession }: { hasSession: boolean }) {
@@ -13,28 +16,29 @@ export function ResetPasswordForm({ hasSession }: { hasSession: boolean }) {
 
   if (!hasSession) {
     return (
-      <div className="animate-fade-in-up w-full max-w-sm rounded-2xl border border-black/6 bg-white/80 p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-16px_rgba(0,0,0,0.12)] backdrop-blur-sm dark:border-white/8 dark:bg-white/4">
-        <h1 className="text-xl font-semibold tracking-tight">
-          Link expired
-        </h1>
+      <AuthCard>
+        <AuthBrandHeader />
+        <h1 className="text-3xl font-bold tracking-tight">Link expired</h1>
         <p className="mt-2 text-sm text-zinc-500">
           This password reset link is invalid or has expired. Request a new
           one to continue.
         </p>
         <Link
           href="/forgot-password"
-          className="mt-6 inline-block text-sm font-medium text-indigo-600 transition-colors hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+          className="mt-6 inline-block text-sm font-semibold text-indigo-600 transition-colors hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
         >
           Request new link →
         </Link>
-      </div>
+      </AuthCard>
     );
   }
 
   return (
-    <div className="animate-fade-in-up w-full max-w-sm rounded-2xl border border-black/6 bg-white/80 p-8 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_16px_40px_-16px_rgba(0,0,0,0.12)] backdrop-blur-sm dark:border-white/8 dark:bg-white/4">
+    <AuthCard>
+      <AuthBrandHeader />
+
       <div className="mb-7">
-        <h1 className="text-xl font-semibold tracking-tight">
+        <h1 className="text-3xl font-bold tracking-tight">
           Set a new password
         </h1>
         <p className="mt-1.5 text-sm text-zinc-500">
@@ -68,11 +72,12 @@ export function ResetPasswordForm({ hasSession }: { hasSession: boolean }) {
         <button
           type="submit"
           disabled={pending}
-          className="mt-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:scale-[1.01] hover:bg-zinc-800 active:scale-[0.99] disabled:opacity-60 disabled:hover:scale-100 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="brand-gradient mt-2 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:hover:scale-100"
         >
           {pending ? "Updating…" : "Update password"}
+          {!pending && <ArrowRightIcon className="h-4 w-4" />}
         </button>
       </form>
-    </div>
+    </AuthCard>
   );
 }

@@ -1,16 +1,39 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { Avatar } from "../components/Avatar";
 import { ConfirmAction } from "../components/ConfirmAction";
 import { EmptyState } from "../components/EmptyState";
 import { RowMenu } from "../components/RowMenu";
 import { SearchField, SelectField } from "../components/controls";
+import { Spinner } from "../components/Spinner";
 import { primaryButtonClass } from "../components/styles";
 import { formatDate, formatRelative } from "../components/format";
 import { LayersIcon, PauseIcon, PlayIcon, PlusIcon, SearchIcon, TrashIcon } from "../components/icons";
 import { StatusBadge } from "../components/StatusBadge";
 import { disconnectAccount, toggleAccountActive } from "./actions";
+
+function ToggleAccountButton({ isActive }: { isActive: boolean }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 px-3.5 py-2 text-sm font-medium transition-colors hover:bg-black/4 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:hover:bg-white/10"
+    >
+      {pending ? (
+        <Spinner className="h-4 w-4 border-current/30 border-t-current" />
+      ) : isActive ? (
+        <PauseIcon className="h-4 w-4" />
+      ) : (
+        <PlayIcon className="h-4 w-4" />
+      )}
+      {pending ? (isActive ? "Pausing…" : "Resuming…") : isActive ? "Pause" : "Resume"}
+    </button>
+  );
+}
 
 export interface AccountRow {
   id: string;
@@ -151,17 +174,7 @@ export function AccountsList({
                           !account.is_active
                         )}
                       >
-                        <button
-                          type="submit"
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 px-3.5 py-2 text-sm font-medium transition-colors hover:bg-black/4 dark:border-white/15 dark:hover:bg-white/10"
-                        >
-                          {account.is_active ? (
-                            <PauseIcon className="h-4 w-4" />
-                          ) : (
-                            <PlayIcon className="h-4 w-4" />
-                          )}
-                          {account.is_active ? "Pause" : "Resume"}
-                        </button>
+                        <ToggleAccountButton isActive={account.is_active} />
                       </form>
 
                       <ConfirmAction
