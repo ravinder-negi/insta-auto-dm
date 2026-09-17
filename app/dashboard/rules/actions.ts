@@ -12,6 +12,8 @@ interface RuleFields {
   keyword: string;
   instagram_media_id: string | null;
   dm_message: string;
+  require_follow: boolean;
+  follow_prompt_message: string | null;
 }
 
 function readRuleFields(
@@ -22,11 +24,20 @@ function readRuleFields(
   const keyword = String(formData.get("keyword") ?? "").trim();
   const instagramMediaIdRaw = String(formData.get("instagram_media_id") ?? "").trim();
   const dmMessage = String(formData.get("dm_message") ?? "").trim();
+  const requireFollow = formData.get("require_follow") === "on";
+  const followPromptMessage = String(formData.get("follow_prompt_message") ?? "").trim();
 
   if (!instagramAccountId || !name || !keyword || !dmMessage) {
     return {
       ok: false,
       error: "Account, name, keyword, and DM message are required.",
+    };
+  }
+
+  if (requireFollow && !followPromptMessage) {
+    return {
+      ok: false,
+      error: "Follow-prompt message is required when 'Require follow' is on.",
     };
   }
 
@@ -38,6 +49,8 @@ function readRuleFields(
       keyword,
       instagram_media_id: instagramMediaIdRaw || null,
       dm_message: dmMessage,
+      require_follow: requireFollow,
+      follow_prompt_message: requireFollow ? followPromptMessage : null,
     },
   };
 }
@@ -116,7 +129,7 @@ export async function duplicateRule(id: string) {
   const { data: rule, error: readError } = await supabase
     .from("automation_rules")
     .select(
-      "instagram_account_id, name, trigger_type, keyword, instagram_media_id, dm_message"
+      "instagram_account_id, name, trigger_type, keyword, instagram_media_id, dm_message, require_follow, follow_prompt_message"
     )
     .eq("id", id)
     .maybeSingle();

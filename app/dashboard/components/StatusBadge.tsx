@@ -24,6 +24,16 @@ const STYLES: Record<string, { pill: string; dot: string; label: string }> = {
     dot: "bg-rose-500",
     label: "Failed",
   },
+  follow_prompt_sent: {
+    pill: "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
+    dot: "bg-indigo-500",
+    label: "Follow prompt sent",
+  },
+  skipped_already_prompted: {
+    pill: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
+    dot: "bg-zinc-400",
+    label: "Already prompted",
+  },
 };
 
 export function StatusBadge({ status }: { status: string }) {

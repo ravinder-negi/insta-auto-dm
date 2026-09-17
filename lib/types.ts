@@ -17,12 +17,19 @@ export interface AutomationRule {
   keyword: string;
   instagram_media_id: string | null;
   dm_message: string;
+  require_follow: boolean;
+  follow_prompt_message: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
-export type ExecutionStatus = "processing" | "sent" | "failed";
+export type ExecutionStatus =
+  | "processing"
+  | "sent"
+  | "failed"
+  | "follow_prompt_sent"
+  | "skipped_already_prompted";
 
 export interface AutomationExecution {
   id: string;

@@ -50,6 +50,8 @@ interface AutomationRule {
   keyword: string;
   instagram_media_id: string | null;
   dm_message: string;
+  require_follow: boolean;
+  follow_prompt_message: string | null;
 }
 
 Deno.serve(async (req) => {
@@ -153,6 +155,7 @@ async function handleCommentChange(
   let instagramAccount: {
     id: string;
     instagram_user_id: string;
+    username: string | null;
     access_token: string;
     is_active: boolean;
   } | null = null;
@@ -160,7 +163,7 @@ async function handleCommentChange(
   if (instagramAccountId) {
     const { data, error } = await supabaseAdmin
       .from("instagram_accounts")
-      .select("id, instagram_user_id, access_token, is_active")
+      .select("id, instagram_user_id, username, access_token, is_active")
       .eq("instagram_user_id", instagramAccountId)
       .maybeSingle();
 
@@ -239,7 +242,9 @@ async function handleCommentChange(
 
   const { data: rules, error: rulesError } = await supabaseAdmin
     .from("automation_rules")
-    .select("id, keyword, instagram_media_id, dm_message")
+    .select(
+      "id, keyword, instagram_media_id, dm_message, require_follow, follow_prompt_message"
+    )
     .eq("instagram_account_id", instagramAccount.id)
     .eq("is_active", true);
 
@@ -271,6 +276,59 @@ async function handleCommentChange(
 
   /**
    * ======================================
+   * FOLLOW GATE
+   * When require_follow is on, only send the real dm_message to
+   * commenters already following the business account. A commenter
+   * who isn't following gets follow_prompt_message once per rule
+   * (tracked in automation_follow_prompts) instead of the real DM,
+   * and is silently skipped on any further matching comment until
+   * they follow and the check passes.
+   * ======================================
+   */
+
+  let outgoingMessage = matchedRule.dm_message;
+
+  if (matchedRule.require_follow) {
+    const isFollowing = await checkUserFollowsBusiness(
+      commenterId,
+      instagramAccount.access_token
+    );
+
+    if (!isFollowing) {
+      const { data: existingPrompt } = await supabaseAdmin
+        .from("automation_follow_prompts")
+        .select("id")
+        .eq("automation_rule_id", matchedRule.id)
+        .eq("commenter_instagram_id", commenterId)
+        .maybeSingle();
+
+      if (existingPrompt) {
+        await supabaseAdmin.from("automation_executions").insert({
+          automation_rule_id: matchedRule.id,
+          instagram_account_id: instagramAccount.id,
+          instagram_comment_id: commentId,
+          commenter_instagram_id: commenterId,
+          commenter_username: commenterUsername,
+          instagram_media_id: mediaId,
+          comment_text: commentText,
+          status: "skipped_already_prompted",
+        });
+        console.log("Already prompted to follow, skipping:", commentId);
+        return;
+      }
+
+      const profileLink = `https://instagram.com/${
+        instagramAccount.username ?? instagramAccount.instagram_user_id
+      }`;
+      outgoingMessage = (matchedRule.follow_prompt_message ?? "").replaceAll(
+        "{profile_link}",
+        profileLink
+      );
+    }
+  }
+
+  /**
+   * ======================================
    * CREATE EXECUTION (status: processing)
    * unique(instagram_comment_id) protects against
    * concurrent duplicate webhook deliveries.
@@ -288,7 +346,7 @@ async function handleCommentChange(
       instagram_media_id: mediaId,
       comment_text: commentText,
       status: "processing",
-      dm_message: matchedRule.dm_message,
+      dm_message: outgoingMessage,
     });
 
   if (executionInsertError) {
@@ -301,6 +359,8 @@ async function handleCommentChange(
     return;
   }
 
+  const isFollowPrompt = outgoingMessage !== matchedRule.dm_message;
+
   /**
    * ======================================
    * SEND PRIVATE REPLY
@@ -311,18 +371,25 @@ async function handleCommentChange(
     instagramUserId: instagramAccount.instagram_user_id,
     accessToken: instagramAccount.access_token,
     commentId,
-    message: matchedRule.dm_message,
+    message: outgoingMessage,
   });
 
   if (result.success) {
     await supabaseAdmin
       .from("automation_executions")
       .update({
-        status: "sent",
+        status: isFollowPrompt ? "follow_prompt_sent" : "sent",
         instagram_message_id: result.messageId ?? null,
         updated_at: new Date().toISOString(),
       })
       .eq("instagram_comment_id", commentId);
+
+    if (isFollowPrompt) {
+      await supabaseAdmin.from("automation_follow_prompts").insert({
+        automation_rule_id: matchedRule.id,
+        commenter_instagram_id: commenterId,
+      });
+    }
 
     console.log("Private reply sent:", commentId);
   } else {
@@ -388,6 +455,40 @@ function timingSafeEqual(a: string, b: string): boolean {
   }
 
   return mismatch === 0;
+}
+
+/**
+ * ============================================
+ * CHECK WHETHER A COMMENTER FOLLOWS THE BUSINESS ACCOUNT
+ * Uses the Instagram Messaging "user profile" field
+ * is_user_follow_business, available under the same
+ * instagram_business_manage_messages permission already
+ * used to send messages. Fails closed (treated as "not
+ * following") on any error, since that's the safer default
+ * for a follow-gate.
+ * ============================================
+ */
+
+async function checkUserFollowsBusiness(
+  instagramScopedId: string,
+  accessToken: string
+): Promise<boolean> {
+  const url = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}/${instagramScopedId}?fields=is_user_follow_business&access_token=${accessToken}`;
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Follow-check API error:", JSON.stringify(data));
+      return false;
+    }
+
+    return data.is_user_follow_business === true;
+  } catch (error) {
+    console.error("Follow-check network error:", String(error));
+    return false;
+  }
 }
 
 /**

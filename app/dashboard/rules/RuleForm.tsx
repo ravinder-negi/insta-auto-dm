@@ -59,12 +59,17 @@ function mediaOptionLabel(item: InstagramMediaOption) {
   return `${date} — ${item.media_type.toLowerCase()} — ${caption}`;
 }
 
+const DEFAULT_FOLLOW_PROMPT_MESSAGE =
+  "Thanks for your comment! Follow {profile_link} first, then comment again and I'll send your link 🙌";
+
 export interface RuleFormInitialValues {
   instagram_account_id: string;
   name: string;
   keyword: string;
   instagram_media_id: string | null;
   dm_message: string;
+  require_follow: boolean;
+  follow_prompt_message: string | null;
 }
 
 export function RuleForm({
@@ -99,6 +104,12 @@ export function RuleForm({
   const [manualEntry, setManualEntry] = useState(false);
   const [keyword, setKeyword] = useState(initialValues?.keyword ?? "");
   const [dmMessage, setDmMessage] = useState(initialValues?.dm_message ?? "");
+  const [requireFollow, setRequireFollow] = useState(
+    initialValues?.require_follow ?? false
+  );
+  const [followPromptMessage, setFollowPromptMessage] = useState(
+    initialValues?.follow_prompt_message ?? DEFAULT_FOLLOW_PROMPT_MESSAGE
+  );
   const [emojiOpen, setEmojiOpen] = useState(false);
   const dmRef = useRef<HTMLTextAreaElement>(null);
 
@@ -319,6 +330,54 @@ export function RuleForm({
               </p>
             )}
           </Field>
+
+          <div className="rounded-xl border border-black/10 px-3.5 py-3 dark:border-white/12">
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                name="require_follow"
+                checked={requireFollow}
+                onChange={(event) => setRequireFollow(event.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-black/20 text-indigo-600 focus:ring-indigo-500 dark:border-white/25"
+              />
+              <span>
+                <span className="block text-sm font-semibold">
+                  Require follow before sending DM
+                </span>
+                <span className="mt-0.5 block text-xs text-zinc-500">
+                  Commenters who don&apos;t follow the account yet get the
+                  message below instead, asking them to follow. The real DM
+                  message above is only sent once they follow.
+                </span>
+              </span>
+            </label>
+
+            {requireFollow && (
+              <div className="mt-3">
+                <label
+                  htmlFor="follow_prompt_message"
+                  className="mb-1.5 block text-sm font-semibold"
+                >
+                  Follow-prompt message
+                </label>
+                <textarea
+                  id="follow_prompt_message"
+                  name="follow_prompt_message"
+                  required={requireFollow}
+                  rows={4}
+                  maxLength={DM_MAX_LENGTH}
+                  value={followPromptMessage}
+                  onChange={(event) => setFollowPromptMessage(event.target.value)}
+                  placeholder="Ask them to follow before you send the real DM..."
+                  className={fieldClass}
+                />
+                <p className="mt-1.5 text-xs text-zinc-500">
+                  Use <code>{"{profile_link}"}</code> to insert a link to the
+                  account&apos;s profile.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-4">

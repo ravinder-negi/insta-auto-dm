@@ -27,6 +27,7 @@ export interface RuleTableRow {
   name: string;
   keyword: string;
   instagram_media_id: string | null;
+  require_follow: boolean;
   is_active: boolean;
   created_at: string;
   accountId: string | null;
@@ -127,6 +128,14 @@ export function RulesTable({
                         <BoltIcon className="h-4 w-4" />
                       </span>
                       <span className="font-semibold">{rule.name}</span>
+                      {rule.require_follow && (
+                        <span
+                          title="Requires follow before sending the DM"
+                          className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"
+                        >
+                          Follow-gated
+                        </span>
+                      )}
                     </div>
                   </td>
 
