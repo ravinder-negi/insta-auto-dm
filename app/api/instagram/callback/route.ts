@@ -200,7 +200,7 @@ export async function GET(request: NextRequest) {
   }
 
   const response = NextResponse.redirect(
-    new URL("/dashboard/accounts", request.url)
+    new URL("/dashboard/accounts?connected=1", request.url)
   );
   response.cookies.delete(STATE_COOKIE);
   return response;

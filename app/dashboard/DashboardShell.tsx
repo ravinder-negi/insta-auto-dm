@@ -13,6 +13,7 @@ import {
   SettingsIcon,
 } from "./components/icons";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { ToastProvider } from "./components/Toast";
 import { UserMenu } from "./components/UserMenu";
 
 const NAV_LINKS = [
@@ -63,7 +64,9 @@ export function DashboardShell({
           <BoltIcon className="h-5 w-5 text-white" />
         </span>
         <span className="min-w-0">
-          <span className="block text-base font-bold tracking-tight">Auto DM</span>
+          <span className="block text-base font-bold tracking-tight">
+            Auto DM
+          </span>
           <span className="block truncate text-[11px] text-zinc-400 dark:text-zinc-500">
             Engage. Automate. Grow.
           </span>
@@ -109,71 +112,73 @@ export function DashboardShell({
   );
 
   return (
-    <div className="relative flex h-dvh flex-1 overflow-hidden bg-zinc-50 dark:bg-zinc-950">
-      <aside className="relative z-20 hidden h-dvh w-64 shrink-0 flex-col overflow-y-auto border-r border-black/6 bg-white lg:flex dark:border-white/8 dark:bg-zinc-900/60">
-        {sidebar}
-      </aside>
+    <ToastProvider>
+      <div className="relative flex h-dvh flex-1 overflow-hidden bg-zinc-50 dark:bg-zinc-950">
+        <aside className="relative z-20 hidden h-dvh w-64 shrink-0 flex-col overflow-y-auto border-r border-black/6 bg-white lg:flex dark:border-white/8 dark:bg-zinc-900/60">
+          {sidebar}
+        </aside>
 
-      {mobileNavOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            type="button"
-            aria-label="Close menu"
-            onClick={() => setMobileNavOpen(false)}
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-          />
-          <div className="relative flex h-full w-64 flex-col overflow-y-auto border-r border-black/6 bg-white dark:border-white/8 dark:bg-zinc-900">
+        {mobileNavOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
             <button
               type="button"
               aria-label="Close menu"
               onClick={() => setMobileNavOpen(false)}
-              className="absolute top-5 right-3 flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10"
-            >
-              <CloseIcon className="h-4 w-4" />
-            </button>
-            {sidebar}
-          </div>
-        </div>
-      )}
-
-      <div className="relative z-10 flex h-dvh min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-black/6 bg-white px-4 py-3 sm:px-6 lg:justify-end lg:px-8 dark:border-white/8 dark:bg-zinc-900/60">
-          <div className="flex items-center gap-2.5 lg:hidden">
-            <button
-              type="button"
-              aria-label="Open menu"
-              onClick={() => setMobileNavOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/10"
-            >
-              <MenuIcon className="h-5 w-5" />
-            </button>
-            <span className="brand-gradient flex h-8 w-8 items-center justify-center rounded-lg">
-              <BoltIcon className="h-4 w-4 text-white" />
-            </span>
-            <span className="text-sm font-bold tracking-tight">Auto DM</span>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-1.5">
-            <UserMenu userEmail={userEmail} signOutAction={signOutAction} />
-            <ThemeToggle />
-          </div>
-        </header>
-
-        {pendingHref && (
-          <div className="h-0.5 w-full shrink-0 overflow-hidden bg-indigo-100 dark:bg-indigo-950/60">
-            <div className="brand-gradient animate-loading-bar h-full w-1/3" />
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <div className="relative flex h-full w-64 flex-col overflow-y-auto border-r border-black/6 bg-white dark:border-white/8 dark:bg-zinc-900">
+              <button
+                type="button"
+                aria-label="Close menu"
+                onClick={() => setMobileNavOpen(false)}
+                className="absolute top-5 right-3 flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <CloseIcon className="h-4 w-4" />
+              </button>
+              {sidebar}
+            </div>
           </div>
         )}
 
-        <main
-          className={`app-surface min-h-0 flex-1 overflow-y-auto px-3 py-6 transition-opacity duration-150 sm:px-4 sm:py-8 lg:px-6 ${
-            pendingHref ? "pointer-events-none opacity-40" : "opacity-100"
-          }`}
-        >
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
-        </main>
+        <div className="relative z-10 flex h-dvh min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-black/6 bg-white px-4 py-3 sm:px-6 lg:justify-end lg:px-8 dark:border-white/8 dark:bg-zinc-900/60">
+            <div className="flex items-center gap-2.5 lg:hidden">
+              <button
+                type="button"
+                aria-label="Open menu"
+                onClick={() => setMobileNavOpen(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/10"
+              >
+                <MenuIcon className="h-5 w-5" />
+              </button>
+              <span className="brand-gradient flex h-8 w-8 items-center justify-center rounded-lg">
+                <BoltIcon className="h-4 w-4 text-white" />
+              </span>
+              <span className="text-sm font-bold tracking-tight">Auto DM</span>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1.5">
+              <UserMenu userEmail={userEmail} signOutAction={signOutAction} />
+              <ThemeToggle />
+            </div>
+          </header>
+
+          {pendingHref && (
+            <div className="h-0.5 w-full shrink-0 overflow-hidden bg-indigo-100 dark:bg-indigo-950/60">
+              <div className="brand-gradient animate-loading-bar h-full w-1/3" />
+            </div>
+          )}
+
+          <main
+            className={`app-surface min-h-0 flex-1 overflow-y-auto px-3 py-6 transition-opacity duration-150 sm:px-4 sm:py-8 lg:px-6 ${
+              pendingHref ? "pointer-events-none opacity-40" : "opacity-100"
+            }`}
+          >
+            <div className="mx-auto w-full max-w-7xl">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 }
 
