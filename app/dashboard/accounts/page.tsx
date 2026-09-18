@@ -87,34 +87,36 @@ export default async function AccountsPage(
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader
-        eyebrow="Instagram accounts"
-        title={
-          <>
-            Manage your <span className="brand-text-gradient">Instagram accounts</span>
-          </>
-        }
-        description="Connect the accounts you want to automate comment replies for."
-        aside={<AccountsHero />}
-      />
+      <div className="flex flex-col max-[1070px]:gap-6">
+        <PageHeader
+          eyebrow="Instagram accounts"
+          title={
+            <>
+              Manage your <span className="brand-text-gradient">Instagram accounts</span>
+            </>
+          }
+          description="Connect the accounts you want to automate comment replies for."
+          aside={<AccountsHero />}
+        />
 
-      <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
-        {HIGHLIGHTS.map((highlight, index) => (
-          <div key={highlight.title} className="flex items-center gap-3">
-            {index > 0 && (
-              <span className="mr-5 hidden h-10 w-px bg-black/8 sm:block dark:bg-white/10" />
-            )}
-            <span
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${highlight.tone}`}
-            >
-              <highlight.icon className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold">{highlight.title}</p>
-              <p className="text-xs text-zinc-500">{highlight.description}</p>
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
+          {HIGHLIGHTS.map((highlight, index) => (
+            <div key={highlight.title} className="flex items-center gap-3">
+              {index > 0 && (
+                <span className="mr-5 hidden h-10 w-px bg-black/8 sm:block dark:bg-white/10" />
+              )}
+              <span
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${highlight.tone}`}
+              >
+                <highlight.icon className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">{highlight.title}</p>
+                <p className="text-xs text-zinc-500">{highlight.description}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {(connectError || error) && (
