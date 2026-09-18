@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import type { ApiUsage } from "@/lib/types";
+import { ApiUsageCard } from "../components/ApiUsageCard";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { StatCard } from "../components/StatCard";
@@ -11,12 +13,38 @@ export default async function AnalyticsPage() {
   const supabase = await createClient();
 
   const since = new Date(currentTimestamp() - DAYS * 86_400_000).toISOString();
-  const { data, error } = await supabase
-    .from("automation_executions")
-    .select("status, created_at, automation_rule_id")
-    .gte("created_at", since)
-    .order("created_at", { ascending: false })
-    .limit(2000);
+  const [{ data, error }, { data: apiUsage }] = await Promise.all([
+    supabase
+      .from("automation_executions")
+      .select("status, created_at, automation_rule_id")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(2000),
+    supabase
+      .from("api_usage")
+      .select("call_count, total_cputime, total_time, updated_at")
+      .eq("id", 1)
+      .maybeSingle(),
+  ]);
+
+  const usageRow = apiUsage as Pick<
+    ApiUsage,
+    "call_count" | "total_cputime" | "total_time" | "updated_at"
+  > | null;
+  // A freshly-seeded row (no DM sent yet) has all three usage fields null.
+  const hasUsageData =
+    usageRow !== null &&
+    (usageRow.call_count !== null ||
+      usageRow.total_cputime !== null ||
+      usageRow.total_time !== null);
+  const usagePercent = hasUsageData
+    ? Math.max(
+        usageRow!.call_count ?? 0,
+        usageRow!.total_cputime ?? 0,
+        usageRow!.total_time ?? 0
+      )
+    : null;
+  const usageUpdatedAt = hasUsageData ? usageRow!.updated_at : null;
 
   const executions = data ?? [];
   const sent = executions.filter((row) => row.status === "sent").length;
@@ -60,6 +88,12 @@ export default async function AnalyticsPage() {
           {error.message}
         </p>
       )}
+
+      <ApiUsageCard
+        percent={usagePercent}
+        updatedAt={usageUpdatedAt}
+        now={currentTimestamp()}
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

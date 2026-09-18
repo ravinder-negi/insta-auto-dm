@@ -493,6 +493,43 @@ async function checkUserFollowsBusiness(
 
 /**
  * ============================================
+ * RECORD META'S APP-LEVEL RATE-LIMIT USAGE
+ * `x-app-usage` is a JSON header Graph API returns on every response,
+ * e.g. {"call_count":28,"total_cputime":25,"total_time":25} — each
+ * already a 0-100 percentage of the app's current limit, so there is
+ * no separate cap to look up or hardcode. Best-effort: a failure here
+ * must never block the DM send it's piggybacking on.
+ * ============================================
+ */
+
+async function recordApiUsage(header: string | null) {
+  if (!header) return;
+
+  let usage: { call_count?: number; total_cputime?: number; total_time?: number };
+  try {
+    usage = JSON.parse(header);
+  } catch {
+    console.error("Unparseable x-app-usage header:", header);
+    return;
+  }
+
+  const { error } = await supabaseAdmin
+    .from("api_usage")
+    .update({
+      call_count: usage.call_count ?? null,
+      total_cputime: usage.total_cputime ?? null,
+      total_time: usage.total_time ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+
+  if (error) {
+    console.error("Failed to record api_usage:", error.message);
+  }
+}
+
+/**
+ * ============================================
  * SEND INSTAGRAM PRIVATE REPLY
  * ============================================
  */
@@ -530,6 +567,8 @@ async function sendPrivateReply({
       error: `Network error calling Instagram API: ${String(networkError)}`,
     };
   }
+
+  await recordApiUsage(response.headers.get("x-app-usage"));
 
   let responseBody: Record<string, unknown> = {};
 
