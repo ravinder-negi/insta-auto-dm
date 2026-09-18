@@ -317,9 +317,9 @@ async function handleCommentChange(
         return;
       }
 
-      const profileLink = `https://instagram.com/${
+      const profileLink = `https://www.instagram.com/_u/${
         instagramAccount.username ?? instagramAccount.instagram_user_id
-      }`;
+      }/`;
       outgoingMessage = (matchedRule.follow_prompt_message ?? "").replaceAll(
         "{profile_link}",
         profileLink
