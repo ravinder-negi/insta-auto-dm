@@ -6,7 +6,9 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const redirectToRaw = searchParams.get("redirectTo");
   const redirectTo =
-    redirectToRaw && redirectToRaw.startsWith("/") ? redirectToRaw : "/dashboard";
+    redirectToRaw && redirectToRaw.startsWith("/")
+      ? redirectToRaw
+      : "/dashboard/accounts";
 
   if (code) {
     const supabase = await createClient();

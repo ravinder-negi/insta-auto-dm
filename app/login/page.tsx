@@ -12,7 +12,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
     <AuthLayout>
       <LoginForm
         redirectTo={
-          redirectTo && redirectTo.startsWith("/") ? redirectTo : "/dashboard"
+          redirectTo && redirectTo.startsWith("/") ? redirectTo : "/dashboard/accounts"
         }
       />
     </AuthLayout>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Avatar } from "../components/Avatar";
 import { ConfirmAction } from "../components/ConfirmAction";
@@ -12,7 +13,12 @@ import { primaryButtonClass } from "../components/styles";
 import { formatDate, formatRelative } from "../components/format";
 import { LayersIcon, PauseIcon, PlayIcon, PlusIcon, SearchIcon, TrashIcon } from "../components/icons";
 import { StatusBadge } from "../components/StatusBadge";
+import { useToast } from "../components/Toast";
 import { disconnectAccount, toggleAccountActive } from "./actions";
+
+function errorMessage(err: unknown, fallback: string) {
+  return err instanceof Error ? err.message : fallback;
+}
 
 function ToggleAccountButton({ isActive }: { isActive: boolean }) {
   const { pending } = useFormStatus();
@@ -61,6 +67,38 @@ export function AccountsList({
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<keyof typeof SORTS>("recent");
+  const toast = useToast();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const toastShown = useRef(false);
+
+  useEffect(() => {
+    if (toastShown.current) return;
+    if (!searchParams.has("connected")) return;
+    toastShown.current = true;
+    toast.success("Instagram account connected.");
+    router.replace(pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  async function handleToggle(id: string, handle: string, nextActive: boolean) {
+    try {
+      await toggleAccountActive(id, nextActive);
+      toast.success(`@${handle} ${nextActive ? "resumed" : "paused"}.`);
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to update account."));
+    }
+  }
+
+  async function handleDisconnect(id: string, handle: string) {
+    try {
+      await disconnectAccount(id);
+      toast.success(`@${handle} disconnected.`);
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to disconnect account."));
+    }
+  }
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -168,17 +206,15 @@ export function AccountsList({
                       <StatusBadge status={account.is_active ? "active" : "paused"} />
 
                       <form
-                        action={toggleAccountActive.bind(
-                          null,
-                          account.id,
-                          !account.is_active
-                        )}
+                        action={() =>
+                          handleToggle(account.id, handle, !account.is_active)
+                        }
                       >
                         <ToggleAccountButton isActive={account.is_active} />
                       </form>
 
                       <ConfirmAction
-                        action={disconnectAccount.bind(null, account.id)}
+                        action={() => handleDisconnect(account.id, handle)}
                         title="Disconnect this account?"
                         description={`@${handle} will stop listening for comments and its rules will pause. This can't be undone.`}
                         confirmLabel="Disconnect"
@@ -202,10 +238,12 @@ export function AccountsList({
                           },
                           {
                             label: "Copy account ID",
-                            onSelect: () =>
+                            onSelect: () => {
                               navigator.clipboard?.writeText(
                                 account.instagram_user_id
-                              ),
+                              );
+                              toast.info("Account ID copied to clipboard.");
+                            },
                           },
                         ]}
                       />

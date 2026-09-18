@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Avatar } from "../components/Avatar";
 import { ConfirmAction } from "../components/ConfirmAction";
@@ -20,7 +21,12 @@ import {
 } from "../components/icons";
 import { Spinner } from "../components/Spinner";
 import { StatusBadge } from "../components/StatusBadge";
+import { useToast } from "../components/Toast";
 import { deleteRule, duplicateRule, toggleRuleActive } from "./actions";
+
+function errorMessage(err: unknown, fallback: string) {
+  return err instanceof Error ? err.message : fallback;
+}
 
 export interface RuleTableRow {
   id: string;
@@ -52,6 +58,49 @@ export function RulesTable({
 }) {
   const [query, setQuery] = useState("");
   const [accountId, setAccountId] = useState("all");
+  const toast = useToast();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const toastShown = useRef(false);
+
+  useEffect(() => {
+    if (toastShown.current) return;
+    if (!searchParams.has("created") && !searchParams.has("updated")) return;
+    toastShown.current = true;
+    toast.success(
+      searchParams.has("created") ? "Rule created." : "Rule updated."
+    );
+    router.replace(pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  async function handleToggle(id: string, name: string, nextActive: boolean) {
+    try {
+      await toggleRuleActive(id, nextActive);
+      toast.success(`"${name}" ${nextActive ? "activated" : "paused"}.`);
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to update rule."));
+    }
+  }
+
+  async function handleDuplicate(id: string, name: string) {
+    try {
+      await duplicateRule(id);
+      toast.success(`Duplicated "${name}".`);
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to duplicate rule."));
+    }
+  }
+
+  async function handleDelete(id: string, name: string) {
+    try {
+      await deleteRule(id);
+      toast.success(`"${name}" deleted.`);
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to delete rule."));
+    }
+  }
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -192,11 +241,9 @@ export function RulesTable({
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-1">
                       <form
-                        action={toggleRuleActive.bind(
-                          null,
-                          rule.id,
-                          !rule.is_active
-                        )}
+                        action={() =>
+                          handleToggle(rule.id, rule.name, !rule.is_active)
+                        }
                       >
                         <ToggleSwitchButton isActive={rule.is_active} />
                       </form>
@@ -210,12 +257,12 @@ export function RulesTable({
                         <PencilIcon className="h-4 w-4" />
                       </Link>
 
-                      <form action={duplicateRule.bind(null, rule.id)}>
+                      <form action={() => handleDuplicate(rule.id, rule.name)}>
                         <DuplicateRuleButton ruleName={rule.name} />
                       </form>
 
                       <ConfirmAction
-                        action={deleteRule.bind(null, rule.id)}
+                        action={() => handleDelete(rule.id, rule.name)}
                         title="Delete this rule?"
                         description={`“${rule.name}” will stop replying to comments. This can't be undone.`}
                         confirmLabel="Delete rule"
@@ -236,12 +283,17 @@ export function RulesTable({
                         items={[
                           {
                             label: "Copy keyword",
-                            onSelect: () =>
-                              navigator.clipboard?.writeText(rule.keyword),
+                            onSelect: () => {
+                              navigator.clipboard?.writeText(rule.keyword);
+                              toast.info("Keyword copied to clipboard.");
+                            },
                           },
                           {
                             label: "Copy rule ID",
-                            onSelect: () => navigator.clipboard?.writeText(rule.id),
+                            onSelect: () => {
+                              navigator.clipboard?.writeText(rule.id);
+                              toast.info("Rule ID copied to clipboard.");
+                            },
                           },
                         ]}
                       />

@@ -74,7 +74,7 @@ export async function createRule(
   }
 
   revalidatePath("/dashboard/rules");
-  redirect("/dashboard/rules");
+  redirect("/dashboard/rules?created=1");
 }
 
 export async function updateRule(
@@ -96,7 +96,7 @@ export async function updateRule(
   }
 
   revalidatePath("/dashboard/rules");
-  redirect("/dashboard/rules");
+  redirect("/dashboard/rules?updated=1");
 }
 
 export async function deleteRule(id: string) {
