@@ -47,3 +47,12 @@ export interface AutomationExecution {
   created_at: string;
   updated_at: string;
 }
+
+/** Singleton row mirroring Meta's `x-app-usage` header (already 0-100 percentages). */
+export interface ApiUsage {
+  id: number;
+  call_count: number | null;
+  total_cputime: number | null;
+  total_time: number | null;
+  updated_at: string;
+}
