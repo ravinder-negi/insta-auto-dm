@@ -62,6 +62,14 @@ function mediaOptionLabel(item: InstagramMediaOption) {
 const DEFAULT_FOLLOW_PROMPT_MESSAGE =
   "Thanks for your comment! Follow {profile_link} first, then comment again and I'll send your link 🙌";
 
+const DEFAULT_PUBLIC_REPLY_MESSAGE = "Got it! Check your inbox 📩";
+
+const ATTACHMENT_TYPES = [
+  { value: "image", label: "Image" },
+  { value: "video", label: "Video" },
+  { value: "audio", label: "Audio" },
+] as const;
+
 export interface RuleFormInitialValues {
   instagram_account_id: string;
   name: string;
@@ -70,6 +78,10 @@ export interface RuleFormInitialValues {
   dm_message: string;
   require_follow: boolean;
   follow_prompt_message: string | null;
+  send_public_reply: boolean;
+  public_reply_message: string | null;
+  attachment_url: string | null;
+  attachment_type: string | null;
 }
 
 export function RuleForm({
@@ -109,6 +121,18 @@ export function RuleForm({
   );
   const [followPromptMessage, setFollowPromptMessage] = useState(
     initialValues?.follow_prompt_message ?? DEFAULT_FOLLOW_PROMPT_MESSAGE
+  );
+  const [sendPublicReply, setSendPublicReply] = useState(
+    initialValues?.send_public_reply ?? false
+  );
+  const [publicReplyMessage, setPublicReplyMessage] = useState(
+    initialValues?.public_reply_message ?? DEFAULT_PUBLIC_REPLY_MESSAGE
+  );
+  const [attachmentUrl, setAttachmentUrl] = useState(
+    initialValues?.attachment_url ?? ""
+  );
+  const [attachmentType, setAttachmentType] = useState(
+    initialValues?.attachment_type ?? "image"
   );
   const [emojiOpen, setEmojiOpen] = useState(false);
   const dmRef = useRef<HTMLTextAreaElement>(null);
@@ -332,6 +356,37 @@ export function RuleForm({
           </Field>
 
           <div className="rounded-xl border border-black/10 px-3.5 py-3 dark:border-white/12">
+            <span className="block text-sm font-semibold">Attachment (optional)</span>
+            <span className="mt-0.5 block text-xs text-zinc-500">
+              Sent as a second DM right after the message above — a real
+              inline image/video/file, not just a link.
+            </span>
+
+            <div className="mt-3 flex flex-col gap-2.5 sm:flex-row">
+              <div className="sm:w-32">
+                <SelectField
+                  name="attachment_type"
+                  value={attachmentType}
+                  onChange={(event) => setAttachmentType(event.target.value)}
+                >
+                  {ATTACHMENT_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </SelectField>
+              </div>
+              <input
+                name="attachment_url"
+                value={attachmentUrl}
+                onChange={(event) => setAttachmentUrl(event.target.value)}
+                placeholder="https://... (public URL)"
+                className={`${fieldClass} flex-1`}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-black/10 px-3.5 py-3 dark:border-white/12">
             <label className="flex cursor-pointer items-start gap-2.5">
               <input
                 type="checkbox"
@@ -375,6 +430,50 @@ export function RuleForm({
                   Use <code>{"{profile_link}"}</code> to insert a link to the
                   account&apos;s profile.
                 </p>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-black/10 px-3.5 py-3 dark:border-white/12">
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                name="send_public_reply"
+                checked={sendPublicReply}
+                onChange={(event) => setSendPublicReply(event.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-black/20 text-indigo-600 focus:ring-indigo-500 dark:border-white/25"
+              />
+              <span>
+                <span className="block text-sm font-semibold">
+                  Also reply on the comment
+                </span>
+                <span className="mt-0.5 block text-xs text-zinc-500">
+                  Posts a public reply under the commenter&apos;s comment
+                  (e.g. &quot;Got it, check your inbox!&quot;) in addition to
+                  the DM above.
+                </span>
+              </span>
+            </label>
+
+            {sendPublicReply && (
+              <div className="mt-3">
+                <label
+                  htmlFor="public_reply_message"
+                  className="mb-1.5 block text-sm font-semibold"
+                >
+                  Public reply message
+                </label>
+                <textarea
+                  id="public_reply_message"
+                  name="public_reply_message"
+                  required={sendPublicReply}
+                  rows={2}
+                  maxLength={DM_MAX_LENGTH}
+                  value={publicReplyMessage}
+                  onChange={(event) => setPublicReplyMessage(event.target.value)}
+                  placeholder="Got it! Check your inbox 📩"
+                  className={fieldClass}
+                />
               </div>
             )}
           </div>
@@ -435,6 +534,20 @@ export function RuleForm({
               </p>
               <SendIcon className="mb-1 h-4 w-4 shrink-0 text-indigo-400" />
             </div>
+
+            {attachmentUrl && attachmentType === "image" && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={attachmentUrl}
+                alt=""
+                className="mt-2 h-32 w-32 rounded-2xl rounded-br-md object-cover"
+              />
+            )}
+            {attachmentUrl && attachmentType !== "image" && (
+              <p className="mt-2 w-fit rounded-2xl rounded-br-md border border-black/10 px-3.5 py-2.5 text-xs text-zinc-500 dark:border-white/12">
+                📎 {attachmentType} attachment
+              </p>
+            )}
           </div>
 
           {state?.error && (

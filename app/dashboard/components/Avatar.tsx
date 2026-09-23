@@ -6,15 +6,28 @@ const SIZES = {
 
 export function Avatar({
   name,
+  src,
   size = "md",
   muted = false,
   className = "",
 }: {
   name: string;
+  src?: string | null;
   size?: keyof typeof SIZES;
   muted?: boolean;
   className?: string;
 }) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL, no next/image domain config
+      <img
+        src={src}
+        alt={name}
+        className={`shrink-0 rounded-full object-cover ${SIZES[size]} ${className}`}
+      />
+    );
+  }
+
   return (
     <span
       className={`flex shrink-0 items-center justify-center rounded-full font-semibold ${

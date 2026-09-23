@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
     const subscribeUrl = new URL(
       `https://graph.instagram.com/${API_VERSION}/${me.user_id}/subscribed_apps`
     );
-    subscribeUrl.searchParams.set("subscribed_fields", "comments");
+    subscribeUrl.searchParams.set("subscribed_fields", "comments,messages");
     subscribeUrl.searchParams.set("access_token", longLived.access_token);
 
     const subscribeResponse = await fetch(subscribeUrl, { method: "POST" });

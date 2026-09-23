@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 
 export type RuleFormState = { error: string } | undefined;
 
+const ATTACHMENT_TYPES = ["image", "video", "audio"] as const;
+
 interface RuleFields {
   instagram_account_id: string;
   name: string;
@@ -14,6 +16,10 @@ interface RuleFields {
   dm_message: string;
   require_follow: boolean;
   follow_prompt_message: string | null;
+  send_public_reply: boolean;
+  public_reply_message: string | null;
+  attachment_url: string | null;
+  attachment_type: (typeof ATTACHMENT_TYPES)[number] | null;
 }
 
 function readRuleFields(
@@ -26,6 +32,10 @@ function readRuleFields(
   const dmMessage = String(formData.get("dm_message") ?? "").trim();
   const requireFollow = formData.get("require_follow") === "on";
   const followPromptMessage = String(formData.get("follow_prompt_message") ?? "").trim();
+  const sendPublicReply = formData.get("send_public_reply") === "on";
+  const publicReplyMessage = String(formData.get("public_reply_message") ?? "").trim();
+  const attachmentUrl = String(formData.get("attachment_url") ?? "").trim();
+  const attachmentTypeRaw = String(formData.get("attachment_type") ?? "").trim();
 
   if (!instagramAccountId || !name || !keyword || !dmMessage) {
     return {
@@ -41,6 +51,23 @@ function readRuleFields(
     };
   }
 
+  if (sendPublicReply && !publicReplyMessage) {
+    return {
+      ok: false,
+      error: "Public reply message is required when 'Reply on the comment' is on.",
+    };
+  }
+
+  if (attachmentUrl && !/^https:\/\/\S+$/.test(attachmentUrl)) {
+    return { ok: false, error: "Attachment URL must be a valid https:// link." };
+  }
+
+  const attachmentType = ATTACHMENT_TYPES.includes(
+    attachmentTypeRaw as (typeof ATTACHMENT_TYPES)[number]
+  )
+    ? (attachmentTypeRaw as (typeof ATTACHMENT_TYPES)[number])
+    : "image";
+
   return {
     ok: true,
     fields: {
@@ -51,6 +78,10 @@ function readRuleFields(
       dm_message: dmMessage,
       require_follow: requireFollow,
       follow_prompt_message: requireFollow ? followPromptMessage : null,
+      send_public_reply: sendPublicReply,
+      public_reply_message: sendPublicReply ? publicReplyMessage : null,
+      attachment_url: attachmentUrl || null,
+      attachment_type: attachmentUrl ? attachmentType : null,
     },
   };
 }
@@ -129,7 +160,7 @@ export async function duplicateRule(id: string) {
   const { data: rule, error: readError } = await supabase
     .from("automation_rules")
     .select(
-      "instagram_account_id, name, trigger_type, keyword, instagram_media_id, dm_message, require_follow, follow_prompt_message"
+      "instagram_account_id, name, trigger_type, keyword, instagram_media_id, dm_message, require_follow, follow_prompt_message, send_public_reply, public_reply_message, attachment_url, attachment_type"
     )
     .eq("id", id)
     .maybeSingle();

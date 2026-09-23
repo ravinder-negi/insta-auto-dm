@@ -4,6 +4,11 @@ const STYLES: Record<string, { pill: string; dot: string; label: string }> = {
     dot: "bg-emerald-500",
     label: "Active",
   },
+  inactive: {
+    pill: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
+    dot: "bg-zinc-400",
+    label: "Inactive",
+  },
   paused: {
     pill: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
     dot: "bg-amber-500",

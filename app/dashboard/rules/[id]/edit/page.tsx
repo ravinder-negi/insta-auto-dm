@@ -18,7 +18,7 @@ export default async function EditRulePage(
     supabase
       .from("automation_rules")
       .select(
-        "id, instagram_account_id, name, keyword, instagram_media_id, dm_message, require_follow, follow_prompt_message"
+        "id, instagram_account_id, name, keyword, instagram_media_id, dm_message, require_follow, follow_prompt_message, send_public_reply, public_reply_message, attachment_url, attachment_type"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -56,6 +56,10 @@ export default async function EditRulePage(
           dm_message: rule.dm_message,
           require_follow: rule.require_follow,
           follow_prompt_message: rule.follow_prompt_message,
+          send_public_reply: rule.send_public_reply,
+          public_reply_message: rule.public_reply_message,
+          attachment_url: rule.attachment_url,
+          attachment_type: rule.attachment_type,
         }}
         submitLabel="Save changes"
       />

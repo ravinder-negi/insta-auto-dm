@@ -42,8 +42,23 @@ interface InstagramWebhookPayload {
         text?: string;
       };
     }>;
+
+    // Instagram Messaging events (DM replies) arrive here, not in `changes`.
+    messaging?: Array<{
+      sender?: { id?: string };
+      recipient?: { id?: string };
+      timestamp?: number;
+
+      message?: {
+        mid?: string;
+        text?: string;
+        is_echo?: boolean;
+      };
+    }>;
   }>;
 }
+
+type AttachmentType = "image" | "video" | "audio";
 
 interface AutomationRule {
   id: string;
@@ -52,6 +67,78 @@ interface AutomationRule {
   dm_message: string;
   require_follow: boolean;
   follow_prompt_message: string | null;
+  send_public_reply: boolean;
+  public_reply_message: string | null;
+  attachment_url: string | null;
+  attachment_type: AttachmentType | null;
+}
+
+interface DmFlow {
+  id: string;
+  trigger_keyword: string;
+  instagram_media_id: string | null;
+  send_public_reply: boolean;
+  public_reply_message: string | null;
+}
+
+interface DmFlowStep {
+  id: string;
+  flow_id: string;
+  step_order: number;
+  message_text: string;
+  expects_reply: boolean;
+  intent_map: Partial<Record<"yes" | "no" | "default", number>>;
+  collects_email: boolean;
+  attachment_url: string | null;
+  attachment_type: AttachmentType | null;
+}
+
+interface DmFlowSession {
+  id: string;
+  flow_id: string;
+  current_step_order: number;
+}
+
+// Static intent buckets for MVP flow branching — no per-flow customization
+// or NLP, just a normalized-text lookup against two small word lists.
+const YES_WORDS = new Set([
+  "yes", "yeah", "yep", "yup", "sure", "ok", "okay", "k", "y",
+  "definitely", "absolutely", "please", "of course",
+]);
+const NO_WORDS = new Set([
+  "no", "nope", "nah", "n", "not now", "never", "no thanks",
+]);
+
+function matchIntent(text: string): "yes" | "no" | "default" {
+  const normalized = text.trim().toLowerCase();
+  if (YES_WORDS.has(normalized)) return "yes";
+  if (NO_WORDS.has(normalized)) return "no";
+  return "default";
+}
+
+// Deliberately permissive (no lookahead/backtracking risk): local@domain.tld.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RETRY_MESSAGE =
+  "That doesn't look like a valid email — reply with your email address to continue.";
+
+// Common TLDs only — not the full IANA list, and no live DNS/MX lookup (extra
+// latency and failure surface for an edge function). Good enough to reject
+// junk like "ravi@asdd.css" without false-rejecting real addresses.
+const ALLOWED_TLDS = new Set([
+  "com", "net", "org", "info", "biz", "name", "pro", "io", "co", "ai",
+  "dev", "app", "xyz", "online", "site", "tech", "store", "cloud", "me",
+  "tv", "cc", "edu", "gov", "mil",
+  "in", "us", "uk", "ca", "au", "de", "fr", "jp", "cn", "br", "ru",
+  "za", "nl", "es", "it", "mx", "sg", "ae", "sa", "ng", "id", "pk",
+  "bd", "np", "lk", "ph", "my", "th", "vn", "kr", "tw", "hk", "nz",
+  "ie", "se", "no", "dk", "fi", "pl", "pt", "gr", "tr", "il", "eg",
+  "ke", "ch", "at", "be", "cz", "hu", "ro", "bg", "sk", "ua",
+]);
+
+function hasAllowedTld(email: string): boolean {
+  const domain = email.split("@")[1] ?? "";
+  const tld = domain.split(".").pop()?.toLowerCase() ?? "";
+  return ALLOWED_TLDS.has(tld);
 }
 
 Deno.serve(async (req) => {
@@ -118,6 +205,10 @@ Deno.serve(async (req) => {
 
         await handleCommentChange(instagramAccountId, change.value, payload);
       }
+
+      for (const messagingEvent of entry?.messaging ?? []) {
+        await handleMessagingEvent(instagramAccountId, messagingEvent);
+      }
     }
 
     return new Response("EVENT_RECEIVED", { status: 200 });
@@ -152,27 +243,7 @@ async function handleCommentChange(
    * ======================================
    */
 
-  let instagramAccount: {
-    id: string;
-    instagram_user_id: string;
-    username: string | null;
-    access_token: string;
-    is_active: boolean;
-  } | null = null;
-
-  if (instagramAccountId) {
-    const { data, error } = await supabaseAdmin
-      .from("instagram_accounts")
-      .select("id, instagram_user_id, username, access_token, is_active")
-      .eq("instagram_user_id", instagramAccountId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Failed to look up instagram_accounts:", error.message);
-    } else {
-      instagramAccount = data;
-    }
-  }
+  const instagramAccount = await resolveInstagramAccount(instagramAccountId);
 
   /**
    * ======================================
@@ -233,6 +304,54 @@ async function handleCommentChange(
 
   /**
    * ======================================
+   * MATCH DM FLOW
+   * Same account + (media match or account-wide) + exact keyword match
+   * as automation_rules, checked first. A match starts a multi-step
+   * session instead of sending a single static reply, and short-circuits
+   * the single-rule matching below. trigger_comment_id is unique, so a
+   * retried webhook delivery can't start the same flow twice even though
+   * this path isn't covered by the automation_executions dedupe above.
+   * ======================================
+   */
+
+  const { data: flows, error: flowsError } = await supabaseAdmin
+    .from("dm_flows")
+    .select(
+      "id, trigger_keyword, instagram_media_id, send_public_reply, public_reply_message"
+    )
+    .eq("instagram_account_id", instagramAccount.id)
+    .eq("is_active", true);
+
+  if (flowsError) {
+    console.error("Failed to load dm_flows:", flowsError.message);
+  }
+
+  const normalizedCommentForFlow = commentText.trim().toLowerCase();
+
+  const matchedFlow = ((flows ?? []) as DmFlow[])
+    .filter(
+      (flow) => flow.instagram_media_id === mediaId || flow.instagram_media_id === null
+    )
+    .filter(
+      (flow) => flow.trigger_keyword.trim().toLowerCase() === normalizedCommentForFlow
+    )
+    .sort((a, b) =>
+      (a.instagram_media_id === null ? 1 : 0) - (b.instagram_media_id === null ? 1 : 0)
+    )[0];
+
+  if (matchedFlow) {
+    console.log("DM flow matched:", matchedFlow.id);
+    await startDmFlow({
+      flow: matchedFlow,
+      instagramAccount,
+      commentId,
+      senderId: commenterId,
+    });
+    return;
+  }
+
+  /**
+   * ======================================
    * MATCH AUTOMATION RULE
    * account + (media match or account-wide) + exact,
    * case-insensitive, trimmed keyword. A rule scoped to
@@ -243,7 +362,7 @@ async function handleCommentChange(
   const { data: rules, error: rulesError } = await supabaseAdmin
     .from("automation_rules")
     .select(
-      "id, keyword, instagram_media_id, dm_message, require_follow, follow_prompt_message"
+      "id, keyword, instagram_media_id, dm_message, require_follow, follow_prompt_message, send_public_reply, public_reply_message, attachment_url, attachment_type"
     )
     .eq("instagram_account_id", instagramAccount.id)
     .eq("is_active", true);
@@ -273,6 +392,27 @@ async function handleCommentChange(
   }
 
   console.log("Automation matched:", matchedRule.id);
+
+  /**
+   * ======================================
+   * PUBLIC COMMENT REPLY (optional)
+   * Fires once on keyword match, independent of the follow gate below —
+   * it acknowledges the comment publicly regardless of whether the real
+   * DM or the follow prompt ends up being sent privately.
+   * ======================================
+   */
+
+  if (matchedRule.send_public_reply && matchedRule.public_reply_message) {
+    const publicReplyResult = await postPublicCommentReply({
+      commentId,
+      accessToken: instagramAccount.access_token,
+      message: matchedRule.public_reply_message,
+    });
+
+    if (!publicReplyResult.success) {
+      console.error("Public comment reply failed:", commentId, publicReplyResult.error);
+    }
+  }
 
   /**
    * ======================================
@@ -367,11 +507,14 @@ async function handleCommentChange(
    * ======================================
    */
 
-  const result = await sendPrivateReply({
+  const result = await sendRuleOrStepMessage({
     instagramUserId: instagramAccount.instagram_user_id,
     accessToken: instagramAccount.access_token,
-    commentId,
-    message: outgoingMessage,
+    recipient: { comment_id: commentId },
+    text: outgoingMessage,
+    // Attachment belongs to the real dm_message, not the follow-gate nudge.
+    attachmentUrl: isFollowPrompt ? null : matchedRule.attachment_url,
+    attachmentType: isFollowPrompt ? null : matchedRule.attachment_type,
   });
 
   if (result.success) {
@@ -404,6 +547,276 @@ async function handleCommentChange(
 
     console.error("Private reply failed for comment:", commentId, result.error);
   }
+}
+
+/**
+ * ============================================
+ * RESOLVE INSTAGRAM ACCOUNT
+ * Shared by comment and messaging events: both identify the receiving
+ * account by entry.id, which is the IG-scoped instagram_user_id.
+ * ============================================
+ */
+
+async function resolveInstagramAccount(instagramAccountId: string | undefined): Promise<{
+  id: string;
+  instagram_user_id: string;
+  username: string | null;
+  access_token: string;
+  is_active: boolean;
+} | null> {
+  if (!instagramAccountId) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from("instagram_accounts")
+    .select("id, instagram_user_id, username, access_token, is_active")
+    .eq("instagram_user_id", instagramAccountId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to look up instagram_accounts:", error.message);
+    return null;
+  }
+
+  return data;
+}
+
+/**
+ * ============================================
+ * START DM FLOW
+ * Opens a session at step 1 and sends its message as a comment private
+ * reply. trigger_comment_id is unique, so a duplicate webhook delivery
+ * hits a 23505 here instead of starting the flow twice.
+ * ============================================
+ */
+
+async function startDmFlow({
+  flow,
+  instagramAccount,
+  commentId,
+  senderId,
+}: {
+  flow: DmFlow;
+  instagramAccount: { id: string; instagram_user_id: string; access_token: string };
+  commentId: string;
+  senderId: string;
+}) {
+  const { data: firstStep, error: stepError } = await supabaseAdmin
+    .from("dm_flow_steps")
+    .select(
+      "id, flow_id, step_order, message_text, expects_reply, intent_map, collects_email, attachment_url, attachment_type"
+    )
+    .eq("flow_id", flow.id)
+    .eq("step_order", 1)
+    .maybeSingle();
+
+  if (stepError || !firstStep) {
+    console.error("DM flow has no step 1, skipping:", flow.id, stepError?.message);
+    return;
+  }
+
+  const { error: sessionInsertError } = await supabaseAdmin
+    .from("dm_flow_sessions")
+    .insert({
+      flow_id: flow.id,
+      instagram_account_id: instagramAccount.id,
+      ig_sender_id: senderId,
+      current_step_order: 1,
+      status: firstStep.expects_reply ? "active" : "completed",
+      trigger_comment_id: commentId,
+    });
+
+  if (sessionInsertError) {
+    if (sessionInsertError.code === "23505") {
+      console.log("DM flow already started for this comment:", commentId);
+      return;
+    }
+    console.error("Failed to create dm_flow_sessions row:", sessionInsertError.message);
+    return;
+  }
+
+  if (flow.send_public_reply && flow.public_reply_message) {
+    const publicReplyResult = await postPublicCommentReply({
+      commentId,
+      accessToken: instagramAccount.access_token,
+      message: flow.public_reply_message,
+    });
+
+    if (!publicReplyResult.success) {
+      console.error("Public comment reply failed:", flow.id, publicReplyResult.error);
+    }
+  }
+
+  const result = await sendRuleOrStepMessage({
+    instagramUserId: instagramAccount.instagram_user_id,
+    accessToken: instagramAccount.access_token,
+    recipient: { comment_id: commentId },
+    text: (firstStep as DmFlowStep).message_text,
+    attachmentUrl: (firstStep as DmFlowStep).attachment_url,
+    attachmentType: (firstStep as DmFlowStep).attachment_type,
+  });
+
+  if (!result.success) {
+    console.error("DM flow step 1 send failed:", flow.id, result.error);
+  }
+}
+
+/**
+ * ============================================
+ * HANDLE MESSAGING EVENT (DM reply)
+ * Advances an active dm_flow_sessions row when the inbound DM comes from
+ * someone with an open session, matching their text against the current
+ * step's intent_map. Anything else (no open session, echo of our own
+ * sent message, a step not waiting for a reply) is ignored — this
+ * webhook only drives flows, not general inbox handling.
+ * ============================================
+ */
+
+async function handleMessagingEvent(
+  instagramAccountId: string | undefined,
+  event: NonNullable<
+    NonNullable<InstagramWebhookPayload["entry"]>[number]["messaging"]
+  >[number]
+) {
+  if (event.message?.is_echo) return;
+
+  const senderId = event.sender?.id;
+  const text = event.message?.text?.trim();
+
+  if (!senderId || !text) return;
+
+  const instagramAccount = await resolveInstagramAccount(instagramAccountId);
+  if (!instagramAccount || !instagramAccount.is_active) return;
+
+  const { data: session, error: sessionError } = await supabaseAdmin
+    .from("dm_flow_sessions")
+    .select("id, flow_id, current_step_order")
+    .eq("instagram_account_id", instagramAccount.id)
+    .eq("ig_sender_id", senderId)
+    .eq("status", "active")
+    .order("last_interaction_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (sessionError) {
+    console.error("Failed to look up dm_flow_sessions:", sessionError.message);
+    return;
+  }
+  if (!session) return;
+
+  const typedSession = session as DmFlowSession;
+
+  const { data: currentStep } = await supabaseAdmin
+    .from("dm_flow_steps")
+    .select("id, flow_id, step_order, message_text, expects_reply, intent_map, collects_email")
+    .eq("flow_id", typedSession.flow_id)
+    .eq("step_order", typedSession.current_step_order)
+    .maybeSingle();
+
+  if (!currentStep || !(currentStep as DmFlowStep).expects_reply) {
+    await supabaseAdmin
+      .from("dm_flow_sessions")
+      .update({ status: "completed", last_interaction_at: new Date().toISOString() })
+      .eq("id", typedSession.id);
+    return;
+  }
+
+  const step = currentStep as DmFlowStep;
+  const intentMap = step.intent_map ?? {};
+
+  let targetStepOrder: number | undefined;
+
+  if (step.collects_email) {
+    const email = text.trim();
+
+    if (!EMAIL_PATTERN.test(email) || !hasAllowedTld(email)) {
+      const retryResult = await sendInstagramMessage({
+        instagramUserId: instagramAccount.instagram_user_id,
+        accessToken: instagramAccount.access_token,
+        recipient: { id: senderId },
+        message: EMAIL_RETRY_MESSAGE,
+      });
+
+      if (!retryResult.success) {
+        console.error(
+          "Email retry prompt send failed:",
+          typedSession.flow_id,
+          retryResult.error
+        );
+      }
+
+      await supabaseAdmin
+        .from("dm_flow_sessions")
+        .update({ last_interaction_at: new Date().toISOString() })
+        .eq("id", typedSession.id);
+      return;
+    }
+
+    const { error: leadError } = await supabaseAdmin.from("dm_flow_leads").upsert(
+      {
+        flow_id: typedSession.flow_id,
+        instagram_account_id: instagramAccount.id,
+        ig_sender_id: senderId,
+        email,
+      },
+      { onConflict: "flow_id,ig_sender_id" }
+    );
+
+    if (leadError) {
+      console.error("Failed to store dm_flow_leads row:", leadError.message);
+    }
+
+    targetStepOrder = intentMap.yes ?? intentMap.default;
+  } else {
+    const intent = matchIntent(text);
+    targetStepOrder = intentMap[intent] ?? intentMap.default;
+  }
+
+  if (targetStepOrder == null) {
+    await supabaseAdmin
+      .from("dm_flow_sessions")
+      .update({ status: "completed", last_interaction_at: new Date().toISOString() })
+      .eq("id", typedSession.id);
+    return;
+  }
+
+  const { data: nextStep } = await supabaseAdmin
+    .from("dm_flow_steps")
+    .select(
+      "id, flow_id, step_order, message_text, expects_reply, intent_map, collects_email, attachment_url, attachment_type"
+    )
+    .eq("flow_id", typedSession.flow_id)
+    .eq("step_order", targetStepOrder)
+    .maybeSingle();
+
+  if (!nextStep) {
+    await supabaseAdmin
+      .from("dm_flow_sessions")
+      .update({ status: "completed", last_interaction_at: new Date().toISOString() })
+      .eq("id", typedSession.id);
+    return;
+  }
+
+  const result = await sendRuleOrStepMessage({
+    instagramUserId: instagramAccount.instagram_user_id,
+    accessToken: instagramAccount.access_token,
+    recipient: { id: senderId },
+    text: (nextStep as DmFlowStep).message_text,
+    attachmentUrl: (nextStep as DmFlowStep).attachment_url,
+    attachmentType: (nextStep as DmFlowStep).attachment_type,
+  });
+
+  if (!result.success) {
+    console.error("DM flow step send failed:", typedSession.flow_id, result.error);
+  }
+
+  await supabaseAdmin
+    .from("dm_flow_sessions")
+    .update({
+      current_step_order: targetStepOrder,
+      status: (nextStep as DmFlowStep).expects_reply ? "active" : "completed",
+      last_interaction_at: new Date().toISOString(),
+    })
+    .eq("id", typedSession.id);
 }
 
 /**
@@ -530,19 +943,21 @@ async function recordApiUsage(header: string | null) {
 
 /**
  * ============================================
- * SEND INSTAGRAM PRIVATE REPLY
+ * SEND INSTAGRAM MESSAGE (shared sender)
+ * recipient is either a comment private-reply ({comment_id}) or an
+ * ongoing-conversation send ({id: <ig-scoped user id>}).
  * ============================================
  */
 
-async function sendPrivateReply({
+async function sendInstagramMessage({
   instagramUserId,
   accessToken,
-  commentId,
+  recipient,
   message,
 }: {
   instagramUserId: string;
   accessToken: string;
-  commentId: string;
+  recipient: { comment_id: string } | { id: string };
   message: string;
 }): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
   const url = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}/${instagramUserId}/messages`;
@@ -557,7 +972,7 @@ async function sendPrivateReply({
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        recipient: { comment_id: commentId },
+        recipient,
         message: { text: message },
       }),
     });
@@ -591,4 +1006,184 @@ async function sendPrivateReply({
       : undefined;
 
   return { success: true, messageId };
+}
+
+/**
+ * ============================================
+ * SEND INSTAGRAM ATTACHMENT
+ * Instagram's message object is text XOR attachment per call — this is a
+ * separate send from sendInstagramMessage, not a param on it, so a rule/
+ * step with both a message and an attachment goes out as two DM bubbles
+ * (text, then attachment), same as sendRuleOrStepMessage below does it.
+ * ============================================
+ */
+
+async function sendInstagramAttachment({
+  instagramUserId,
+  accessToken,
+  recipient,
+  attachmentUrl,
+  attachmentType,
+}: {
+  instagramUserId: string;
+  accessToken: string;
+  recipient: { comment_id: string } | { id: string };
+  attachmentUrl: string;
+  attachmentType: AttachmentType;
+}): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
+  const url = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}/${instagramUserId}/messages`;
+
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        recipient,
+        message: {
+          attachment: {
+            type: attachmentType,
+            payload: { url: attachmentUrl, is_reusable: true },
+          },
+        },
+      }),
+    });
+  } catch (networkError) {
+    return {
+      success: false,
+      error: `Network error calling Instagram API: ${String(networkError)}`,
+    };
+  }
+
+  await recordApiUsage(response.headers.get("x-app-usage"));
+
+  let responseBody: Record<string, unknown> = {};
+
+  try {
+    responseBody = await response.json();
+  } catch {
+    // non-JSON body; fall through with an empty object
+  }
+
+  if (!response.ok) {
+    return {
+      success: false,
+      error: `Instagram API ${response.status}: ${JSON.stringify(responseBody)}`,
+    };
+  }
+
+  const messageId =
+    typeof responseBody.message_id === "string"
+      ? responseBody.message_id
+      : undefined;
+
+  return { success: true, messageId };
+}
+
+/**
+ * ============================================
+ * SEND RULE/STEP MESSAGE (text, then optional attachment)
+ * Shared by automation_rules and dm_flow_steps sends: always sends the
+ * text first (rules/steps always require a message), then the attachment
+ * if one is configured. The attachment's result (if sent) is returned,
+ * since it's the more recent/significant send — matches what callers
+ * store as "the" message id for this execution/step.
+ * ============================================
+ */
+
+async function sendRuleOrStepMessage({
+  instagramUserId,
+  accessToken,
+  recipient,
+  text,
+  attachmentUrl,
+  attachmentType,
+}: {
+  instagramUserId: string;
+  accessToken: string;
+  recipient: { comment_id: string } | { id: string };
+  text: string;
+  attachmentUrl: string | null;
+  attachmentType: AttachmentType | null;
+}): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
+  const textResult = await sendInstagramMessage({
+    instagramUserId,
+    accessToken,
+    recipient,
+    message: text,
+  });
+
+  if (!textResult.success || !attachmentUrl) {
+    return textResult;
+  }
+
+  return await sendInstagramAttachment({
+    instagramUserId,
+    accessToken,
+    recipient,
+    attachmentUrl,
+    attachmentType: attachmentType ?? "image",
+  });
+}
+
+/**
+ * ============================================
+ * POST PUBLIC COMMENT REPLY (optional, alongside the private DM)
+ * Distinct endpoint from sendInstagramMessage: this posts a visible reply
+ * under the triggering comment (POST /{comment-id}/replies) rather than
+ * sending a private message.
+ * ============================================
+ */
+
+async function postPublicCommentReply({
+  commentId,
+  accessToken,
+  message,
+}: {
+  commentId: string;
+  accessToken: string;
+  message: string;
+}): Promise<{ success: true } | { success: false; error: string }> {
+  const url = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}/${commentId}/replies`;
+
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message }),
+    });
+  } catch (networkError) {
+    return {
+      success: false,
+      error: `Network error calling Instagram API: ${String(networkError)}`,
+    };
+  }
+
+  await recordApiUsage(response.headers.get("x-app-usage"));
+
+  if (!response.ok) {
+    let responseBody: Record<string, unknown> = {};
+
+    try {
+      responseBody = await response.json();
+    } catch {
+      // non-JSON body; fall through with an empty object
+    }
+
+    return {
+      success: false,
+      error: `Instagram API ${response.status}: ${JSON.stringify(responseBody)}`,
+    };
+  }
+
+  return { success: true };
 }
