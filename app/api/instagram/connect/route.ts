@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { INSTAGRAM_AUTHORIZE_BASE_URL } from "@/lib/instagram/config";
 
 const STATE_COOKIE = "ig_oauth_state";
 const SCOPES = [
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
 
   const state = crypto.randomUUID();
 
-  const authorizeUrl = new URL("https://www.instagram.com/oauth/authorize");
+  const authorizeUrl = new URL(`${INSTAGRAM_AUTHORIZE_BASE_URL}/oauth/authorize`);
   authorizeUrl.searchParams.set("client_id", appId);
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("response_type", "code");

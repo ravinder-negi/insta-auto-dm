@@ -1,8 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  INSTAGRAM_API_VERSION as API_VERSION,
+  INSTAGRAM_GRAPH_BASE_URL,
+  INSTAGRAM_OAUTH_BASE_URL,
+} from "@/lib/instagram/config";
 
 const STATE_COOKIE = "ig_oauth_state";
-const API_VERSION = process.env.INSTAGRAM_API_VERSION || "v26.0";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -51,7 +55,7 @@ export async function GET(request: NextRequest) {
     });
 
     const shortLivedResponse = await fetch(
-      "https://api.instagram.com/oauth/access_token",
+      `${INSTAGRAM_OAUTH_BASE_URL}/oauth/access_token`,
       { method: "POST", body: shortLivedForm }
     );
 
@@ -68,7 +72,7 @@ export async function GET(request: NextRequest) {
 
     // 2. Exchange the short-lived token for a long-lived one (~60 days).
     const longLivedUrl = new URL(
-      `https://graph.instagram.com/${API_VERSION}/access_token`
+      `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/access_token`
     );
     longLivedUrl.searchParams.set("grant_type", "ig_exchange_token");
     longLivedUrl.searchParams.set("client_secret", appSecret);
@@ -87,7 +91,7 @@ export async function GET(request: NextRequest) {
     };
 
     // 3. Fetch the connected Instagram account's identity.
-    const meUrl = new URL(`https://graph.instagram.com/${API_VERSION}/me`);
+    const meUrl = new URL(`${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/me`);
     meUrl.searchParams.set("fields", "user_id,username");
     meUrl.searchParams.set("access_token", longLived.access_token);
 
@@ -129,7 +133,7 @@ export async function GET(request: NextRequest) {
     // same subscription (it's a set, not an append), so it's naturally
     // idempotent — no dedup bookkeeping needed on our side.
     const subscribeUrl = new URL(
-      `https://graph.instagram.com/${API_VERSION}/${me.user_id}/subscribed_apps`
+      `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${me.user_id}/subscribed_apps`
     );
     subscribeUrl.searchParams.set("subscribed_fields", "comments,messages");
     subscribeUrl.searchParams.set("access_token", longLived.access_token);
@@ -169,7 +173,7 @@ export async function GET(request: NextRequest) {
     // Meta actually recorded (as opposed to what the subscribe call claimed).
     try {
       const verifyUrl = new URL(
-        `https://graph.instagram.com/${API_VERSION}/${me.user_id}/subscribed_apps`
+        `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${me.user_id}/subscribed_apps`
       );
       verifyUrl.searchParams.set("access_token", longLived.access_token);
 

@@ -15,6 +15,10 @@ const META_APP_SECRET = Deno.env.get("META_APP_SECRET")!;
 
 const INSTAGRAM_API_VERSION =
   Deno.env.get("INSTAGRAM_API_VERSION") || "v26.0";
+const INSTAGRAM_GRAPH_BASE_URL =
+  Deno.env.get("INSTAGRAM_GRAPH_BASE_URL") || "https://graph.instagram.com";
+const INSTAGRAM_AUTHORIZE_BASE_URL =
+  Deno.env.get("INSTAGRAM_AUTHORIZE_BASE_URL") || "https://www.instagram.com";
 
 interface InstagramWebhookPayload {
   object?: string;
@@ -457,7 +461,7 @@ async function handleCommentChange(
         return;
       }
 
-      const profileLink = `https://www.instagram.com/_u/${
+      const profileLink = `${INSTAGRAM_AUTHORIZE_BASE_URL}/_u/${
         instagramAccount.username ?? instagramAccount.instagram_user_id
       }/`;
       outgoingMessage = (matchedRule.follow_prompt_message ?? "").replaceAll(
@@ -886,7 +890,7 @@ async function checkUserFollowsBusiness(
   instagramScopedId: string,
   accessToken: string
 ): Promise<boolean> {
-  const url = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}/${instagramScopedId}?fields=is_user_follow_business&access_token=${accessToken}`;
+  const url = `${INSTAGRAM_GRAPH_BASE_URL}/${INSTAGRAM_API_VERSION}/${instagramScopedId}?fields=is_user_follow_business&access_token=${accessToken}`;
 
   try {
     const response = await fetch(url);
@@ -960,7 +964,7 @@ async function sendInstagramMessage({
   recipient: { comment_id: string } | { id: string };
   message: string;
 }): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
-  const url = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}/${instagramUserId}/messages`;
+  const url = `${INSTAGRAM_GRAPH_BASE_URL}/${INSTAGRAM_API_VERSION}/${instagramUserId}/messages`;
 
   let response: Response;
 
@@ -1031,7 +1035,7 @@ async function sendInstagramAttachment({
   attachmentUrl: string;
   attachmentType: AttachmentType;
 }): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
-  const url = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}/${instagramUserId}/messages`;
+  const url = `${INSTAGRAM_GRAPH_BASE_URL}/${INSTAGRAM_API_VERSION}/${instagramUserId}/messages`;
 
   let response: Response;
 
@@ -1148,7 +1152,7 @@ async function postPublicCommentReply({
   accessToken: string;
   message: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
-  const url = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}/${commentId}/replies`;
+  const url = `${INSTAGRAM_GRAPH_BASE_URL}/${INSTAGRAM_API_VERSION}/${commentId}/replies`;
 
   let response: Response;
 

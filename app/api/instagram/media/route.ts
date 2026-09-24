@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-
-const API_VERSION = process.env.INSTAGRAM_API_VERSION || "v26.0";
+import {
+  INSTAGRAM_API_VERSION as API_VERSION,
+  INSTAGRAM_GRAPH_BASE_URL,
+} from "@/lib/instagram/config";
 
 export async function GET(request: NextRequest) {
   const accountId = request.nextUrl.searchParams.get("account_id");
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
   }
 
   const mediaUrl = new URL(
-    `https://graph.instagram.com/${API_VERSION}/${account.instagram_user_id}/media`
+    `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${account.instagram_user_id}/media`
   );
   mediaUrl.searchParams.set(
     "fields",
