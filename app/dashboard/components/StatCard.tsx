@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 
 const TONES = {
   indigo: {
-    tile: "bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300",
-    corner: "text-indigo-400 dark:text-indigo-400/70",
+    tile: "bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300",
+    corner: "text-brand-400 dark:text-brand-400/70",
   },
   green: {
     tile: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300",

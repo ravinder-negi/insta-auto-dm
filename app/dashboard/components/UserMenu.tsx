@@ -7,11 +7,14 @@ import { ChevronDownIcon, SignOutIcon } from "./icons";
 
 export function UserMenu({
   userEmail,
+  displayName,
   signOutAction,
 }: {
   userEmail: string;
+  displayName: string | null;
   signOutAction: () => Promise<void>;
 }) {
+  const name = displayName || userEmail;
   const [open, setOpen] = useState(false);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -43,9 +46,9 @@ export function UserMenu({
         aria-expanded={open}
         className="flex max-w-56 items-center gap-2.5 rounded-full py-1 pr-2 pl-1 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
       >
-        <Avatar name={userEmail} size="sm" />
+        <Avatar name={name} size="sm" />
         <span className="hidden truncate text-sm text-zinc-600 sm:block dark:text-zinc-300">
-          {userEmail}
+          {name}
         </span>
         <ChevronDownIcon
           className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${
@@ -60,11 +63,9 @@ export function UserMenu({
           className="animate-fade-in-up absolute right-0 z-40 mt-2 w-60 overflow-hidden rounded-2xl border border-black/6 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-zinc-900"
         >
           <div className="flex items-center gap-2.5 rounded-xl px-2.5 py-2">
-            <Avatar name={userEmail} size="sm" />
+            <Avatar name={name} size="sm" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
-                {userEmail.split("@")[0]}
-              </p>
+              <p className="truncate text-sm font-medium">{name}</p>
               <p className="truncate text-xs text-zinc-500">{userEmail}</p>
             </div>
           </div>

@@ -174,7 +174,7 @@ export function LinkForm({
                 }}
                 className={`flex h-10 w-10 items-center justify-center rounded-xl border-2 text-zinc-500 transition-colors dark:text-zinc-400 ${
                   icon === option.value
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"
+                    ? "border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
                     : "border-transparent bg-zinc-100 hover:bg-zinc-200 dark:bg-white/8 dark:hover:bg-white/12"
                 }`}
               >
@@ -185,7 +185,7 @@ export function LinkForm({
             {customIconUrl && (
               <span
                 aria-label="Custom icon"
-                className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border-2 border-indigo-500"
+                className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border-2 border-brand-500"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL */}
                 <img src={customIconUrl} alt="" className="h-full w-full object-cover" />
@@ -230,7 +230,7 @@ export function LinkForm({
               onChange={(event) => setIsActive(event.target.checked)}
               className="peer sr-only"
             />
-            <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-indigo-600 dark:bg-zinc-700" />
+            <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-brand-600 dark:bg-zinc-700" />
             <div className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
           </label>
         </div>
@@ -250,7 +250,7 @@ export function LinkForm({
               onChange={(event) => setIsFeatured(event.target.checked)}
               className="peer sr-only"
             />
-            <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-indigo-600 dark:bg-zinc-700" />
+            <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-brand-600 dark:bg-zinc-700" />
             <div className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
           </label>
         </div>

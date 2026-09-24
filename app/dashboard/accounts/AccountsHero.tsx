@@ -10,7 +10,7 @@ export function AccountsHero() {
     >
       <svg
         viewBox="0 0 420 176"
-        className="absolute inset-0 h-full w-full text-indigo-300 dark:text-indigo-500/50"
+        className="absolute inset-0 h-full w-full text-brand-300 dark:text-brand-500/50"
         fill="none"
       >
         <path
@@ -51,7 +51,7 @@ function Sparkle({ className }: { className: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className={`animate-pulse-soft absolute text-violet-400 ${className}`}
+      className={`animate-pulse-soft absolute text-brand-400 ${className}`}
       fill="currentColor"
     >
       <path d="M12 0c1 7 4 10 12 12-8 2-11 5-12 12-1-7-4-10-12-12C8 10 11 7 12 0z" />

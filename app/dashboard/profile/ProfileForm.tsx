@@ -231,7 +231,7 @@ export function ProfileForm({
                 defaultChecked={profile.is_published}
                 className="peer sr-only"
               />
-              <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-indigo-600 dark:bg-zinc-700" />
+              <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-brand-600 dark:bg-zinc-700" />
               <div className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
             </label>
           </div>
@@ -242,7 +242,7 @@ export function ProfileForm({
                 href={publicUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="min-w-0 flex-1 truncate text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+                className="min-w-0 flex-1 truncate text-sm text-zinc-700 hover:text-brand-600 hover:underline dark:text-zinc-300 dark:hover:text-brand-400"
               >
                 {publicUrl}
               </a>
@@ -289,7 +289,7 @@ export function ProfileForm({
                 aria-pressed={device === "desktop"}
                 className={`rounded-md p-1.5 transition-colors ${
                   device === "desktop"
-                    ? "bg-indigo-600 text-white"
+                    ? "bg-brand-600 text-white"
                     : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10"
                 }`}
               >
@@ -302,7 +302,7 @@ export function ProfileForm({
                 aria-pressed={device === "mobile"}
                 className={`rounded-md p-1.5 transition-colors ${
                   device === "mobile"
-                    ? "bg-indigo-600 text-white"
+                    ? "bg-brand-600 text-white"
                     : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10"
                 }`}
               >

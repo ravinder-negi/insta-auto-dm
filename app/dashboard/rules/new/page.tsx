@@ -27,8 +27,8 @@ export default async function NewRulePage() {
     <div className="flex flex-col gap-8">
       <RuleFormPageHeader
         eyebrow="Create rule"
-        title="New automation rule"
-        description="Set up a keyword and automated reply for Instagram comments."
+        title="Create automation rule"
+        description="Set a keyword and automated reply for Instagram comments. Save time and engage your audience 24/7."
       />
 
       {accounts.length === 0 ? (

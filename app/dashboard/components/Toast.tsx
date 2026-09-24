@@ -36,7 +36,7 @@ const VARIANT_STYLES: Record<
   },
   info: {
     icon: InfoIcon,
-    chip: "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300",
+    chip: "bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300",
   },
 };
 

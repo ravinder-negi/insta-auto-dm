@@ -17,6 +17,11 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Fallback only — app/layout.tsx always sets these from app_settings. */
+  --color-brand-gradient-from: #6366f1;
+  --color-brand-gradient-via: #7c3aed;
+  --color-brand-gradient-to: #a855f7;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -34,9 +39,18 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Font families come from app/fonts.ts — change them there, not here. */
+  --font-sans: var(--font-app-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-app-serif), ui-serif, Georgia, serif;
+  --font-mono: var(--font-app-mono), ui-monospace, SFMono-Regular, monospace;
+}
 
+/* Plain @theme, not @theme inline: these are literal values (not var()
+   indirections like --color-background above), so Tailwind keeps utilities
+   pointing at var(--color-brand-*) instead of inlining the literal. That's
+   what lets the admin appearance setting override them at runtime — see
+   app/layout.tsx. */
+@theme {
   /* Brand ramp used by the logo, active nav, primary buttons and avatars. */
   --color-brand-50: #f2f1ff;
   --color-brand-100: #e8e6ff;
@@ -53,7 +67,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 
 button:not(:disabled),
@@ -74,18 +88,25 @@ input[type="reset"]:disabled {
 
 .brand-gradient {
   /* Solid colour first so the element is never white if the gradient is
-     unsupported or overridden — white text on white is unreadable. */
-  background-color: #6d5ef6;
-  background-image: linear-gradient(135deg, #6366f1 0%, #7c3aed 50%, #a855f7 100%);
+     unsupported or overridden — white text on white is unreadable. Stops are
+     driven by --color-brand-gradient-*, which the admin appearance setting
+     overrides at runtime (see app/layout.tsx and lib/color.ts). */
+  background-color: var(--color-brand-500);
+  background-image: linear-gradient(
+    135deg,
+    var(--color-brand-gradient-from) 0%,
+    var(--color-brand-gradient-via) 50%,
+    var(--color-brand-gradient-to) 100%
+  );
 }
 
 /* Tinted backdrop behind the scrolling content area. Colours live in custom
    properties so the dark variants only have to restate the three tints. */
 .app-surface {
-  --surface-base: #fafaff;
-  --surface-tint-a: rgba(139, 92, 246, 0.14);
-  --surface-tint-b: rgba(99, 102, 241, 0.1);
-  --surface-tint-c: rgba(168, 85, 247, 0.09);
+  --surface-base: color-mix(in srgb, var(--color-brand-500) 2%, white);
+  --surface-tint-a: color-mix(in srgb, var(--color-brand-gradient-via) 14%, transparent);
+  --surface-tint-b: color-mix(in srgb, var(--color-brand-gradient-from) 10%, transparent);
+  --surface-tint-c: color-mix(in srgb, var(--color-brand-gradient-to) 9%, transparent);
 
   background-color: var(--surface-base);
   background-image:
@@ -100,21 +121,26 @@ input[type="reset"]:disabled {
 @media (prefers-color-scheme: dark) {
   :root:not(.light) .app-surface {
     --surface-base: #09090b;
-    --surface-tint-a: rgba(139, 92, 246, 0.16);
-    --surface-tint-b: rgba(99, 102, 241, 0.12);
-    --surface-tint-c: rgba(168, 85, 247, 0.1);
+    --surface-tint-a: color-mix(in srgb, var(--color-brand-gradient-via) 16%, transparent);
+    --surface-tint-b: color-mix(in srgb, var(--color-brand-gradient-from) 12%, transparent);
+    --surface-tint-c: color-mix(in srgb, var(--color-brand-gradient-to) 10%, transparent);
   }
 }
 
 .dark .app-surface {
   --surface-base: #09090b;
-  --surface-tint-a: rgba(139, 92, 246, 0.16);
-  --surface-tint-b: rgba(99, 102, 241, 0.12);
-  --surface-tint-c: rgba(168, 85, 247, 0.1);
+  --surface-tint-a: color-mix(in srgb, var(--color-brand-gradient-via) 16%, transparent);
+  --surface-tint-b: color-mix(in srgb, var(--color-brand-gradient-from) 12%, transparent);
+  --surface-tint-c: color-mix(in srgb, var(--color-brand-gradient-to) 10%, transparent);
 }
 
 .brand-text-gradient {
-  background-image: linear-gradient(100deg, #5b45e0, #7c3aed 55%, #a855f7);
+  background-image: linear-gradient(
+    100deg,
+    var(--color-brand-600),
+    var(--color-brand-gradient-via) 55%,
+    var(--color-brand-gradient-to)
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

@@ -58,7 +58,7 @@ export function ThemeForm({
                 onClick={() => setThemeFont(option.value)}
                 className={`rounded-xl border-2 px-4 py-2.5 text-sm transition-colors ${option.sampleClass} ${
                   themeFont === option.value
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"
+                    ? "border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
                     : "border-transparent bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-white/8 dark:text-zinc-300 dark:hover:bg-white/12"
                 }`}
               >
@@ -78,7 +78,7 @@ export function ThemeForm({
                 onClick={() => setButtonStyle(option.value)}
                 className={`flex items-center gap-2 border-2 px-4 py-2.5 text-sm transition-colors ${option.radiusClass} ${
                   buttonStyle === option.value
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"
+                    ? "border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
                     : "border-transparent bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-white/8 dark:text-zinc-300 dark:hover:bg-white/12"
                 }`}
               >
@@ -98,7 +98,7 @@ export function ThemeForm({
                 onClick={() => setLayout(option.value)}
                 className={`rounded-xl border-2 px-4 py-2.5 text-sm transition-colors ${
                   layout === option.value
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"
+                    ? "border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
                     : "border-transparent bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-white/8 dark:text-zinc-300 dark:hover:bg-white/12"
                 }`}
               >

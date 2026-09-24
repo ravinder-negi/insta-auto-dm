@@ -154,7 +154,7 @@ export function FlowsTable({
                       <span
                         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
                           flow.is_active
-                            ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"
+                            ? "bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
                             : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800"
                         }`}
                       >

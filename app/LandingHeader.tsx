@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { ArrowRightIcon, BoltIcon } from "./dashboard/components/icons";
+import { ThemeToggle } from "./dashboard/components/ThemeToggle";
 
 const NAV_LINKS = [
   { href: "#features", label: "Features" },
   { href: "#how-it-works", label: "How it works" },
-  { href: "#why-choose", label: "Analytics" },
+  { href: "#why-choose", label: "Benefits" },
   { href: "#faq", label: "FAQ" },
 ];
 
@@ -40,7 +41,7 @@ export function LandingHeader() {
       <div className="flex items-center gap-3 text-sm">
         <Link
           href="/login"
-          className="rounded-full border border-zinc-200 px-4 py-2 font-medium text-zinc-900 transition-colors hover:border-transparent hover:bg-[linear-gradient(135deg,#6366f1_0%,#7c3aed_50%,#a855f7_100%)] hover:text-white dark:border-zinc-800 dark:text-zinc-50"
+          className="rounded-full border border-zinc-200 px-4 py-2 font-medium text-zinc-900 transition-colors hover:border-transparent hover:bg-[linear-gradient(135deg,var(--color-brand-gradient-from)_0%,var(--color-brand-gradient-via)_50%,var(--color-brand-gradient-to)_100%)] hover:text-white dark:border-zinc-800 dark:text-zinc-50"
         >
           Log in
         </Link>
@@ -51,6 +52,7 @@ export function LandingHeader() {
           Get started
           <ArrowRightIcon className="h-3.5 w-3.5" />
         </Link>
+        <ThemeToggle />
       </div>
     </header>
   );

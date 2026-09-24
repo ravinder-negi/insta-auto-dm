@@ -41,7 +41,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
               required
               autoComplete="email"
               placeholder="you@example.com"
-              className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pr-3.5 pl-10 text-sm outline-none transition-all duration-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 dark:border-white/15 dark:focus:border-indigo-400/70"
+              className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pr-3.5 pl-10 text-sm outline-none transition-all duration-200 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10 dark:border-white/15 dark:focus:border-brand-400/70"
             />
           </div>
         </div>
@@ -55,7 +55,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
           labelAction={
             <Link
               href="/forgot-password"
-              className="text-xs font-medium text-indigo-600 transition-colors hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+              className="text-xs font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
             >
               Forgot password?
             </Link>
@@ -88,7 +88,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
         Don&apos;t have an account?{" "}
         <Link
           href="/signup"
-          className="font-semibold text-indigo-600 transition-colors hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+          className="font-semibold text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
         >
           Sign up
         </Link>

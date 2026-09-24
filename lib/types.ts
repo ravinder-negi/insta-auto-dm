@@ -203,3 +203,29 @@ export interface LeadMagnetLead {
   email: string;
   created_at: string;
 }
+
+/** A catalog card on a creator's public profile — display only in Phase 2:
+ *  no payment, checkout, or orders. `product_url` is an external destination
+ *  (e.g. Gumroad); `price`/`currency` are informational. */
+export interface Product {
+  id: string;
+  profile_id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  product_url: string | null;
+  price: number | null;
+  currency: string;
+  is_featured: boolean;
+  is_active: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Single-row app-wide config, admin-only write (see lib/admin.ts). */
+export interface AppSettings {
+  id: number;
+  accent_color: string;
+  updated_at: string;
+}

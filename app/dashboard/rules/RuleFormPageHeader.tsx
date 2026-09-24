@@ -31,7 +31,7 @@ export function RuleFormPageHeader({
         }
         description={description}
         aside={
-          <div className="hidden items-center gap-3.5 rounded-2xl bg-gradient-to-r from-indigo-50 to-violet-50 p-4 lg:flex dark:from-indigo-500/10 dark:to-violet-500/10">
+          <div className="hidden items-center gap-3.5 rounded-2xl bg-gradient-to-r from-brand-50 to-brand-100 p-4 lg:flex dark:from-brand-500/10 dark:to-brand-600/10">
             <span className="ig-gradient flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-[0_8px_18px_-8px_rgba(220,39,67,0.7)]">
               <InstagramIcon className="h-6 w-6" />
             </span>

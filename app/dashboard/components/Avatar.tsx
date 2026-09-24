@@ -35,7 +35,7 @@ export function Avatar({
       } ${
         muted
           ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-          : "brand-gradient text-white shadow-[0_4px_10px_-3px_rgba(99,102,241,0.6)]"
+          : "brand-gradient text-white shadow-[0_4px_10px_-3px_color-mix(in_srgb,var(--color-brand-500)_60%,transparent)]"
       } ${className}`}
     >
       {(name.replace(/^@/, "").slice(0, 1) || "?").toUpperCase()}

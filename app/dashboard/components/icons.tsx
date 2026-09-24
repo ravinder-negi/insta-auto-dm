@@ -374,6 +374,23 @@ export function PhoneIcon(props: IconProps) {
   );
 }
 
+export function VideoCameraIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <rect x="3" y="6.5" width="12" height="11" rx="2" />
+      <path d="m15 10.5 6-3.2v9.4l-6-3.2" />
+    </Stroke>
+  );
+}
+
+export function PaperclipIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="M16.5 7.5 9 15a3 3 0 0 0 4.2 4.2l7-7a5 5 0 0 0-7-7l-7 7a1.8 1.8 0 0 0 2.5 2.5l6.3-6.3" />
+    </Stroke>
+  );
+}
+
 export function InfoIcon(props: IconProps) {
   return (
     <Stroke {...props}>
@@ -600,6 +617,16 @@ export function DownloadIcon(props: IconProps) {
   );
 }
 
+export function UploadIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="M12 15.5v-11" />
+      <path d="m7.5 8.5 4.5-4.5 4.5 4.5" />
+      <path d="M5 17.5v1.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1.5" />
+    </Stroke>
+  );
+}
+
 export function GiftIcon(props: IconProps) {
   return (
     <Stroke {...props}>
@@ -609,5 +636,25 @@ export function GiftIcon(props: IconProps) {
       <path d="M12 9.5H8.3a2.35 2.35 0 1 1 0-4.7c2.6 0 3.7 2.6 3.7 4.7z" />
       <path d="M12 9.5h3.7a2.35 2.35 0 1 0 0-4.7c-2.6 0-3.7 2.6-3.7 4.7z" />
     </Stroke>
+  );
+}
+
+export function ShoppingBagIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="M7 8.5V6.5a5 5 0 0 1 10 0v2" />
+      <path d="M5.5 8.5h13l.9 11.2a1.5 1.5 0 0 1-1.5 1.8H6.1a1.5 1.5 0 0 1-1.5-1.8z" />
+    </Stroke>
+  );
+}
+
+export function StarIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path
+        d="m12 3.5 2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z"
+        fill="currentColor"
+      />
+    </svg>
   );
 }

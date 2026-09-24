@@ -169,7 +169,7 @@ export function LeadMagnetForm({
             onChange={(event) => setIsActive(event.target.checked)}
             className="peer sr-only"
           />
-          <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-indigo-600 dark:bg-zinc-700" />
+          <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-brand-600 dark:bg-zinc-700" />
           <div className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
         </label>
       </div>

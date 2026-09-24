@@ -1,9 +1,8 @@
-import { serifFont } from "../../fonts";
 import type { ThemeButtonStyle, ThemeFont, ThemeLayout } from "@/lib/types";
 
 export const THEME_FONT_OPTIONS: { value: ThemeFont; label: string; sampleClass: string }[] = [
   { value: "sans", label: "Sans", sampleClass: "font-sans" },
-  { value: "serif", label: "Serif", sampleClass: serifFont.className },
+  { value: "serif", label: "Serif", sampleClass: "font-serif" },
   { value: "mono", label: "Mono", sampleClass: "font-mono" },
 ];
 

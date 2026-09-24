@@ -7,7 +7,7 @@ import { Reveal } from "./components/Reveal";
 const FAQS = [
   {
     q: "How does Auto DM work?",
-    a: "Connect your Instagram account, then create a rule that pairs a keyword with a DM. When someone comments that keyword on your posts, reels or stories, Auto DM instantly sends them the matching reply.",
+    a: "Connect your Instagram account, then create a rule that pairs a keyword with a DM. When someone comments that keyword on your posts or reels, Auto DM instantly sends them the matching reply.",
   },
   {
     q: "Is my Instagram account safe?",

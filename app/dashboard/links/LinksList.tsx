@@ -175,7 +175,7 @@ export function LinksList({
                 <div className="flex items-center gap-1.5">
                   <p className="truncate text-sm font-semibold">{link.title}</p>
                   {link.is_featured && (
-                    <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
+                    <span className="shrink-0 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
                       Featured
                     </span>
                   )}

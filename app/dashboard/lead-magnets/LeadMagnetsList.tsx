@@ -173,7 +173,7 @@ export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] 
 
             <Link
               href={`/dashboard/lead-magnets/${magnet.id}/leads`}
-              className="shrink-0 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+              className="shrink-0 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
             >
               {magnet.leadCount} {magnet.leadCount === 1 ? "lead" : "leads"}
             </Link>

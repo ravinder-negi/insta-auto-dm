@@ -4,7 +4,7 @@ import type { ReactNode, SelectHTMLAttributes } from "react";
 import { ChevronDownIcon, SearchIcon } from "./icons";
 
 export const fieldClass =
-  "w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition-all duration-200 placeholder:text-zinc-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 dark:border-white/12 dark:bg-white/5 dark:text-zinc-100 dark:focus:border-indigo-400/70";
+  "w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition-all duration-200 placeholder:text-zinc-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10 dark:border-white/12 dark:bg-white/5 dark:text-zinc-100 dark:focus:border-brand-400/70";
 
 export function SearchField({
   value,

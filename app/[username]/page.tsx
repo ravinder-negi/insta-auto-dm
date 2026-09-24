@@ -6,8 +6,9 @@ import { resolveLinkVisual } from "../dashboard/links/linkTypeIcons";
 import { SOCIAL_PLATFORM_META } from "../dashboard/socials/socialPlatforms";
 import { getButtonRadiusClass, getThemeFontClassName } from "../dashboard/theme/themeOptions";
 import { LeadMagnetCard } from "./LeadMagnetCard";
+import { ProductCard } from "./ProductCard";
 import { ShareButton } from "./ShareButton";
-import type { LeadMagnet, Profile, ProfileLink, ProfileSocial } from "@/lib/types";
+import type { LeadMagnet, Product, Profile, ProfileLink, ProfileSocial } from "@/lib/types";
 
 async function getPublishedProfile(username: string) {
   const supabase = await createClient();
@@ -59,6 +60,19 @@ async function getActiveLeadMagnets(profileId: string) {
   return data ?? [];
 }
 
+async function getActiveProducts(profileId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("products")
+    .select("*")
+    .eq("profile_id", profileId)
+    .eq("is_active", true)
+    .order("position", { ascending: true })
+    .returns<Product[]>();
+
+  return data ?? [];
+}
+
 type Params = Promise<{ username: string }>;
 
 export async function generateMetadata({
@@ -95,10 +109,11 @@ export default async function CreatorProfilePage({
     notFound();
   }
 
-  const [links, socials, leadMagnets] = await Promise.all([
+  const [links, socials, leadMagnets, products] = await Promise.all([
     getActiveLinks(profile.id),
     getActiveSocials(profile.id),
     getActiveLeadMagnets(profile.id),
+    getActiveProducts(profile.id),
   ]);
   const brandColor = profile.brand_color || "#6366f1";
   const fontClassName = getThemeFontClassName(profile.theme_font);
@@ -284,7 +299,18 @@ export default async function CreatorProfilePage({
           </div>
         )}
 
-        {/* Products render here as their own feature lands. */}
+        {products.length > 0 && (
+          <div className="mt-9 grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+            {products.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                brandColor={brandColor}
+                buttonRadiusClass={buttonRadiusClass}
+              />
+            ))}
+          </div>
+        )}
 
         <div className="mt-14 w-full border-t border-black/5 pt-6 text-center text-sm text-zinc-400 dark:border-white/10">
           <span className="inline-flex items-center gap-1.5">

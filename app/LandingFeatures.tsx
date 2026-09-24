@@ -9,7 +9,7 @@ import { Reveal } from "./components/Reveal";
 export function LandingFeatures() {
   return (
     <section id="features" className="w-full px-6 py-16 sm:px-10 lg:px-25">
-      <Reveal className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <span className="text-xs font-semibold tracking-widest text-brand-600 uppercase dark:text-brand-400">
             Powerful features
@@ -23,7 +23,7 @@ export function LandingFeatures() {
           Simple yet powerful tools to help you engage, capture leads and
           grow your business on Instagram.
         </p>
-      </Reveal>
+      </div>
 
       <div className="mt-8 grid gap-5 md:grid-cols-3">
         <Reveal className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
@@ -35,7 +35,7 @@ export function LandingFeatures() {
           </h3>
           <p className="mt-1.5 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
             Automatically respond when someone comments a keyword on your
-            posts, reels or stories.
+            posts or reels.
           </p>
           <div className="mt-5 flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">

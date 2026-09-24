@@ -170,7 +170,7 @@ export function RulesTable({
                       <span
                         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
                           rule.is_active
-                            ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"
+                            ? "bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
                             : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800"
                         }`}
                       >
@@ -180,7 +180,7 @@ export function RulesTable({
                       {rule.require_follow && (
                         <span
                           title="Requires follow before sending the DM"
-                          className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"
+                          className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
                         >
                           Follow-gated
                         </span>

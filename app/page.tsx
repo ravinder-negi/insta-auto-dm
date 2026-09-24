@@ -6,6 +6,7 @@ import { LandingShowcase } from "./LandingShowcase";
 import { LandingFeatures } from "./LandingFeatures";
 import { LandingHowItWorks } from "./LandingHowItWorks";
 import { LandingWhyChoose } from "./LandingWhyChoose";
+import { LandingTestimonials } from "./LandingTestimonials";
 import { LandingFaq } from "./LandingFaq";
 import { LandingCta } from "./LandingCta";
 import { LandingFooter } from "./LandingFooter";
@@ -64,22 +65,28 @@ export default async function Home() {
 
             <p className="animate-fade-in-up mt-3 text-base leading-relaxed text-zinc-600 [animation-delay:240ms] dark:text-zinc-400">
               Automatically send personalized DMs when people comment on
-              your posts, reels, or stories. Engage your audience, capture
+              your posts or reels. Engage your audience, capture
               leads, and grow your business — on autopilot.
             </p>
 
-            <div className="animate-fade-in-up mt-4 flex flex-col items-center gap-2 [animation-delay:360ms] lg:items-start">
+            <div className="animate-fade-in-up mt-4 flex flex-col items-center gap-3 [animation-delay:360ms] sm:flex-row lg:items-start">
               <Link
                 href="/signup"
                 className="brand-gradient inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition-transform hover:scale-[1.02]"
               >
-                Get started
+                Get started free
                 <ArrowRightIcon className="h-4 w-4" />
               </Link>
-              <p className="text-sm text-zinc-500 dark:text-zinc-500">
-                Set up in minutes. No credit card required.
-              </p>
+              <a
+                href="#how-it-works"
+                className="inline-flex items-center gap-2 rounded-full border border-zinc-200 px-6 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
+              >
+                See how it works
+              </a>
             </div>
+            <p className="animate-fade-in-up mt-3 text-sm text-zinc-500 [animation-delay:420ms] dark:text-zinc-500">
+              Set up in minutes. No credit card required.
+            </p>
           </div>
 
           <div className="animate-fade-in-up [animation-delay:200ms]">
@@ -113,6 +120,7 @@ export default async function Home() {
       <LandingFeatures />
       <LandingHowItWorks />
       <LandingWhyChoose />
+      <LandingTestimonials />
       <LandingFaq />
       <LandingCta />
       <LandingFooter />

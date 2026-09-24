@@ -62,7 +62,7 @@ function AvatarIllustration({ className }: { className?: string }) {
 export function LandingShowcase() {
   return (
     <div className="relative mx-auto w-full max-w-lg pt-6 pb-4">
-      <div className="absolute -inset-16 -z-10 rounded-full bg-linear-to-br from-brand-200/70 via-purple-100/60 to-transparent blur-3xl dark:from-brand-900/30 dark:via-purple-900/20" />
+      <div className="absolute -inset-16 -z-10 rounded-full bg-linear-to-br from-brand-200/70 via-brand-100/60 to-transparent blur-3xl dark:from-brand-900/30 dark:via-brand-900/20" />
 
       <svg
         viewBox="0 0 100 100"

@@ -5,7 +5,7 @@ import { Reveal } from "./components/Reveal";
 export function LandingCta() {
   return (
     <section className="w-full px-6 pb-16 sm:px-10 lg:px-25">
-      <Reveal className="relative overflow-hidden rounded-3xl bg-linear-to-br from-brand-50 via-purple-50 to-rose-50 px-8 py-12 sm:px-14 dark:from-brand-900/20 dark:via-purple-900/10 dark:to-rose-900/10">
+      <Reveal className="relative overflow-hidden rounded-3xl bg-linear-to-br from-brand-50 via-brand-100 to-rose-50 px-8 py-12 sm:px-14 dark:from-brand-900/20 dark:via-brand-800/10 dark:to-rose-900/10">
         <div className="relative z-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <span className="text-xs font-semibold tracking-widest text-brand-600 uppercase dark:text-brand-400">

@@ -30,11 +30,16 @@ export async function signUp(
   _prevState: AuthState,
   formData: FormData
 ): Promise<AuthState> {
+  const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { display_name: name } },
+  });
 
   if (error) {
     return { error: error.message };

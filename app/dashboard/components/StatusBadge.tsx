@@ -30,8 +30,8 @@ const STYLES: Record<string, { pill: string; dot: string; label: string }> = {
     label: "Failed",
   },
   follow_prompt_sent: {
-    pill: "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
-    dot: "bg-indigo-500",
+    pill: "bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300",
+    dot: "bg-brand-500",
     label: "Follow prompt sent",
   },
   skipped_already_prompted: {

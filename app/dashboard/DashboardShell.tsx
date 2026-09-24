@@ -17,6 +17,8 @@ import {
   PaletteIcon,
   SettingsIcon,
   ShareIcon,
+  ShieldIcon,
+  ShoppingBagIcon,
   UserIcon,
 } from "./components/icons";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -43,7 +45,9 @@ function readCollapsedGroups(): Record<string, boolean> {
   }
 }
 
-const NAV_GROUPS: { label: string | null; links: { href: string; label: string; icon: typeof HomeIcon }[] }[] = [
+type NavGroup = { label: string | null; links: { href: string; label: string; icon: typeof HomeIcon }[] };
+
+const NAV_GROUPS: NavGroup[] = [
   {
     label: "Automation",
     links: [
@@ -62,6 +66,7 @@ const NAV_GROUPS: { label: string | null; links: { href: string; label: string; 
       { href: "/dashboard/socials", label: "Social accounts", icon: ShareIcon },
       { href: "/dashboard/theme", label: "Design", icon: PaletteIcon },
       { href: "/dashboard/lead-magnets", label: "Lead magnets", icon: GiftIcon },
+      { href: "/dashboard/products", label: "Products", icon: ShoppingBagIcon },
     ],
   },
   {
@@ -70,15 +75,25 @@ const NAV_GROUPS: { label: string | null; links: { href: string; label: string; 
   },
 ];
 
+const ADMIN_NAV_GROUP: NavGroup = {
+  label: "Admin",
+  links: [{ href: "/dashboard/admin/appearance", label: "Appearance", icon: ShieldIcon }],
+};
+
 export function DashboardShell({
   children,
   userEmail,
+  displayName,
   signOutAction,
+  isAdmin,
 }: {
   children: ReactNode;
   userEmail: string;
+  displayName: string | null;
   signOutAction: () => Promise<void>;
+  isAdmin: boolean;
 }) {
+  const navGroups = isAdmin ? [...NAV_GROUPS, ADMIN_NAV_GROUP] : NAV_GROUPS;
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -122,7 +137,7 @@ export function DashboardShell({
         onClick={() => navigate("/dashboard/accounts")}
         className="flex shrink-0 items-center gap-3 px-6 py-6"
       >
-        <span className="brand-gradient flex h-10 w-10 items-center justify-center rounded-xl shadow-[0_6px_16px_-4px_rgba(99,102,241,0.6)]">
+        <span className="brand-gradient flex h-10 w-10 items-center justify-center rounded-xl shadow-[0_6px_16px_-4px_color-mix(in_srgb,var(--color-brand-500)_60%,transparent)]">
           <BoltIcon className="h-5 w-5 text-white" />
         </span>
         <span className="min-w-0">
@@ -137,7 +152,7 @@ export function DashboardShell({
 
       <div className="thin-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
         <nav className="flex flex-1 flex-col gap-1 px-3">
-          {NAV_GROUPS.map((group, groupIndex) => {
+          {navGroups.map((group, groupIndex) => {
             const label = group.label;
             const isCollapsed = label ? Boolean(collapsedGroups[label]) : false;
 
@@ -173,12 +188,12 @@ export function DashboardShell({
                         aria-current={active ? "page" : undefined}
                         className={`relative flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors duration-200 ${
                           active
-                            ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
+                            ? "bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
                             : "text-zinc-500 hover:bg-black/4 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
                         }`}
                       >
                         {active && (
-                          <span className="absolute top-1.5 bottom-1.5 -left-3 w-1 rounded-r-full bg-indigo-600 dark:bg-indigo-400" />
+                          <span className="absolute top-1.5 bottom-1.5 -left-3 w-1 rounded-r-full bg-brand-600 dark:bg-brand-400" />
                         )}
                         <link.icon className="h-5 w-5 shrink-0" />
                         {link.label}
@@ -192,7 +207,7 @@ export function DashboardShell({
           })}
         </nav>
 
-        <div className="m-4 rounded-2xl bg-gradient-to-b from-indigo-50 to-violet-50 p-4 dark:from-indigo-500/10 dark:to-violet-500/10">
+        <div className="m-4 rounded-2xl bg-gradient-to-b from-brand-50 to-brand-100 p-4 dark:from-brand-500/10 dark:to-brand-600/10">
           <span className="ig-gradient flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-[0_6px_16px_-4px_rgba(220,39,67,0.5)]">
             <InstagramIcon className="h-5 w-5" />
           </span>
@@ -256,13 +271,13 @@ export function DashboardShell({
             </div>
 
             <div className="flex shrink-0 items-center gap-1.5">
-              <UserMenu userEmail={userEmail} signOutAction={signOutAction} />
+              <UserMenu userEmail={userEmail} displayName={displayName} signOutAction={signOutAction} />
               <ThemeToggle />
             </div>
           </header>
 
           {pendingHref && (
-            <div className="h-0.5 w-full shrink-0 overflow-hidden bg-indigo-100 dark:bg-indigo-950/60">
+            <div className="h-0.5 w-full shrink-0 overflow-hidden bg-brand-100 dark:bg-brand-950/60">
               <div className="brand-gradient animate-loading-bar h-full w-1/3" />
             </div>
           )}

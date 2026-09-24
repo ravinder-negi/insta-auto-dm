@@ -27,8 +27,8 @@ export default async function NewFlowPage() {
     <div className="flex flex-col gap-8">
       <FlowFormPageHeader
         eyebrow="Create flow"
-        title="New DM flow"
-        description="Set up a trigger keyword and a sequence of DMs to send."
+        title="Create DM flow"
+        description="Set a trigger keyword and a sequence of DMs to send. Guide the conversation step by step."
       />
 
       {accounts.length === 0 ? (

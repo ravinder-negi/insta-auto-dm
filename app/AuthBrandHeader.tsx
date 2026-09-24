@@ -1,8 +1,12 @@
+import Link from "next/link";
 import { BoltIcon } from "./dashboard/components/icons";
 
 export function AuthBrandHeader() {
   return (
-    <div className="mb-6 flex items-center gap-2.5">
+    <Link
+      href="/"
+      className="mb-6 flex w-fit items-center gap-2.5 transition-opacity hover:opacity-80"
+    >
       <div className="brand-gradient flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-sm shadow-brand-500/30">
         <BoltIcon className="h-5 w-5" />
       </div>
@@ -14,6 +18,6 @@ export function AuthBrandHeader() {
           Engage. Automate. Grow.
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

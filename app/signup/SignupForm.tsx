@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { AuthBrandHeader } from "@/app/AuthBrandHeader";
 import { AuthCard } from "@/app/AuthCard";
 import { PasswordField } from "@/app/components/PasswordField";
-import { ArrowRightIcon, MailIcon } from "@/app/dashboard/components/icons";
+import { ArrowRightIcon, MailIcon, UserIcon } from "@/app/dashboard/components/icons";
 import { signUp, type AuthState } from "../login/actions";
 
 export function SignupForm() {
@@ -27,6 +27,24 @@ export function SignupForm() {
 
       <form action={formAction} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
+          <label htmlFor="name" className="text-sm font-medium">
+            Name
+          </label>
+          <div className="relative">
+            <UserIcon className="pointer-events-none absolute inset-y-0 left-3.5 my-auto h-4.5 w-4.5 text-zinc-400" />
+            <input
+              id="name"
+              name="name"
+              type="text"
+              required
+              autoComplete="name"
+              placeholder="Jane Doe"
+              className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pr-3.5 pl-10 text-sm outline-none transition-all duration-200 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10 dark:border-white/15 dark:focus:border-brand-400/70"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
           <label htmlFor="email" className="text-sm font-medium">
             Email
           </label>
@@ -39,7 +57,7 @@ export function SignupForm() {
               required
               autoComplete="email"
               placeholder="you@example.com"
-              className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pr-3.5 pl-10 text-sm outline-none transition-all duration-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 dark:border-white/15 dark:focus:border-indigo-400/70"
+              className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pr-3.5 pl-10 text-sm outline-none transition-all duration-200 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10 dark:border-white/15 dark:focus:border-brand-400/70"
             />
           </div>
         </div>
@@ -72,7 +90,7 @@ export function SignupForm() {
         Already have an account?{" "}
         <Link
           href="/login"
-          className="font-semibold text-indigo-600 transition-colors hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+          className="font-semibold text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
         >
           Sign in
         </Link>

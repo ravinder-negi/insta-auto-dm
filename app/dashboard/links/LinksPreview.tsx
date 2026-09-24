@@ -31,7 +31,7 @@ export function LinksPreview({
             aria-pressed={device === "mobile"}
             className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
               device === "mobile"
-                ? "bg-indigo-600 text-white"
+                ? "bg-brand-600 text-white"
                 : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10"
             }`}
           >
@@ -44,7 +44,7 @@ export function LinksPreview({
             aria-pressed={device === "desktop"}
             className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
               device === "desktop"
-                ? "bg-indigo-600 text-white"
+                ? "bg-brand-600 text-white"
                 : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10"
             }`}
           >
