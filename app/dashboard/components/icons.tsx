@@ -256,6 +256,14 @@ export function CloseIcon(props: IconProps) {
   );
 }
 
+export function MenuIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </Stroke>
+  );
+}
+
 export function CalendarIcon(props: IconProps) {
   return (
     <Stroke {...props}>

@@ -61,7 +61,7 @@ function AvatarIllustration({ className }: { className?: string }) {
 
 export function LandingShowcase() {
   return (
-    <div className="relative mx-auto w-full max-w-lg pt-6 pb-4">
+    <div className="relative mx-auto w-full max-w-lg overflow-hidden pt-6 pb-4 sm:overflow-visible">
       <div className="absolute -inset-16 -z-10 rounded-full bg-linear-to-br from-brand-200/70 via-brand-100/60 to-transparent blur-3xl dark:from-brand-900/30 dark:via-brand-900/20" />
 
       <svg
@@ -121,7 +121,7 @@ export function LandingShowcase() {
         <span>Scale</span>
       </div>
 
-      <div className="relative flex items-start justify-center gap-4 sm:gap-6">
+      <div className="relative flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:gap-4 lg:gap-6">
         <div className="w-60 shrink-0 rounded-2xl border border-zinc-100 bg-white p-3 shadow-xl shadow-zinc-200/60 sm:w-67.5 dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-none">
           <div className="flex items-center gap-2 pb-2.5">
             <InstagramIcon className="h-5 w-5 text-zinc-900 dark:text-zinc-50" />
@@ -167,7 +167,7 @@ export function LandingShowcase() {
           </div>
         </div>
 
-        <div className="mt-10 w-52 shrink-0 overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl shadow-zinc-200/60 sm:mt-14 sm:w-60 dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-none">
+        <div className="w-52 shrink-0 overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-xl shadow-zinc-200/60 sm:mt-14 sm:w-60 dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-none">
           <div className="flex items-center gap-2 border-b border-zinc-100 px-3 py-2.5 dark:border-zinc-800">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900">
               <BoltIcon className="h-3.5 w-3.5" />

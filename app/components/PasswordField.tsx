@@ -36,7 +36,7 @@ export function PasswordField({
           type={visible ? "text" : "password"}
           required
           minLength={minLength}
-          placeholder="Enter your password"
+          placeholder="Password"
           autoComplete={autoComplete}
           className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pr-10 pl-10 text-sm outline-none transition-all duration-200 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10 dark:border-white/15 dark:focus:border-brand-400/70"
         />

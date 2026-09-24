@@ -70,7 +70,7 @@ export function BrandingPanel() {
           </div>
         </Link>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_280px] lg:items-start">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_280px] xl:items-start">
           <div className="animate-fade-in-up max-w-md">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold tracking-wide text-white/70 uppercase">
               <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />
@@ -112,7 +112,7 @@ export function BrandingPanel() {
           </div>
 
           <div
-            className="animate-fade-in-up relative hidden h-96 lg:block"
+            className="animate-fade-in-up relative hidden h-96 xl:block"
             style={{ animationDelay: "0.2s" }}
           >
             <svg

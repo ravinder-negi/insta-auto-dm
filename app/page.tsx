@@ -72,7 +72,7 @@ export default async function Home() {
             <div className="animate-fade-in-up mt-4 flex flex-col items-center gap-3 [animation-delay:360ms] sm:flex-row lg:items-start">
               <Link
                 href="/signup"
-                className="brand-gradient inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition-transform hover:scale-[1.02]"
+                className="brand-gradient inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold whitespace-nowrap text-white shadow-lg shadow-brand-500/30 transition-transform hover:scale-[1.02]"
               >
                 Get started free
                 <ArrowRightIcon className="h-4 w-4" />
