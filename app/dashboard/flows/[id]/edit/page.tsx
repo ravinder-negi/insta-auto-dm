@@ -25,7 +25,7 @@ export default async function EditFlowPage(
     supabase
       .from("dm_flow_steps")
       .select(
-        "step_order, message_text, expects_reply, collects_email, intent_map, attachment_url, attachment_type, followup_enabled, followup_delay_hours, followup_message"
+        "step_order, message_text, expects_reply, collects_email, intent_map, options, attachment_url, attachment_type, followup_enabled, followup_delay_hours, followup_message"
       )
       .eq("flow_id", id)
       .order("step_order", { ascending: true }),
@@ -68,6 +68,7 @@ export default async function EditFlowPage(
             expects_reply: step.expects_reply,
             collects_email: step.collects_email,
             intent_map: step.intent_map ?? {},
+            options: step.options ?? [],
             attachment_url: step.attachment_url,
             attachment_type: step.attachment_type,
             followup_enabled: step.followup_enabled,

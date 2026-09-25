@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { DmFlowIntentMap } from "@/lib/types";
+import type { DmFlowIntentMap, DmFlowStepOption } from "@/lib/types";
 
 export type FlowFormState = { error: string } | undefined;
 
@@ -15,6 +15,7 @@ export interface FlowStepInput {
   expects_reply: boolean;
   collects_email: boolean;
   intent_map: DmFlowIntentMap;
+  options: DmFlowStepOption[];
   attachment_url: string | null;
   attachment_type: (typeof ATTACHMENT_TYPES)[number] | null;
   followup_enabled: boolean;
@@ -85,6 +86,15 @@ function readFlowFields(
         error: "Follow-up needs both a delay (hours) and a reminder message.",
       };
     }
+    if (
+      step.expects_reply &&
+      !step.collects_email &&
+      Array.isArray(step.options) &&
+      step.options.length > 0 &&
+      step.options.some((option: DmFlowStepOption) => !option.label?.trim())
+    ) {
+      return { ok: false, error: "Every option needs a label." };
+    }
   }
 
   return {
@@ -96,30 +106,48 @@ function readFlowFields(
       instagram_media_id: instagramMediaIdRaw || null,
       send_public_reply: sendPublicReply,
       public_reply_message: sendPublicReply ? publicReplyMessage : null,
-      steps: steps.map((step, index) => ({
-        step_order: index + 1,
-        message_text: step.message_text.trim(),
-        expects_reply: Boolean(step.expects_reply),
-        collects_email: step.expects_reply ? Boolean(step.collects_email) : false,
-        intent_map: step.expects_reply
-          ? step.collects_email
-            ? { yes: step.intent_map?.yes }
-            : (step.intent_map ?? {})
-          : {},
-        attachment_url: step.attachment_url?.trim() || null,
-        attachment_type: step.attachment_url?.trim()
-          ? (ATTACHMENT_TYPES.includes(step.attachment_type as (typeof ATTACHMENT_TYPES)[number])
-              ? step.attachment_type
-              : "image")
-          : null,
-        followup_enabled: step.expects_reply ? Boolean(step.followup_enabled) : false,
-        followup_delay_hours:
-          step.expects_reply && step.followup_enabled ? step.followup_delay_hours : null,
-        followup_message:
-          step.expects_reply && step.followup_enabled
-            ? step.followup_message?.trim() ?? null
+      steps: steps.map((step, index) => {
+        const hasOptions =
+          step.expects_reply &&
+          !step.collects_email &&
+          Array.isArray(step.options) &&
+          step.options.some((option: DmFlowStepOption) => option.label?.trim());
+
+        return {
+          step_order: index + 1,
+          message_text: step.message_text.trim(),
+          expects_reply: Boolean(step.expects_reply),
+          collects_email: step.expects_reply ? Boolean(step.collects_email) : false,
+          intent_map: step.expects_reply
+            ? step.collects_email
+              ? { yes: step.intent_map?.yes }
+              : hasOptions
+                ? {}
+                : (step.intent_map ?? {})
+            : {},
+          options: hasOptions
+            ? step.options
+                .filter((option: DmFlowStepOption) => option.label?.trim())
+                .map((option: DmFlowStepOption) => ({
+                  label: option.label.trim(),
+                  target_step_order: option.target_step_order ?? null,
+                }))
+            : [],
+          attachment_url: step.attachment_url?.trim() || null,
+          attachment_type: step.attachment_url?.trim()
+            ? (ATTACHMENT_TYPES.includes(step.attachment_type as (typeof ATTACHMENT_TYPES)[number])
+                ? step.attachment_type
+                : "image")
             : null,
-      })),
+          followup_enabled: step.expects_reply ? Boolean(step.followup_enabled) : false,
+          followup_delay_hours:
+            step.expects_reply && step.followup_enabled ? step.followup_delay_hours : null,
+          followup_message:
+            step.expects_reply && step.followup_enabled
+              ? step.followup_message?.trim() ?? null
+              : null,
+        };
+      }),
     },
   };
 }
@@ -142,6 +170,7 @@ async function insertSteps(
       followup_delay_hours: step.followup_delay_hours,
       followup_message: step.followup_message,
       intent_map: step.intent_map,
+      options: step.options,
     }))
   );
   return error;

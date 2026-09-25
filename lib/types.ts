@@ -70,6 +70,12 @@ export interface DmFlow {
 /** intent_map keys are "yes" | "no" | "default"; value is a target step_order, or absent to end the flow. */
 export type DmFlowIntentMap = Partial<Record<"yes" | "no" | "default", number>>;
 
+/** Matched against a reply by 1-based position or label text; target_step_order null ends the flow. */
+export interface DmFlowStepOption {
+  label: string;
+  target_step_order: number | null;
+}
+
 export interface DmFlowStep {
   id: string;
   flow_id: string;
@@ -78,6 +84,7 @@ export interface DmFlowStep {
   expects_reply: boolean;
   intent_map: DmFlowIntentMap;
   collects_email: boolean;
+  options: DmFlowStepOption[];
   attachment_url: string | null;
   attachment_type: AttachmentType | null;
   followup_enabled: boolean;
