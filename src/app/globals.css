@@ -1,0 +1,322 @@
+@import "tailwindcss";
+
+/* Three theme states on <html>: `dark` and `light` are explicit choices made
+   with the header switch, and no class at all follows the OS preference — so
+   the page paints correctly even before the theme script runs. */
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not(.light), :root:not(.light) *) {
+      @slot;
+    }
+  }
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Fallback only — app/layout.tsx always sets these from app_settings. */
+  --color-brand-gradient-from: #6366f1;
+  --color-brand-gradient-via: #7c3aed;
+  --color-brand-gradient-to: #a855f7;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: #09090b;
+    --foreground: #ededed;
+  }
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #ededed;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /* Font families come from app/fonts.ts — change them there, not here. */
+  --font-sans: var(--font-app-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-app-serif), ui-serif, Georgia, serif;
+  --font-mono: var(--font-app-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Plain @theme, not @theme inline: these are literal values (not var()
+   indirections like --color-background above), so Tailwind keeps utilities
+   pointing at var(--color-brand-*) instead of inlining the literal. That's
+   what lets the admin appearance setting override them at runtime — see
+   app/layout.tsx. */
+@theme {
+  /* Brand ramp used by the logo, active nav, primary buttons and avatars. */
+  --color-brand-50: #f2f1ff;
+  --color-brand-100: #e8e6ff;
+  --color-brand-200: #d6d2ff;
+  --color-brand-300: #b8affe;
+  --color-brand-400: #9585fa;
+  --color-brand-500: #6d5ef6;
+  --color-brand-600: #5b45e0;
+  --color-brand-700: #4a37bd;
+  --color-brand-800: #3c2d97;
+  --color-brand-900: #2f2478;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+input[type="button"]:not(:disabled),
+input[type="submit"]:not(:disabled),
+input[type="reset"]:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"],
+input[type="button"]:disabled,
+input[type="submit"]:disabled,
+input[type="reset"]:disabled {
+  cursor: not-allowed;
+}
+
+.brand-gradient {
+  /* Solid colour first so the element is never white if the gradient is
+     unsupported or overridden — white text on white is unreadable. Stops are
+     driven by --color-brand-gradient-*, which the admin appearance setting
+     overrides at runtime (see src/app/layout.tsx and src/lib/utils/color.ts). */
+  background-color: var(--color-brand-500);
+  background-image: linear-gradient(
+    135deg,
+    var(--color-brand-gradient-from) 0%,
+    var(--color-brand-gradient-via) 50%,
+    var(--color-brand-gradient-to) 100%
+  );
+}
+
+/* Tinted backdrop behind the scrolling content area. Colours live in custom
+   properties so the dark variants only have to restate the three tints. */
+.app-surface {
+  --surface-base: color-mix(in srgb, var(--color-brand-500) 2%, white);
+  --surface-tint-a: color-mix(in srgb, var(--color-brand-gradient-via) 14%, transparent);
+  --surface-tint-b: color-mix(in srgb, var(--color-brand-gradient-from) 10%, transparent);
+  --surface-tint-c: color-mix(in srgb, var(--color-brand-gradient-to) 9%, transparent);
+
+  background-color: var(--surface-base);
+  background-image:
+    radial-gradient(900px 420px at 88% -8%, var(--surface-tint-a), transparent 62%),
+    radial-gradient(760px 380px at -6% 8%, var(--surface-tint-b), transparent 58%),
+    radial-gradient(820px 460px at 40% 112%, var(--surface-tint-c), transparent 60%);
+  /* `scroll` pins the tints to the pane itself, so they stay behind the
+     header area instead of sliding away with the content. */
+  background-attachment: scroll;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .app-surface {
+    --surface-base: #09090b;
+    --surface-tint-a: color-mix(in srgb, var(--color-brand-gradient-via) 16%, transparent);
+    --surface-tint-b: color-mix(in srgb, var(--color-brand-gradient-from) 12%, transparent);
+    --surface-tint-c: color-mix(in srgb, var(--color-brand-gradient-to) 10%, transparent);
+  }
+}
+
+.dark .app-surface {
+  --surface-base: #09090b;
+  --surface-tint-a: color-mix(in srgb, var(--color-brand-gradient-via) 16%, transparent);
+  --surface-tint-b: color-mix(in srgb, var(--color-brand-gradient-from) 12%, transparent);
+  --surface-tint-c: color-mix(in srgb, var(--color-brand-gradient-to) 10%, transparent);
+}
+
+.brand-text-gradient {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-brand-600),
+    var(--color-brand-gradient-via) 55%,
+    var(--color-brand-gradient-to)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ig-gradient {
+  background-image: linear-gradient(
+    45deg,
+    #f09433 0%,
+    #e6683c 25%,
+    #dc2743 50%,
+    #cc2366 75%,
+    #bc1888 100%
+  );
+}
+
+/* Hide the scrollbar on the filter/tab strips without losing the scroll. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Thin, subtle scrollbar for panels that can genuinely overflow (sidebar nav,
+   long forms) instead of the browser's default thick one. */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(228 228 231) transparent; /* zinc-200 */
+}
+.thin-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgb(228 228 231);
+  border-radius: 9999px;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(212 212 216); /* zinc-300 */
+}
+:where(.dark, .dark *) .thin-scrollbar {
+  scrollbar-color: rgb(63 63 70) transparent; /* zinc-700 */
+}
+:where(.dark, .dark *) .thin-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgb(63 63 70);
+}
+:where(.dark, .dark *) .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(82 82 91); /* zinc-600 */
+}
+@media (prefers-color-scheme: dark) {
+  :where(:root:not(.light), :root:not(.light) *) .thin-scrollbar {
+    scrollbar-color: rgb(63 63 70) transparent;
+  }
+  :where(:root:not(.light), :root:not(.light) *) .thin-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgb(63 63 70);
+  }
+  :where(:root:not(.light), :root:not(.light) *) .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(82 82 91);
+  }
+}
+
+@keyframes gradient-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-14px) translateX(6px);
+  }
+}
+
+@keyframes float-delayed {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(12px) translateX(-8px);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift 16s ease infinite;
+}
+
+.animate-float {
+  animation: float 9s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float-delayed 11s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out both;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 4s ease-in-out infinite;
+}
+
+.animate-dash-flow {
+  stroke-dasharray: 4 8;
+  animation: dash-flow 3s linear infinite;
+}
+
+@keyframes loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(150%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+.animate-loading-bar {
+  animation: loading-bar 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up {
+    animation: none;
+    opacity: 1;
+  }
+
+  .animate-float,
+  .animate-float-delayed,
+  .animate-pulse-soft,
+  .animate-dash-flow,
+  .animate-gradient-shift {
+    animation: none;
+  }
+}

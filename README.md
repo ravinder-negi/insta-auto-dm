@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Insta Auto DM
 
-## Getting Started
+Next.js 16 (App Router, Turbopack) + Supabase. Automatically DMs Instagram commenters who use a keyword, plus a link-in-bio page, lead magnets and products.
 
-First, run the development server:
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev     # http://localhost:3000
+npm run build   # production build + type check
+npm run lint
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Environment variables live in `.env.local` — see `.env.example` for the required keys.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+public/                        Static assets (must stay at the repo root)
+supabase/                      Supabase CLI workspace
+  functions/instagram-webhook/ Deno edge function (excluded from tsconfig)
+  migrations/                  SQL migrations
+src/
+  proxy.ts                     Auth gate for /dashboard (Next 16 renamed middleware -> proxy)
+  app/                         Routing only
+    layout.tsx                 Root layout, fonts, brand CSS vars
+    globals.css                Tailwind v4 entry + design tokens
+    (marketing)/               "/" landing page
+    (auth)/                    /login /signup /forgot-password /reset-password /auth/callback
+    (public)/[username]/       Public link-in-bio page
+    dashboard/                 Authenticated app
+    api/instagram/             Instagram OAuth + media route handlers
+  components/
+    ui/                        Shared primitives (Spinner, Toast, StatCard, controls, styles, ...)
+    layout/                    App chrome (DashboardShell, UserMenu, ThemeToggle, sign-out)
+    icons/                     Icon set
+  features/                    Domain code, one folder per domain
+    <domain>/components/       Domain components
+    <domain>/actions.ts        Server actions ("use server")
+  lib/
+    supabase/                  Browser + server Supabase clients
+    instagram/                 Instagram Graph API config
+    auth/                      Admin checks
+    utils/                     color, format, accentColors
+  types/                       Shared database/domain types
+```
 
-## Learn More
+Route groups — `(marketing)`, `(auth)`, `(public)` — are stripped from URLs; they exist to group routes and allow per-section layouts.
 
-To learn more about Next.js, take a look at the following resources:
+## Where does a file go?
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| The file is...                              | Put it in                              |
+| ------------------------------------------- | -------------------------------------- |
+| A route (`page`, `layout`, `route`)         | `src/app/...`                          |
+| Used by exactly one route                   | that route's `_components/` folder     |
+| Owned by one domain (flows, links, ...)     | `src/features/<domain>/`               |
+| Shared across route groups                  | `src/components/ui` or `/layout`       |
+| A framework-agnostic helper                 | `src/lib/<area>/`                      |
+| A shared type                               | `src/types/`                           |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Two rules keep this stable:
 
-## Deploy on Vercel
+- **`src/app/` is for routing only.** Anything in it is a `page`/`layout`/`route` file or lives under an `_components/` folder (the underscore opts it out of routing).
+- **Import with the `@/` alias** (`@/components/ui/Spinner`, `@/features/flows/actions`). Relative imports are only for colocated files in the same route folder.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Conventions
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Server actions live in `features/<domain>/actions.ts` with `"use server"` at the top.
+- Supabase access on the server goes through `@/lib/supabase/server`; client components use `@/lib/supabase/client`.
+- Brand colors are admin-configurable at `/dashboard/admin/appearance` and applied as CSS variables in `src/app/layout.tsx` (see `src/lib/utils/color.ts`).
+- The Instagram webhook is a Deno edge function and is intentionally outside the TypeScript project.
