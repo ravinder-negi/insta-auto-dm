@@ -15,6 +15,10 @@ const META_APP_SECRET = Deno.env.get("META_APP_SECRET")!;
 
 const INSTAGRAM_API_VERSION =
   Deno.env.get("INSTAGRAM_API_VERSION") || "v26.0";
+const INSTAGRAM_GRAPH_BASE_URL =
+  Deno.env.get("INSTAGRAM_GRAPH_BASE_URL") || "https://graph.instagram.com";
+const INSTAGRAM_AUTHORIZE_BASE_URL =
+  Deno.env.get("INSTAGRAM_AUTHORIZE_BASE_URL") || "https://www.instagram.com";
 
 interface InstagramWebhookPayload {
   object?: string;
@@ -81,6 +85,11 @@ interface DmFlow {
   public_reply_message: string | null;
 }
 
+interface DmFlowStepOption {
+  label: string;
+  target_step_order: number | null;
+}
+
 interface DmFlowStep {
   id: string;
   flow_id: string;
@@ -89,6 +98,7 @@ interface DmFlowStep {
   expects_reply: boolean;
   intent_map: Partial<Record<"yes" | "no" | "default", number>>;
   collects_email: boolean;
+  options: DmFlowStepOption[];
   attachment_url: string | null;
   attachment_type: AttachmentType | null;
 }
@@ -114,6 +124,42 @@ function matchIntent(text: string): "yes" | "no" | "default" {
   if (YES_WORDS.has(normalized)) return "yes";
   if (NO_WORDS.has(normalized)) return "no";
   return "default";
+}
+
+// Matches a numbered-options reply by 1-based position ("2", "2️⃣") or by
+// label text (case-insensitive). Returns undefined when nothing matches, so
+// the caller can reprompt instead of silently ending the flow.
+function matchOption(
+  text: string,
+  options: DmFlowStepOption[]
+): DmFlowStepOption | undefined {
+  const normalized = text.trim().toLowerCase();
+  const numeric = normalized.match(/^\d+/)?.[0];
+
+  if (numeric) {
+    const index = Number(numeric) - 1;
+    if (index >= 0 && index < options.length) return options[index];
+  }
+
+  const exact = options.find((option) => option.label.trim().toLowerCase() === normalized);
+  if (exact) return exact;
+
+  if (normalized.length < 2) return undefined;
+  return options.find((option) => option.label.trim().toLowerCase().includes(normalized));
+}
+
+function optionRetryMessage(options: DmFlowStepOption[]) {
+  const range = options.length === 1 ? "1" : `1-${options.length}`;
+  return `Sorry, didn't catch that — reply with ${range} to pick an option.`;
+}
+
+// Appends the numbered list a step's options describe, since the reply text
+// typed in the flow builder never includes it — the list is generated here
+// so it's always in sync with what matchOption() actually matches against.
+function withOptionsList(messageText: string, options: DmFlowStepOption[]) {
+  if (options.length === 0) return messageText;
+  const list = options.map((option, i) => `${i + 1}. ${option.label}`).join("\n");
+  return `${messageText}\n\n${list}`;
 }
 
 // Deliberately permissive (no lookahead/backtracking risk): local@domain.tld.
@@ -457,7 +503,7 @@ async function handleCommentChange(
         return;
       }
 
-      const profileLink = `https://www.instagram.com/_u/${
+      const profileLink = `${INSTAGRAM_AUTHORIZE_BASE_URL}/_u/${
         instagramAccount.username ?? instagramAccount.instagram_user_id
       }/`;
       outgoingMessage = (matchedRule.follow_prompt_message ?? "").replaceAll(
@@ -603,7 +649,7 @@ async function startDmFlow({
   const { data: firstStep, error: stepError } = await supabaseAdmin
     .from("dm_flow_steps")
     .select(
-      "id, flow_id, step_order, message_text, expects_reply, intent_map, collects_email, attachment_url, attachment_type"
+      "id, flow_id, step_order, message_text, expects_reply, intent_map, collects_email, options, attachment_url, attachment_type"
     )
     .eq("flow_id", flow.id)
     .eq("step_order", 1)
@@ -650,7 +696,10 @@ async function startDmFlow({
     instagramUserId: instagramAccount.instagram_user_id,
     accessToken: instagramAccount.access_token,
     recipient: { comment_id: commentId },
-    text: (firstStep as DmFlowStep).message_text,
+    text: withOptionsList(
+      (firstStep as DmFlowStep).message_text,
+      (firstStep as DmFlowStep).options ?? []
+    ),
     attachmentUrl: (firstStep as DmFlowStep).attachment_url,
     attachmentType: (firstStep as DmFlowStep).attachment_type,
   });
@@ -707,7 +756,7 @@ async function handleMessagingEvent(
 
   const { data: currentStep } = await supabaseAdmin
     .from("dm_flow_steps")
-    .select("id, flow_id, step_order, message_text, expects_reply, intent_map, collects_email")
+    .select("id, flow_id, step_order, message_text, expects_reply, intent_map, collects_email, options")
     .eq("flow_id", typedSession.flow_id)
     .eq("step_order", typedSession.current_step_order)
     .maybeSingle();
@@ -722,10 +771,38 @@ async function handleMessagingEvent(
 
   const step = currentStep as DmFlowStep;
   const intentMap = step.intent_map ?? {};
+  const options = step.options ?? [];
 
   let targetStepOrder: number | undefined;
 
-  if (step.collects_email) {
+  if (options.length > 0) {
+    const matched = matchOption(text, options);
+
+    if (!matched) {
+      const retryResult = await sendInstagramMessage({
+        instagramUserId: instagramAccount.instagram_user_id,
+        accessToken: instagramAccount.access_token,
+        recipient: { id: senderId },
+        message: optionRetryMessage(options),
+      });
+
+      if (!retryResult.success) {
+        console.error(
+          "Option retry prompt send failed:",
+          typedSession.flow_id,
+          retryResult.error
+        );
+      }
+
+      await supabaseAdmin
+        .from("dm_flow_sessions")
+        .update({ last_interaction_at: new Date().toISOString() })
+        .eq("id", typedSession.id);
+      return;
+    }
+
+    targetStepOrder = matched.target_step_order ?? undefined;
+  } else if (step.collects_email) {
     const email = text.trim();
 
     if (!EMAIL_PATTERN.test(email) || !hasAllowedTld(email)) {
@@ -782,7 +859,7 @@ async function handleMessagingEvent(
   const { data: nextStep } = await supabaseAdmin
     .from("dm_flow_steps")
     .select(
-      "id, flow_id, step_order, message_text, expects_reply, intent_map, collects_email, attachment_url, attachment_type"
+      "id, flow_id, step_order, message_text, expects_reply, intent_map, collects_email, options, attachment_url, attachment_type"
     )
     .eq("flow_id", typedSession.flow_id)
     .eq("step_order", targetStepOrder)
@@ -800,7 +877,10 @@ async function handleMessagingEvent(
     instagramUserId: instagramAccount.instagram_user_id,
     accessToken: instagramAccount.access_token,
     recipient: { id: senderId },
-    text: (nextStep as DmFlowStep).message_text,
+    text: withOptionsList(
+      (nextStep as DmFlowStep).message_text,
+      (nextStep as DmFlowStep).options ?? []
+    ),
     attachmentUrl: (nextStep as DmFlowStep).attachment_url,
     attachmentType: (nextStep as DmFlowStep).attachment_type,
   });
@@ -886,7 +966,7 @@ async function checkUserFollowsBusiness(
   instagramScopedId: string,
   accessToken: string
 ): Promise<boolean> {
-  const url = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}/${instagramScopedId}?fields=is_user_follow_business&access_token=${accessToken}`;
+  const url = `${INSTAGRAM_GRAPH_BASE_URL}/${INSTAGRAM_API_VERSION}/${instagramScopedId}?fields=is_user_follow_business&access_token=${accessToken}`;
 
   try {
     const response = await fetch(url);
@@ -960,7 +1040,7 @@ async function sendInstagramMessage({
   recipient: { comment_id: string } | { id: string };
   message: string;
 }): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
-  const url = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}/${instagramUserId}/messages`;
+  const url = `${INSTAGRAM_GRAPH_BASE_URL}/${INSTAGRAM_API_VERSION}/${instagramUserId}/messages`;
 
   let response: Response;
 
@@ -1031,7 +1111,7 @@ async function sendInstagramAttachment({
   attachmentUrl: string;
   attachmentType: AttachmentType;
 }): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
-  const url = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}/${instagramUserId}/messages`;
+  const url = `${INSTAGRAM_GRAPH_BASE_URL}/${INSTAGRAM_API_VERSION}/${instagramUserId}/messages`;
 
   let response: Response;
 
@@ -1148,7 +1228,7 @@ async function postPublicCommentReply({
   accessToken: string;
   message: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
-  const url = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}/${commentId}/replies`;
+  const url = `${INSTAGRAM_GRAPH_BASE_URL}/${INSTAGRAM_API_VERSION}/${commentId}/replies`;
 
   let response: Response;
 

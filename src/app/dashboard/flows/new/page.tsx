@@ -1,0 +1,54 @@
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { InstagramIcon, PlusIcon } from "@/components/icons";
+import { primaryButtonClass } from "@/components/ui/styles";
+import { FlowForm } from "@/features/flows/components/FlowForm";
+import { FlowFormPageHeader } from "@/features/flows/components/FlowFormPageHeader";
+import { createFlow } from "@/features/flows/actions";
+
+export default async function NewFlowPage() {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("instagram_accounts")
+    .select("id, username, instagram_user_id")
+    .order("created_at", { ascending: false });
+
+  const accounts = (data ?? []).map((account) => {
+    const handle = (account.username ?? account.instagram_user_id) as string;
+    return {
+      id: account.id as string,
+      handle,
+      label: `@${handle}`,
+    };
+  });
+
+  return (
+    <div className="flex flex-col gap-8">
+      <FlowFormPageHeader
+        eyebrow="Create flow"
+        title="Create DM flow"
+        description="Set a trigger keyword and a sequence of DMs to send. Guide the conversation step by step."
+      />
+
+      {accounts.length === 0 ? (
+        <EmptyState
+          icon={<InstagramIcon className="h-6 w-6" />}
+          title="Connect an account first"
+          description="A flow needs an Instagram account to listen to."
+          action={
+            <Link
+              href="/dashboard/accounts"
+              className={`${primaryButtonClass} mt-2`}
+            >
+              <PlusIcon className="h-4 w-4" />
+              Connect Instagram account
+            </Link>
+          }
+        />
+      ) : (
+        <FlowForm accounts={accounts} action={createFlow} submitLabel="Create flow" />
+      )}
+    </div>
+  );
+}

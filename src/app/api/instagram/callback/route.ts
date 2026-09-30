@@ -1,0 +1,219 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import {
+  INSTAGRAM_API_VERSION as API_VERSION,
+  INSTAGRAM_GRAPH_BASE_URL,
+  INSTAGRAM_OAUTH_BASE_URL,
+} from "@/lib/instagram/config";
+
+const STATE_COOKIE = "ig_oauth_state";
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const errorParam = url.searchParams.get("error_description");
+
+  if (errorParam) {
+    return redirectWithError(request, errorParam);
+  }
+
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  const cookieState = request.cookies.get(STATE_COOKIE)?.value;
+
+  if (!code || !state || !cookieState || state !== cookieState) {
+    return redirectWithError(request, "Invalid or expired connect request.");
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  const appId = process.env.INSTAGRAM_APP_ID;
+  const appSecret = process.env.META_APP_SECRET;
+  const redirectUri = process.env.INSTAGRAM_REDIRECT_URI;
+
+  if (!appId || !appSecret || !redirectUri) {
+    return redirectWithError(
+      request,
+      "Instagram connect is not configured on the server."
+    );
+  }
+
+  try {
+    // 1. Exchange the authorization code for a short-lived token.
+    const shortLivedForm = new URLSearchParams({
+      client_id: appId,
+      client_secret: appSecret,
+      grant_type: "authorization_code",
+      redirect_uri: redirectUri,
+      code,
+    });
+
+    const shortLivedResponse = await fetch(
+      `${INSTAGRAM_OAUTH_BASE_URL}/oauth/access_token`,
+      { method: "POST", body: shortLivedForm }
+    );
+
+    if (!shortLivedResponse.ok) {
+      throw new Error(
+        `Short-lived token exchange failed: ${await shortLivedResponse.text()}`
+      );
+    }
+
+    const shortLived = (await shortLivedResponse.json()) as {
+      access_token: string;
+      user_id?: string;
+    };
+
+    // 2. Exchange the short-lived token for a long-lived one (~60 days).
+    const longLivedUrl = new URL(
+      `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/access_token`
+    );
+    longLivedUrl.searchParams.set("grant_type", "ig_exchange_token");
+    longLivedUrl.searchParams.set("client_secret", appSecret);
+    longLivedUrl.searchParams.set("access_token", shortLived.access_token);
+
+    const longLivedResponse = await fetch(longLivedUrl);
+
+    if (!longLivedResponse.ok) {
+      throw new Error(
+        `Long-lived token exchange failed: ${await longLivedResponse.text()}`
+      );
+    }
+
+    const longLived = (await longLivedResponse.json()) as {
+      access_token: string;
+    };
+
+    // 3. Fetch the connected Instagram account's identity.
+    const meUrl = new URL(`${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/me`);
+    meUrl.searchParams.set("fields", "user_id,username");
+    meUrl.searchParams.set("access_token", longLived.access_token);
+
+    const meResponse = await fetch(meUrl);
+
+    if (!meResponse.ok) {
+      throw new Error(`Fetching Instagram profile failed: ${await meResponse.text()}`);
+    }
+
+    const me = (await meResponse.json()) as {
+      user_id: string;
+      username?: string;
+    };
+
+    // 4. Store the account, owned by the signed-in user.
+    const { error: upsertError } = await supabase
+      .from("instagram_accounts")
+      .upsert(
+        {
+          profile_id: user.id,
+          instagram_user_id: me.user_id,
+          username: me.username ?? null,
+          access_token: longLived.access_token,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "instagram_user_id" }
+      );
+
+    if (upsertError) {
+      throw new Error(upsertError.message);
+    }
+
+    // 5. Subscribe this Instagram account to the app's webhook so Meta
+    // actually delivers comment events for it (dashboard-level webhook
+    // config alone only enables the *app*; each connected IG user must
+    // separately opt in via this call, or Meta never sends events for
+    // that account). Calling this again on reconnect just re-asserts the
+    // same subscription (it's a set, not an append), so it's naturally
+    // idempotent — no dedup bookkeeping needed on our side.
+    const subscribeUrl = new URL(
+      `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${me.user_id}/subscribed_apps`
+    );
+    subscribeUrl.searchParams.set("subscribed_fields", "comments,messages");
+    subscribeUrl.searchParams.set("access_token", longLived.access_token);
+
+    const subscribeResponse = await fetch(subscribeUrl, { method: "POST" });
+    const subscribeBody = await subscribeResponse.json().catch(() => null);
+
+    if (!subscribeResponse.ok || subscribeBody?.success !== true) {
+      const metaError = subscribeBody?.error as
+        | { message?: string; type?: string; code?: number; error_subcode?: number; fbtrace_id?: string }
+        | undefined;
+
+      // Safe to log: HTTP status + Meta's error fields + the IG account id.
+      // Never log longLived.access_token or any other secret.
+      console.error("Instagram webhook subscription failed", {
+        instagramUserId: me.user_id,
+        httpStatus: subscribeResponse.status,
+        metaErrorCode: metaError?.code,
+        metaErrorSubcode: metaError?.error_subcode,
+        metaErrorType: metaError?.type,
+        metaErrorMessage: metaError?.message,
+        fbtraceId: metaError?.fbtrace_id,
+      });
+
+      // The account row is already stored at this point — don't pretend
+      // the connection is fully working when comments won't actually
+      // arrive. Surface a distinct, specific error instead.
+      throw new Error(
+        `Instagram account connected, but webhook subscription failed` +
+          (metaError?.message ? `: ${metaError.message}` : "") +
+          (metaError?.code ? ` (code ${metaError.code})` : "")
+      );
+    }
+
+    // TEMPORARY DIAGNOSTIC — remove once webhook delivery is confirmed working.
+    // Re-fetch the subscription state right after subscribing, to see what
+    // Meta actually recorded (as opposed to what the subscribe call claimed).
+    try {
+      const verifyUrl = new URL(
+        `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${me.user_id}/subscribed_apps`
+      );
+      verifyUrl.searchParams.set("access_token", longLived.access_token);
+
+      const verifyResponse = await fetch(verifyUrl);
+      const verifyBody = await verifyResponse.json().catch(() => null);
+
+      console.log("[DIAGNOSTIC] subscribed_apps check", {
+        instagramUserId: me.user_id,
+        httpStatus: verifyResponse.status,
+        responseJson: JSON.stringify(verifyBody, null, 2),
+        metaErrorCode: verifyBody?.error?.code,
+        metaErrorMessage: verifyBody?.error?.message,
+      });
+    } catch (diagErr) {
+      console.error("[DIAGNOSTIC] subscribed_apps check failed", {
+        instagramUserId: me.user_id,
+        error: diagErr instanceof Error ? diagErr.message : String(diagErr),
+      });
+    }
+  } catch (err) {
+    console.error("Instagram connect failed:", err);
+    return redirectWithError(
+      request,
+      err instanceof Error
+        ? err.message
+        : "Could not connect that Instagram account. Please try again."
+    );
+  }
+
+  const response = NextResponse.redirect(
+    new URL("/dashboard/accounts?connected=1", request.url)
+  );
+  response.cookies.delete(STATE_COOKIE);
+  return response;
+}
+
+function redirectWithError(request: NextRequest, message: string) {
+  const url = new URL("/dashboard/accounts", request.url);
+  url.searchParams.set("error", message);
+  const response = NextResponse.redirect(url);
+  response.cookies.delete(STATE_COOKIE);
+  return response;
+}
