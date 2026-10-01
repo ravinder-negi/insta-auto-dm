@@ -5,8 +5,10 @@ import {
   INSTAGRAM_GRAPH_BASE_URL,
   INSTAGRAM_OAUTH_BASE_URL,
 } from "@/lib/instagram/config";
+import { ONBOARDING_PATH, pendingOnboardingStep } from "@/lib/auth/onboarding";
 
 const STATE_COOKIE = "ig_oauth_state";
+const ACCOUNTS_PATH = "/dashboard/accounts";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -33,6 +35,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  // A user still in onboarding connects from there, so send them back to the
+  // flow instead of dropping them on the accounts page mid-setup.
+  const returnPath = pendingOnboardingStep(user.user_metadata)
+    ? ONBOARDING_PATH
+    : ACCOUNTS_PATH;
+
   const appId = process.env.INSTAGRAM_APP_ID;
   const appSecret = process.env.META_APP_SECRET;
   const redirectUri = process.env.INSTAGRAM_REDIRECT_URI;
@@ -40,7 +48,8 @@ export async function GET(request: NextRequest) {
   if (!appId || !appSecret || !redirectUri) {
     return redirectWithError(
       request,
-      "Instagram connect is not configured on the server."
+      "Instagram connect is not configured on the server.",
+      returnPath,
     );
   }
 
@@ -56,12 +65,12 @@ export async function GET(request: NextRequest) {
 
     const shortLivedResponse = await fetch(
       `${INSTAGRAM_OAUTH_BASE_URL}/oauth/access_token`,
-      { method: "POST", body: shortLivedForm }
+      { method: "POST", body: shortLivedForm },
     );
 
     if (!shortLivedResponse.ok) {
       throw new Error(
-        `Short-lived token exchange failed: ${await shortLivedResponse.text()}`
+        `Short-lived token exchange failed: ${await shortLivedResponse.text()}`,
       );
     }
 
@@ -72,7 +81,7 @@ export async function GET(request: NextRequest) {
 
     // 2. Exchange the short-lived token for a long-lived one (~60 days).
     const longLivedUrl = new URL(
-      `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/access_token`
+      `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/access_token`,
     );
     longLivedUrl.searchParams.set("grant_type", "ig_exchange_token");
     longLivedUrl.searchParams.set("client_secret", appSecret);
@@ -82,7 +91,7 @@ export async function GET(request: NextRequest) {
 
     if (!longLivedResponse.ok) {
       throw new Error(
-        `Long-lived token exchange failed: ${await longLivedResponse.text()}`
+        `Long-lived token exchange failed: ${await longLivedResponse.text()}`,
       );
     }
 
@@ -98,7 +107,9 @@ export async function GET(request: NextRequest) {
     const meResponse = await fetch(meUrl);
 
     if (!meResponse.ok) {
-      throw new Error(`Fetching Instagram profile failed: ${await meResponse.text()}`);
+      throw new Error(
+        `Fetching Instagram profile failed: ${await meResponse.text()}`,
+      );
     }
 
     const me = (await meResponse.json()) as {
@@ -118,7 +129,7 @@ export async function GET(request: NextRequest) {
           is_active: true,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "instagram_user_id" }
+        { onConflict: "instagram_user_id" },
       );
 
     if (upsertError) {
@@ -133,7 +144,7 @@ export async function GET(request: NextRequest) {
     // same subscription (it's a set, not an append), so it's naturally
     // idempotent — no dedup bookkeeping needed on our side.
     const subscribeUrl = new URL(
-      `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${me.user_id}/subscribed_apps`
+      `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${me.user_id}/subscribed_apps`,
     );
     subscribeUrl.searchParams.set("subscribed_fields", "comments,messages");
     subscribeUrl.searchParams.set("access_token", longLived.access_token);
@@ -143,7 +154,13 @@ export async function GET(request: NextRequest) {
 
     if (!subscribeResponse.ok || subscribeBody?.success !== true) {
       const metaError = subscribeBody?.error as
-        | { message?: string; type?: string; code?: number; error_subcode?: number; fbtrace_id?: string }
+        | {
+            message?: string;
+            type?: string;
+            code?: number;
+            error_subcode?: number;
+            fbtrace_id?: string;
+          }
         | undefined;
 
       // Safe to log: HTTP status + Meta's error fields + the IG account id.
@@ -164,7 +181,7 @@ export async function GET(request: NextRequest) {
       throw new Error(
         `Instagram account connected, but webhook subscription failed` +
           (metaError?.message ? `: ${metaError.message}` : "") +
-          (metaError?.code ? ` (code ${metaError.code})` : "")
+          (metaError?.code ? ` (code ${metaError.code})` : ""),
       );
     }
 
@@ -173,7 +190,7 @@ export async function GET(request: NextRequest) {
     // Meta actually recorded (as opposed to what the subscribe call claimed).
     try {
       const verifyUrl = new URL(
-        `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${me.user_id}/subscribed_apps`
+        `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${me.user_id}/subscribed_apps`,
       );
       verifyUrl.searchParams.set("access_token", longLived.access_token);
 
@@ -199,19 +216,24 @@ export async function GET(request: NextRequest) {
       request,
       err instanceof Error
         ? err.message
-        : "Could not connect that Instagram account. Please try again."
+        : "Could not connect that Instagram account. Please try again.",
+      returnPath,
     );
   }
 
   const response = NextResponse.redirect(
-    new URL("/dashboard/accounts?connected=1", request.url)
+    new URL(`${returnPath}?connected=1`, request.url),
   );
   response.cookies.delete(STATE_COOKIE);
   return response;
 }
 
-function redirectWithError(request: NextRequest, message: string) {
-  const url = new URL("/dashboard/accounts", request.url);
+function redirectWithError(
+  request: NextRequest,
+  message: string,
+  basePath: string = ACCOUNTS_PATH,
+) {
+  const url = new URL(basePath, request.url);
   url.searchParams.set("error", message);
   const response = NextResponse.redirect(url);
   response.cookies.delete(STATE_COOKIE);

@@ -31,7 +31,9 @@ function errorMessage(err: unknown, fallback: string) {
 export interface RuleTableRow {
   id: string;
   name: string;
-  keyword: string;
+  triggerType: string;
+  keywordMatch: "specific" | "any";
+  keywords: string[];
   instagram_media_id: string | null;
   require_follow: boolean;
   is_active: boolean;
@@ -69,7 +71,7 @@ export function RulesTable({
     if (!searchParams.has("created") && !searchParams.has("updated")) return;
     toastShown.current = true;
     toast.success(
-      searchParams.has("created") ? "Rule created." : "Rule updated."
+      searchParams.has("created") ? "AutoDM created." : "AutoDM updated."
     );
     router.replace(pathname);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -80,7 +82,7 @@ export function RulesTable({
       await toggleRuleActive(id, nextActive);
       toast.success(`"${name}" ${nextActive ? "activated" : "paused"}.`);
     } catch (err) {
-      toast.error(errorMessage(err, "Failed to update rule."));
+      toast.error(errorMessage(err, "Failed to update AutoDM."));
     }
   }
 
@@ -89,7 +91,7 @@ export function RulesTable({
       await duplicateRule(id);
       toast.success(`Duplicated "${name}".`);
     } catch (err) {
-      toast.error(errorMessage(err, "Failed to duplicate rule."));
+      toast.error(errorMessage(err, "Failed to duplicate AutoDM."));
     }
   }
 
@@ -98,7 +100,7 @@ export function RulesTable({
       await deleteRule(id);
       toast.success(`"${name}" deleted.`);
     } catch (err) {
-      toast.error(errorMessage(err, "Failed to delete rule."));
+      toast.error(errorMessage(err, "Failed to delete AutoDM."));
     }
   }
 
@@ -107,7 +109,7 @@ export function RulesTable({
     return rules.filter((rule) => {
       if (accountId !== "all" && rule.accountId !== accountId) return false;
       if (!needle) return true;
-      return `${rule.name} ${rule.keyword} ${rule.accountHandle}`
+      return `${rule.name} ${rule.keywords.join(" ")} ${rule.accountHandle}`
         .toLowerCase()
         .includes(needle);
     });
@@ -119,7 +121,7 @@ export function RulesTable({
         <SearchField
           value={query}
           onChange={setQuery}
-          placeholder="Search rules..."
+          placeholder="Search AutoDMs..."
           className="sm:w-64"
         />
         <SelectField
@@ -150,10 +152,10 @@ export function RulesTable({
           <table className="w-full min-w-[900px] text-sm">
             <thead className="border-b border-black/6 bg-zinc-50/70 dark:border-white/8 dark:bg-white/3">
               <tr>
-                <th className={HEAD_CLASS}>Rule name</th>
+                <th className={HEAD_CLASS}>AutoDM name</th>
                 <th className={HEAD_CLASS}>Keyword</th>
                 <th className={HEAD_CLASS}>Account</th>
-                <th className={HEAD_CLASS}>Post/reel</th>
+                <th className={HEAD_CLASS}>Target</th>
                 <th className={HEAD_CLASS}>Status</th>
                 <th className={HEAD_CLASS}>Created at</th>
                 <th className={HEAD_CLASS}>Actions</th>
@@ -177,6 +179,14 @@ export function RulesTable({
                         <BoltIcon className="h-4 w-4" />
                       </span>
                       <span className="font-semibold">{rule.name}</span>
+                      {rule.triggerType === "story_reply" && (
+                        <span
+                          title="Triggers on a reply to a story"
+                          className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:bg-violet-500/15 dark:text-violet-300"
+                        >
+                          Story reply
+                        </span>
+                      )}
                       {rule.require_follow && (
                         <span
                           title="Requires follow before sending the DM"
@@ -189,9 +199,22 @@ export function RulesTable({
                   </td>
 
                   <td className="px-5 py-4">
-                    <span className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-700 dark:bg-white/8 dark:text-zinc-300">
-                      {rule.keyword}
-                    </span>
+                    {rule.keywordMatch === "any" ? (
+                      <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-white/8 dark:text-zinc-300">
+                        Any comment
+                      </span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {rule.keywords.map((keyword) => (
+                          <span
+                            key={keyword}
+                            className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-700 dark:bg-white/8 dark:text-zinc-300"
+                          >
+                            {keyword}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </td>
 
                   <td className="px-5 py-4">
@@ -213,7 +236,7 @@ export function RulesTable({
                         {rule.instagram_media_id}
                       </span>
                     ) : (
-                      "All posts"
+                      rule.triggerType === "story_reply" ? "Any story" : "All posts"
                     )}
                   </td>
 
@@ -250,7 +273,7 @@ export function RulesTable({
 
                       <Link
                         href={`/dashboard/rules/${rule.id}/edit`}
-                        title="Edit rule"
+                        title="Edit AutoDM"
                         aria-label={`Edit ${rule.name}`}
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
                       >
@@ -263,13 +286,13 @@ export function RulesTable({
 
                       <ConfirmAction
                         action={() => handleDelete(rule.id, rule.name)}
-                        title="Delete this rule?"
+                        title="Delete this AutoDM?"
                         description={`“${rule.name}” will stop replying to comments. This can't be undone.`}
-                        confirmLabel="Delete rule"
+                        confirmLabel="Delete AutoDM"
                         trigger={
                           <button
                             type="button"
-                            title="Delete rule"
+                            title="Delete AutoDM"
                             aria-label={`Delete ${rule.name}`}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
                           >
@@ -282,17 +305,19 @@ export function RulesTable({
                         label={`More actions for ${rule.name}`}
                         items={[
                           {
-                            label: "Copy keyword",
+                            label: "Copy keywords",
                             onSelect: () => {
-                              navigator.clipboard?.writeText(rule.keyword);
-                              toast.info("Keyword copied to clipboard.");
+                              navigator.clipboard?.writeText(
+                                rule.keywords.join(", ")
+                              );
+                              toast.info("Keywords copied to clipboard.");
                             },
                           },
                           {
-                            label: "Copy rule ID",
+                            label: "Copy AutoDM ID",
                             onSelect: () => {
                               navigator.clipboard?.writeText(rule.id);
-                              toast.info("Rule ID copied to clipboard.");
+                              toast.info("AutoDM ID copied to clipboard.");
                             },
                           },
                         ]}
@@ -323,7 +348,7 @@ function DuplicateRuleButton({ ruleName }: { ruleName: string }) {
     <button
       type="submit"
       disabled={pending}
-      title="Duplicate rule"
+      title="Duplicate AutoDM"
       aria-label={`Duplicate ${ruleName}`}
       className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-white/10 dark:hover:text-zinc-200"
     >
@@ -345,8 +370,8 @@ function ToggleSwitchButton({ isActive }: { isActive: boolean }) {
       role="switch"
       aria-checked={isActive}
       disabled={pending}
-      aria-label={isActive ? "Pause this rule" : "Activate this rule"}
-      title={isActive ? "Pause rule" : "Activate rule"}
+      aria-label={isActive ? "Pause this AutoDM" : "Activate this AutoDM"}
+      title={isActive ? "Pause AutoDM" : "Activate AutoDM"}
       className={`relative flex h-6 w-11 items-center rounded-full p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
         isActive ? "brand-gradient" : "bg-zinc-200 dark:bg-zinc-700"
       }`}

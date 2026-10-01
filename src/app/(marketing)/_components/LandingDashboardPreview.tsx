@@ -13,7 +13,7 @@ import {
 
 const NAV_ITEMS = [
   { icon: UsersIcon, label: "Accounts" },
-  { icon: BoltIcon, label: "Rules", active: true },
+  { icon: BoltIcon, label: "AutoDMs", active: true },
   { icon: LayersIcon, label: "Executions" },
   { icon: ChartIcon, label: "Analytics" },
   { icon: SettingsIcon, label: "Settings" },
@@ -73,7 +73,7 @@ export function LandingDashboardPreview() {
                 </div>
               </Field>
 
-              <Field label="Rule name">Send Guide on comment</Field>
+              <Field label="AutoDM name">Send Guide on comment</Field>
 
               <Field label="Keyword">
                 GUIDE

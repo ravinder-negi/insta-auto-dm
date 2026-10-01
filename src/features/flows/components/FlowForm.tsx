@@ -352,7 +352,7 @@ export function FlowForm({
               <Field
                 label="Trigger keyword"
                 htmlFor="trigger_keyword"
-                hint="Matched case-insensitively against the full, trimmed comment text — same as rules."
+                hint="Matched case-insensitively against the full, trimmed comment text — same as AutoDMs."
               >
                 <input
                   id="trigger_keyword"

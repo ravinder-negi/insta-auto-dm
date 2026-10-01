@@ -18,6 +18,9 @@ type RuleQueryRow = Pick<
   AutomationRule,
   | "id"
   | "name"
+  | "trigger_type"
+  | "keyword_match"
+  | "keywords"
   | "keyword"
   | "instagram_media_id"
   | "require_follow"
@@ -38,7 +41,7 @@ export default async function RulesPage() {
     supabase
       .from("automation_rules")
       .select(
-        "id, name, keyword, instagram_media_id, require_follow, is_active, created_at, instagram_account_id, instagram_accounts(username, instagram_user_id, is_active)"
+        "id, name, trigger_type, keyword_match, keywords, keyword, instagram_media_id, require_follow, is_active, created_at, instagram_account_id, instagram_accounts(username, instagram_user_id, is_active)"
       )
       .order("created_at", { ascending: false }),
     supabase
@@ -51,7 +54,14 @@ export default async function RulesPage() {
     (rule) => ({
       id: rule.id,
       name: rule.name,
-      keyword: rule.keyword,
+      triggerType: rule.trigger_type,
+      keywordMatch: rule.keyword_match,
+      // Rules created before keyword sets existed only have the singular column.
+      keywords: rule.keywords?.length
+        ? rule.keywords
+        : rule.keyword
+          ? [rule.keyword]
+          : [],
       instagram_media_id: rule.instagram_media_id,
       require_follow: rule.require_follow,
       is_active: rule.is_active,
@@ -83,8 +93,8 @@ export default async function RulesPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         eyebrow="Automation"
-        title="Automation rules"
-        description="Reply automatically when a comment matches a keyword."
+        title="AutoDMs"
+        description="Each AutoDM watches for a keyword in your comments and sends the DM you wrote."
       />
 
       {error && (
@@ -95,7 +105,7 @@ export default async function RulesPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Total rules"
+          label="Total AutoDMs"
           value={rules.length}
           tone="indigo"
           icon={<BoltIcon className="h-5 w-5" />}
@@ -123,15 +133,15 @@ export default async function RulesPage() {
       {rules.length === 0 ? (
         <EmptyState
           icon={<BoltIcon className="h-6 w-6" />}
-          title="No rules yet"
-          description="Connect an account first, then create a rule to reply to comments containing a keyword."
+          title="No AutoDMs yet"
+          description="Connect an account first, then create an AutoDM to reply to comments containing a keyword."
           action={
             <Link
               href="/dashboard/rules/new"
               className={`${primaryButtonClass} mt-2`}
             >
               <PlusIcon className="h-4 w-4" />
-              Create your first rule
+              Create your first AutoDM
             </Link>
           }
         />

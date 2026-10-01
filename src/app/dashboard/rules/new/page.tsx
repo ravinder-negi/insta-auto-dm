@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { InstagramIcon, PlusIcon } from "@/components/icons";
 import { primaryButtonClass } from "@/components/ui/styles";
-import { RuleForm } from "@/features/rules/components/RuleForm";
+import { RuleWizard } from "@/features/rules/components/wizard/RuleWizard";
 import { RuleFormPageHeader } from "@/features/rules/components/RuleFormPageHeader";
 import { createRule } from "@/features/rules/actions";
 
@@ -26,8 +26,8 @@ export default async function NewRulePage() {
   return (
     <div className="flex flex-col gap-8">
       <RuleFormPageHeader
-        eyebrow="Create rule"
-        title="Create automation rule"
+        eyebrow="Create AutoDM"
+        title="Create AutoDM"
         description="Set a keyword and automated reply for Instagram comments. Save time and engage your audience 24/7."
       />
 
@@ -35,7 +35,7 @@ export default async function NewRulePage() {
         <EmptyState
           icon={<InstagramIcon className="h-6 w-6" />}
           title="Connect an account first"
-          description="A rule needs an Instagram account to listen to."
+          description="An AutoDM needs an Instagram account to listen to."
           action={
             <Link
               href="/dashboard/accounts"
@@ -47,7 +47,7 @@ export default async function NewRulePage() {
           }
         />
       ) : (
-        <RuleForm accounts={accounts} action={createRule} submitLabel="Create rule" />
+        <RuleWizard accounts={accounts} action={createRule} submitLabel="Create AutoDM" />
       )}
     </div>
   );

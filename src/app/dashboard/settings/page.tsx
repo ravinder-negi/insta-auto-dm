@@ -51,7 +51,7 @@ export default async function SettingsPage() {
             {user?.created_at ? formatDate(user.created_at) : "—"}
           </Detail>
           <Detail label="Connected accounts">{accountCount ?? 0}</Detail>
-          <Detail label="Automation rules">{ruleCount ?? 0}</Detail>
+          <Detail label="AutoDMs">{ruleCount ?? 0}</Detail>
         </dl>
       </section>
 

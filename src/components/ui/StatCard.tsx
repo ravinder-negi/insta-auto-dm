@@ -27,6 +27,12 @@ const TONES = {
   },
 };
 
+const TREND_TONES = {
+  up: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  down: "bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+  flat: "bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400",
+};
+
 export function StatCard({
   label,
   value,
@@ -39,8 +45,9 @@ export function StatCard({
   value: number | string;
   icon: ReactNode;
   tone?: keyof typeof TONES;
-  /** Small pill in the top-right, e.g. "↑ 100%" with a caption under it. */
-  trend?: { label: string; caption?: string };
+  /** Small pill in the top-right, e.g. "↑ 100%" with a caption under it.
+   *  `tone` colours the pill by direction; omit it for the neutral grey pill. */
+  trend?: { label: string; caption?: string; tone?: "up" | "down" | "flat" };
   /** Tinted glyph in the top-right, used when there is no trend to show. */
   corner?: ReactNode;
 }) {
@@ -62,7 +69,11 @@ export function StatCard({
 
         {trend ? (
           <div className="text-right">
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                TREND_TONES[trend.tone ?? "up"]
+              }`}
+            >
               {trend.label}
             </span>
             {trend.caption && (

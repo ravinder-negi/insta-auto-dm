@@ -18,7 +18,7 @@ export function RuleFormPageHeader({
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-200"
       >
         <ArrowLeftIcon className="h-4 w-4" />
-        Back to rules
+        Back to AutoDMs
       </Link>
 
       <PageHeader

@@ -1,31 +1,32 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ApiUsage } from "@/types";
 import { ApiUsageCard } from "@/features/analytics/components/ApiUsageCard";
+import { AnalyticsDashboard } from "@/features/analytics/components/AnalyticsDashboard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { StatCard } from "@/components/ui/StatCard";
-import { currentTimestamp, formatDate } from "@/lib/utils/format";
-import { AlertIcon, ChartIcon, SendIcon, TrendingIcon } from "@/components/icons";
-
-const DAYS = 14;
+import { currentTimestamp } from "@/lib/utils/format";
+import { ChartIcon } from "@/components/icons";
+import {
+  EMPTY_ROLLUP,
+  WINDOW_DAYS,
+  type AnalyticsRollup,
+} from "@/features/analytics/lib/metrics";
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
 
-  const since = new Date(currentTimestamp() - DAYS * 86_400_000).toISOString();
-  const [{ data, error }, { data: apiUsage }] = await Promise.all([
-    supabase
-      .from("automation_executions")
-      .select("status, created_at, automation_rule_id")
-      .gte("created_at", since)
-      .order("created_at", { ascending: false })
-      .limit(2000),
+  // One pre-aggregated window; every range and account filter is applied in
+  // the browser against it. See supabase/migrations/..._analytics_rollup.sql.
+  const [{ data: rollupData, error }, { data: apiUsage }] = await Promise.all([
+    supabase.rpc("analytics_rollup", { p_days: WINDOW_DAYS }),
     supabase
       .from("api_usage")
       .select("call_count, total_cputime, total_time, updated_at")
       .eq("id", 1)
       .maybeSingle(),
   ]);
+
+  const rollup = (rollupData as AnalyticsRollup | null) ?? EMPTY_ROLLUP;
 
   const usageRow = apiUsage as Pick<
     ApiUsage,
@@ -46,30 +47,10 @@ export default async function AnalyticsPage() {
     : null;
   const usageUpdatedAt = hasUsageData ? usageRow!.updated_at : null;
 
-  const executions = data ?? [];
-  const sent = executions.filter((row) => row.status === "sent").length;
-  const failed = executions.filter((row) => row.status === "failed").length;
-  const successRate =
-    executions.length > 0 ? Math.round((sent / executions.length) * 100) : 0;
-
-  // One bucket per day, oldest first, keyed by local calendar day.
-  const buckets = Array.from({ length: DAYS }, (_, index) => {
-    const day = new Date();
-    day.setHours(0, 0, 0, 0);
-    day.setDate(day.getDate() - (DAYS - 1 - index));
-    return { day, total: 0 };
-  });
-
-  for (const row of executions) {
-    const stamp = new Date(row.created_at);
-    stamp.setHours(0, 0, 0, 0);
-    const bucket = buckets.find(
-      (candidate) => candidate.day.getTime() === stamp.getTime()
-    );
-    if (bucket) bucket.total += 1;
-  }
-
-  const peak = Math.max(1, ...buckets.map((bucket) => bucket.total));
+  const hasActivity =
+    rollup.executions.length > 0 ||
+    rollup.leads.length > 0 ||
+    rollup.follows.length > 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -80,7 +61,7 @@ export default async function AnalyticsPage() {
             Your automation <span className="brand-text-gradient">performance</span>
           </>
         }
-        description={`Replies sent over the last ${DAYS} days.`}
+        description="DMs delivered, emails captured and followers won — and which AutoDMs earn them."
       />
 
       {error && (
@@ -95,68 +76,14 @@ export default async function AnalyticsPage() {
         now={currentTimestamp()}
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label={`Executions (${DAYS}d)`}
-          value={executions.length}
-          tone="indigo"
-          icon={<ChartIcon className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Replies sent"
-          value={sent}
-          tone="green"
-          icon={<SendIcon className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Failed"
-          value={failed}
-          tone="red"
-          icon={<AlertIcon className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Success rate"
-          value={`${successRate}%`}
-          tone="blue"
-          icon={<TrendingIcon className="h-5 w-5" />}
-        />
-      </div>
-
-      {executions.length === 0 ? (
+      {hasActivity ? (
+        <AnalyticsDashboard rollup={rollup} now={currentTimestamp()} />
+      ) : (
         <EmptyState
           icon={<ChartIcon className="h-6 w-6" />}
           title="Nothing to chart yet"
-          description="Analytics fill in once your rules start replying to comments."
+          description="Analytics fill in once your AutoDMs start replying to comments."
         />
-      ) : (
-        <section className="rounded-2xl border border-black/6 bg-white p-6 shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4">
-          <h2 className="text-base font-semibold tracking-tight">Daily activity</h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Executions per day, {formatDate(buckets[0].day)} – today.
-          </p>
-
-          <div className="mt-6 flex h-48 items-end gap-1.5">
-            {buckets.map((bucket) => (
-              <div
-                key={bucket.day.toISOString()}
-                className="group flex h-full flex-1 flex-col justify-end"
-                title={`${formatDate(bucket.day)}: ${bucket.total}`}
-              >
-                <div
-                  className="brand-gradient w-full rounded-t-md transition-opacity group-hover:opacity-80"
-                  style={{
-                    height: `${Math.max(2, (bucket.total / peak) * 100)}%`,
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-2 flex justify-between text-[11px] text-zinc-400">
-            <span>{formatDate(buckets[0].day)}</span>
-            <span>{formatDate(buckets[buckets.length - 1].day)}</span>
-          </div>
-        </section>
       )}
     </div>
   );

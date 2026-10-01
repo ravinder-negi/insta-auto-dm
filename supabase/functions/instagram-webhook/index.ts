@@ -57,6 +57,14 @@ interface InstagramWebhookPayload {
         mid?: string;
         text?: string;
         is_echo?: boolean;
+        // Present when the inbound DM is a reply to one of the business
+        // account's stories — absent on every other messaging event.
+        reply_to?: {
+          story?: {
+            id?: string;
+            url?: string;
+          };
+        };
       };
     }>;
   }>;
@@ -64,17 +72,209 @@ interface InstagramWebhookPayload {
 
 type AttachmentType = "image" | "video" | "audio";
 
+interface RuleButton {
+  label: string;
+  url: string;
+}
+
+interface RuleFollowup {
+  step_order: number;
+  delay_minutes: number;
+  message: string;
+}
+
 interface AutomationRule {
   id: string;
-  keyword: string;
+  keyword_match: "specific" | "any";
+  keywords: string[] | null;
+  excluded_keywords: string[] | null;
+  keyword: string | null;
   instagram_media_id: string | null;
+  send_delay_seconds: number | null;
   dm_message: string;
+  dm_buttons: RuleButton[] | null;
+  dm_button_card_title: string | null;
+  collect_email: boolean;
+  email_prompt_message: string | null;
   require_follow: boolean;
   follow_prompt_message: string | null;
   send_public_reply: boolean;
+  public_reply_messages: string[] | null;
   public_reply_message: string | null;
   attachment_url: string | null;
   attachment_type: AttachmentType | null;
+}
+
+/**
+ * Word-boundary, case-insensitive containment — the keyword "ai" matches the
+ * comment "ai" or "send me ai" but not "pain". Multi-word keywords work the
+ * same way.
+ */
+function commentIncludesKeyword(normalizedComment: string, keyword: string) {
+  const needle = keyword.trim().toLowerCase();
+  if (!needle) return false;
+
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(
+    `(^|[^\\p{L}\\p{N}_])${escaped}([^\\p{L}\\p{N}_]|$)`,
+    "u"
+  ).test(normalizedComment);
+}
+
+/** Excluded keywords veto a match, including on "any comment" rules. */
+function commentMatchesRule(rule: AutomationRule, normalizedComment: string) {
+  const excluded = rule.excluded_keywords ?? [];
+  if (excluded.some((word) => commentIncludesKeyword(normalizedComment, word))) {
+    return false;
+  }
+
+  if (rule.keyword_match === "any") return true;
+
+  const keywords = rule.keywords?.length
+    ? rule.keywords
+    : rule.keyword
+      ? [rule.keyword]
+      : [];
+
+  return keywords.some((word) => commentIncludesKeyword(normalizedComment, word));
+}
+
+/** Generic-template element titles are capped by Instagram; the card needs
+ *  one even when the real copy lives in the text DM sent just before it. */
+const CARD_TITLE_MAX_LENGTH = 80;
+const CARD_SUBTITLE_MAX_LENGTH = 80;
+
+/**
+ * Delays up to this many seconds are waited out inside the webhook and sent
+ * live, so the DM keeps its button card and its attachment and any Instagram
+ * error is recorded on the execution. Longer delays go to scheduled_dms,
+ * where the cron sweep sends them fire-and-forget.
+ */
+const LIVE_SEND_MAX_DELAY_SECONDS = 10;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+const DEFAULT_CARD_TITLE = "Tap the button below 👇";
+
+/**
+ * Instagram shows buttons on a card with its own title and subtitle, so a DM
+ * short enough to fit there goes out as ONE bubble: card copy = the DM text.
+ * Only a message too long for both lines is sent as its own message first,
+ * with the configured heading on the card beneath it.
+ */
+function cardCopy(text: string, cardTitle: string | null) {
+  const message = text.trim();
+  const fallbackTitle = cardTitle?.trim() || DEFAULT_CARD_TITLE;
+
+  if (!message) {
+    return { title: fallbackTitle, subtitle: null, sendTextSeparately: false };
+  }
+
+  if (message.length <= CARD_TITLE_MAX_LENGTH) {
+    return { title: message, subtitle: null, sendTextSeparately: false };
+  }
+
+  if (message.length <= CARD_TITLE_MAX_LENGTH + CARD_SUBTITLE_MAX_LENGTH) {
+    // Break on whitespace so a word isn't cut in half across the two lines.
+    const breakAt = message.lastIndexOf(" ", CARD_TITLE_MAX_LENGTH);
+    const splitAt = breakAt > 0 ? breakAt : CARD_TITLE_MAX_LENGTH;
+
+    return {
+      title: message.slice(0, splitAt).trim(),
+      subtitle: message.slice(splitAt).trim().slice(0, CARD_SUBTITLE_MAX_LENGTH),
+      sendTextSeparately: false,
+    };
+  }
+
+  return { title: fallbackTitle, subtitle: null, sendTextSeparately: true };
+}
+
+/** The Instagram message objects a delayed send is queued as: the text, the
+ *  button card, then the attachment — the same sequence sendRuleOrStepMessage
+ *  sends live. */
+function scheduledMessagePayloads({
+  text,
+  buttons,
+  cardTitle,
+  attachmentUrl,
+  attachmentType,
+}: {
+  text: string;
+  buttons: RuleButton[];
+  cardTitle: string | null;
+  attachmentUrl: string | null;
+  attachmentType: AttachmentType | null;
+}): Record<string, unknown>[] {
+  const cardImage =
+    attachmentUrl && (attachmentType ?? "image") === "image" ? attachmentUrl : null;
+
+  const copy = buttons.length ? cardCopy(text, cardTitle) : null;
+
+  const payloads: Record<string, unknown>[] =
+    copy && !copy.sendTextSeparately ? [] : [{ text }];
+
+  if (copy) {
+    payloads.push({
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "generic",
+          elements: [
+            {
+              title: copy.title,
+              ...(copy.subtitle ? { subtitle: copy.subtitle } : {}),
+              ...(cardImage ? { image_url: cardImage } : {}),
+              buttons: buttons.slice(0, 3).map((button) => ({
+                type: "web_url",
+                url: button.url,
+                title: button.label,
+              })),
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  // An image already shown on the card isn't sent a second time.
+  if (attachmentUrl && !(buttons.length && cardImage)) {
+    payloads.push({
+      attachment: {
+        type: attachmentType ?? "image",
+        payload: { url: attachmentUrl, is_reusable: true },
+      },
+    });
+  }
+
+  return payloads;
+}
+
+/** Used when Instagram rejects the button card: the links still reach the
+ *  recipient as text. */
+function buttonLinksText(buttons: RuleButton[]) {
+  return buttons.map((button) => `${button.label}: ${button.url}`).join("\n");
+}
+
+/** Instagram threads a reply to the commenter only when it opens with their
+ *  handle, the way a manual reply typed in the app does. */
+function withCommenterMention(message: string, username: string | undefined) {
+  if (!username) return message;
+
+  const handle = `@${username}`;
+  return message.includes(handle) ? message : `${handle} ${message}`;
+}
+
+/** Rotating a few wordings at random keeps public replies from reading like a
+ *  bot posting the same line under every comment. */
+function pickPublicReply(rule: AutomationRule) {
+  const messages = (rule.public_reply_messages ?? []).filter(
+    (message) => message.trim().length > 0
+  );
+
+  if (messages.length === 0) return rule.public_reply_message;
+
+  return messages[Math.floor(Math.random() * messages.length)];
 }
 
 interface DmFlow {
@@ -245,11 +445,16 @@ Deno.serve(async (req) => {
       const instagramAccountId = entry?.id;
 
       for (const change of entry?.changes ?? []) {
-        if (change?.field !== "comments") {
-          continue;
+        if (change?.field === "comments") {
+          await handleCommentChange(instagramAccountId, change.value, payload);
+        } else if (change?.field === "live_comments") {
+          await handleCommentChange(
+            instagramAccountId,
+            change.value,
+            payload,
+            "live_comment"
+          );
         }
-
-        await handleCommentChange(instagramAccountId, change.value, payload);
       }
 
       for (const messagingEvent of entry?.messaging ?? []) {
@@ -273,7 +478,8 @@ type CommentValue = NonNullable<
 async function handleCommentChange(
   instagramAccountId: string | undefined,
   comment: CommentValue | undefined,
-  fullPayload: InstagramWebhookPayload
+  fullPayload: InstagramWebhookPayload,
+  triggerType: "comment_keyword" | "live_comment" = "comment_keyword"
 ) {
   const commentId = comment?.id;
   const commentText = comment?.text?.trim() ?? "";
@@ -300,7 +506,7 @@ async function handleCommentChange(
   const { error: webhookError } = await supabaseAdmin
     .from("webhook_events")
     .insert({
-      event_type: "comments",
+      event_type: triggerType === "live_comment" ? "live_comments" : "comments",
       instagram_account_id: instagramAccount?.id ?? null,
       payload: fullPayload,
     });
@@ -326,6 +532,13 @@ async function handleCommentChange(
 
   if (!instagramAccount.is_active) {
     console.log("Instagram account inactive:", instagramAccountId);
+    return;
+  }
+
+  // The account's own comments must never trigger its automations — with an
+  // "any comment" rule that would mean DMing yourself on every post.
+  if (commenterId === instagramAccount.instagram_user_id) {
+    console.log("Skipping the account's own comment:", commentId);
     return;
   }
 
@@ -392,6 +605,7 @@ async function handleCommentChange(
       instagramAccount,
       commentId,
       senderId: commenterId,
+      commenterUsername,
     });
     return;
   }
@@ -408,9 +622,10 @@ async function handleCommentChange(
   const { data: rules, error: rulesError } = await supabaseAdmin
     .from("automation_rules")
     .select(
-      "id, keyword, instagram_media_id, dm_message, require_follow, follow_prompt_message, send_public_reply, public_reply_message, attachment_url, attachment_type"
+      "id, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type"
     )
     .eq("instagram_account_id", instagramAccount.id)
+    .eq("trigger_type", triggerType)
     .eq("is_active", true);
 
   if (rulesError) {
@@ -426,10 +641,14 @@ async function handleCommentChange(
         rule.instagram_media_id === mediaId ||
         rule.instagram_media_id === null
     )
-    .filter((rule) => rule.keyword.trim().toLowerCase() === normalizedComment)
-    .sort((a, b) =>
-      (a.instagram_media_id === null ? 1 : 0) -
-      (b.instagram_media_id === null ? 1 : 0)
+    .filter((rule) => commentMatchesRule(rule, normalizedComment))
+    .sort(
+      (a, b) =>
+        // A rule scoped to this media wins over an account-wide one, and a
+        // keyword rule wins over one that fires on any comment.
+        (a.instagram_media_id === null ? 1 : 0) -
+          (b.instagram_media_id === null ? 1 : 0) ||
+        (a.keyword_match === "any" ? 1 : 0) - (b.keyword_match === "any" ? 1 : 0)
     )[0];
 
   if (!matchedRule) {
@@ -448,11 +667,13 @@ async function handleCommentChange(
    * ======================================
    */
 
-  if (matchedRule.send_public_reply && matchedRule.public_reply_message) {
+  const publicReply = pickPublicReply(matchedRule);
+
+  if (matchedRule.send_public_reply && publicReply) {
     const publicReplyResult = await postPublicCommentReply({
       commentId,
       accessToken: instagramAccount.access_token,
-      message: matchedRule.public_reply_message,
+      message: withCommenterMention(publicReply, commenterUsername),
     });
 
     if (!publicReplyResult.success) {
@@ -473,6 +694,7 @@ async function handleCommentChange(
    */
 
   let outgoingMessage = matchedRule.dm_message;
+  let isFollowPrompt = false;
 
   if (matchedRule.require_follow) {
     const isFollowing = await checkUserFollowsBusiness(
@@ -510,6 +732,66 @@ async function handleCommentChange(
         "{profile_link}",
         profileLink
       );
+      isFollowPrompt = true;
+    } else {
+      // Already following. If we nudged them earlier, stamp the prompt row so
+      // analytics can attribute the follow to this rule. The `is null` guard
+      // keeps the first conversion timestamp instead of bumping it on every
+      // later comment.
+      await supabaseAdmin
+        .from("automation_follow_prompts")
+        .update({ followed_at: new Date().toISOString() })
+        .eq("automation_rule_id", matchedRule.id)
+        .eq("commenter_instagram_id", commenterId)
+        .is("followed_at", null);
+    }
+  }
+
+  /**
+   * ======================================
+   * EMAIL ASK
+   * A commenter whose address we don't have yet gets email_prompt_message
+   * instead of the primary DM; their reply is captured in
+   * handlePendingEmailPrompt, which then sends the real DM. Like the follow
+   * gate, each commenter is asked at most once per rule.
+   * ======================================
+   */
+
+  let isEmailPrompt = false;
+
+  if (matchedRule.collect_email && !isFollowPrompt) {
+    const { data: lead } = await supabaseAdmin
+      .from("automation_rule_leads")
+      .select("id")
+      .eq("automation_rule_id", matchedRule.id)
+      .eq("ig_sender_id", commenterId)
+      .maybeSingle();
+
+    if (!lead) {
+      const { data: existingPrompt } = await supabaseAdmin
+        .from("automation_email_prompts")
+        .select("id")
+        .eq("automation_rule_id", matchedRule.id)
+        .eq("ig_sender_id", commenterId)
+        .maybeSingle();
+
+      if (existingPrompt) {
+        await supabaseAdmin.from("automation_executions").insert({
+          automation_rule_id: matchedRule.id,
+          instagram_account_id: instagramAccount.id,
+          instagram_comment_id: commentId,
+          commenter_instagram_id: commenterId,
+          commenter_username: commenterUsername,
+          instagram_media_id: mediaId,
+          comment_text: commentText,
+          status: "skipped_already_prompted",
+        });
+        console.log("Already asked for an email, skipping:", commentId);
+        return;
+      }
+
+      outgoingMessage = matchedRule.email_prompt_message ?? "";
+      isEmailPrompt = true;
     }
   }
 
@@ -545,7 +827,71 @@ async function handleCommentChange(
     return;
   }
 
-  const isFollowPrompt = outgoingMessage !== matchedRule.dm_message;
+  const isPrompt = isFollowPrompt || isEmailPrompt;
+  const buttons = isPrompt ? [] : (matchedRule.dm_buttons ?? []);
+
+  /**
+   * ======================================
+   * DELAYED SEND
+   * A rule with a time delay hands the primary DM to scheduled_dms, which
+   * pg_cron sweeps. Prompts (follow / email) always go out immediately —
+   * they're the reply to the comment, not the payload. The sweep sends
+   * plain text, so button links ride along in the message body.
+   * ======================================
+   */
+
+  const delaySeconds = isPrompt ? 0 : (matchedRule.send_delay_seconds ?? 0);
+
+  if (delaySeconds > LIVE_SEND_MAX_DELAY_SECONDS) {
+    const sendAt = Date.now() + delaySeconds * 1000;
+
+    const { error: scheduleError } = await supabaseAdmin
+      .from("scheduled_dms")
+      .insert(
+        scheduledMessagePayloads({
+          text: outgoingMessage,
+          buttons,
+          cardTitle: matchedRule.dm_button_card_title,
+          attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
+          attachmentType: isPrompt ? null : matchedRule.attachment_type,
+        }).map((payload, index) => ({
+          instagram_account_id: instagramAccount.id,
+          automation_rule_id: matchedRule.id,
+          recipient_ig_id: commenterId,
+          // Only the first message can use the comment's private-reply
+          // allowance; the rest ride the thread it opens.
+          recipient_comment_id: index === 0 ? commentId : null,
+          message: typeof payload.text === "string" ? payload.text : "",
+          message_payload: payload,
+          // One second apart so the sweep keeps them in order.
+          send_after: new Date(sendAt + index * 1000).toISOString(),
+        }))
+      );
+
+    await supabaseAdmin
+      .from("automation_executions")
+      .update({
+        status: scheduleError ? "failed" : "scheduled",
+        error_message: scheduleError?.message ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("instagram_comment_id", commentId);
+
+    if (scheduleError) {
+      console.error("Failed to schedule delayed DM:", commentId, scheduleError.message);
+      return;
+    }
+
+    await scheduleFollowups({
+      ruleId: matchedRule.id,
+      instagramAccountId: instagramAccount.id,
+      recipientIgId: commenterId,
+      baseDelaySeconds: delaySeconds,
+    });
+
+    console.log("Private reply scheduled:", commentId);
+    return;
+  }
 
   /**
    * ======================================
@@ -553,21 +899,31 @@ async function handleCommentChange(
    * ======================================
    */
 
+  if (delaySeconds > 0) {
+    await sleep(delaySeconds * 1000);
+  }
+
   const result = await sendRuleOrStepMessage({
     instagramUserId: instagramAccount.instagram_user_id,
     accessToken: instagramAccount.access_token,
     recipient: { comment_id: commentId },
     text: outgoingMessage,
-    // Attachment belongs to the real dm_message, not the follow-gate nudge.
-    attachmentUrl: isFollowPrompt ? null : matchedRule.attachment_url,
-    attachmentType: isFollowPrompt ? null : matchedRule.attachment_type,
+    buttons,
+    cardTitle: matchedRule.dm_button_card_title,
+    // Attachment belongs to the real dm_message, not a follow/email nudge.
+    attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
+    attachmentType: isPrompt ? null : matchedRule.attachment_type,
   });
 
   if (result.success) {
     await supabaseAdmin
       .from("automation_executions")
       .update({
-        status: isFollowPrompt ? "follow_prompt_sent" : "sent",
+        status: isFollowPrompt
+          ? "follow_prompt_sent"
+          : isEmailPrompt
+            ? "email_prompt_sent"
+            : "sent",
         instagram_message_id: result.messageId ?? null,
         updated_at: new Date().toISOString(),
       })
@@ -577,6 +933,24 @@ async function handleCommentChange(
       await supabaseAdmin.from("automation_follow_prompts").insert({
         automation_rule_id: matchedRule.id,
         commenter_instagram_id: commenterId,
+      });
+    }
+
+    if (isEmailPrompt) {
+      await supabaseAdmin.from("automation_email_prompts").insert({
+        automation_rule_id: matchedRule.id,
+        instagram_account_id: instagramAccount.id,
+        ig_sender_id: commenterId,
+        instagram_comment_id: commentId,
+      });
+    }
+
+    if (!isPrompt) {
+      await scheduleFollowups({
+        ruleId: matchedRule.id,
+        instagramAccountId: instagramAccount.id,
+        recipientIgId: commenterId,
+        baseDelaySeconds: 0,
       });
     }
 
@@ -593,6 +967,201 @@ async function handleCommentChange(
 
     console.error("Private reply failed for comment:", commentId, result.error);
   }
+}
+
+/**
+ * ============================================
+ * SCHEDULE FOLLOW-UPS
+ * Queued once the primary DM is sent (or scheduled), each offset from that
+ * send rather than from each other. Follow-ups address the recipient by id:
+ * a comment_id private reply is a one-shot allowance.
+ * ============================================
+ */
+
+async function scheduleFollowups({
+  ruleId,
+  instagramAccountId,
+  recipientIgId,
+  baseDelaySeconds,
+}: {
+  ruleId: string;
+  instagramAccountId: string;
+  recipientIgId: string;
+  baseDelaySeconds: number;
+}) {
+  const { data: followups, error } = await supabaseAdmin
+    .from("automation_rule_followups")
+    .select("step_order, delay_minutes, message")
+    .eq("automation_rule_id", ruleId)
+    .order("step_order");
+
+  if (error) {
+    console.error("Failed to load follow-ups:", error.message);
+    return;
+  }
+  if (!followups?.length) return;
+
+  const now = Date.now();
+
+  const { error: insertError } = await supabaseAdmin.from("scheduled_dms").insert(
+    (followups as RuleFollowup[]).map((followup) => ({
+      instagram_account_id: instagramAccountId,
+      automation_rule_id: ruleId,
+      recipient_ig_id: recipientIgId,
+      message: followup.message,
+      message_payload: { text: followup.message },
+      send_after: new Date(
+        now + (baseDelaySeconds + followup.delay_minutes * 60) * 1000
+      ).toISOString(),
+    }))
+  );
+
+  if (insertError) {
+    console.error("Failed to schedule follow-ups:", insertError.message);
+  }
+}
+
+/**
+ * ============================================
+ * PENDING EMAIL ASK
+ * A DM from someone who still owes an address is read as that address: a
+ * valid one is stored and the primary DM follows, an invalid one is
+ * re-prompted. Returns whether the message was consumed here.
+ * ============================================
+ */
+
+async function handlePendingEmailPrompt({
+  instagramAccount,
+  senderId,
+  text,
+}: {
+  instagramAccount: { id: string; instagram_user_id: string; access_token: string };
+  senderId: string;
+  text: string;
+}): Promise<boolean> {
+  const { data: prompt } = await supabaseAdmin
+    .from("automation_email_prompts")
+    .select("id, automation_rule_id")
+    .eq("instagram_account_id", instagramAccount.id)
+    .eq("ig_sender_id", senderId)
+    .eq("status", "pending")
+    .order("prompted_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!prompt) return false;
+
+  const email = text.trim();
+
+  if (!EMAIL_PATTERN.test(email) || !hasAllowedTld(email)) {
+    const retryResult = await sendInstagramMessage({
+      instagramUserId: instagramAccount.instagram_user_id,
+      accessToken: instagramAccount.access_token,
+      recipient: { id: senderId },
+      message: EMAIL_RETRY_MESSAGE,
+    });
+
+    if (!retryResult.success) {
+      console.error("Email retry prompt send failed:", retryResult.error);
+    }
+
+    return true;
+  }
+
+  const ruleId = prompt.automation_rule_id as string;
+
+  const { error: leadError } = await supabaseAdmin
+    .from("automation_rule_leads")
+    .upsert(
+      {
+        automation_rule_id: ruleId,
+        instagram_account_id: instagramAccount.id,
+        ig_sender_id: senderId,
+        email,
+      },
+      { onConflict: "automation_rule_id,ig_sender_id" }
+    );
+
+  if (leadError) {
+    console.error("Failed to store rule lead:", leadError.message);
+  }
+
+  await supabaseAdmin
+    .from("automation_email_prompts")
+    .update({ status: "collected", collected_at: new Date().toISOString() })
+    .eq("id", prompt.id);
+
+  const { data: rule } = await supabaseAdmin
+    .from("automation_rules")
+    .select(
+      "id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, attachment_url, attachment_type"
+    )
+    .eq("id", ruleId)
+    .maybeSingle();
+
+  if (!rule) return true;
+
+  const typedRule = rule as Pick<
+    AutomationRule,
+    | "id"
+    | "send_delay_seconds"
+    | "dm_message"
+    | "dm_buttons"
+    | "dm_button_card_title"
+    | "attachment_url"
+    | "attachment_type"
+  >;
+  const buttons = typedRule.dm_buttons ?? [];
+  const delaySeconds = typedRule.send_delay_seconds ?? 0;
+
+  if (delaySeconds > LIVE_SEND_MAX_DELAY_SECONDS) {
+    const sendAt = Date.now() + delaySeconds * 1000;
+
+    await supabaseAdmin.from("scheduled_dms").insert(
+      scheduledMessagePayloads({
+        text: typedRule.dm_message,
+        buttons,
+        cardTitle: typedRule.dm_button_card_title,
+        attachmentUrl: typedRule.attachment_url,
+        attachmentType: typedRule.attachment_type,
+      }).map((payload, index) => ({
+        instagram_account_id: instagramAccount.id,
+        automation_rule_id: typedRule.id,
+        recipient_ig_id: senderId,
+        message: typeof payload.text === "string" ? payload.text : "",
+        message_payload: payload,
+        send_after: new Date(sendAt + index * 1000).toISOString(),
+      }))
+    );
+  } else {
+    if (delaySeconds > 0) {
+      await sleep(delaySeconds * 1000);
+    }
+
+    const result = await sendRuleOrStepMessage({
+      instagramUserId: instagramAccount.instagram_user_id,
+      accessToken: instagramAccount.access_token,
+      recipient: { id: senderId },
+      text: typedRule.dm_message,
+      buttons,
+      cardTitle: typedRule.dm_button_card_title,
+      attachmentUrl: typedRule.attachment_url,
+      attachmentType: typedRule.attachment_type,
+    });
+
+    if (!result.success) {
+      console.error("Primary DM after email capture failed:", result.error);
+    }
+  }
+
+  await scheduleFollowups({
+    ruleId: typedRule.id,
+    instagramAccountId: instagramAccount.id,
+    recipientIgId: senderId,
+    baseDelaySeconds: delaySeconds,
+  });
+
+  return true;
 }
 
 /**
@@ -640,11 +1209,13 @@ async function startDmFlow({
   instagramAccount,
   commentId,
   senderId,
+  commenterUsername,
 }: {
   flow: DmFlow;
   instagramAccount: { id: string; instagram_user_id: string; access_token: string };
   commentId: string;
   senderId: string;
+  commenterUsername?: string;
 }) {
   const { data: firstStep, error: stepError } = await supabaseAdmin
     .from("dm_flow_steps")
@@ -684,7 +1255,7 @@ async function startDmFlow({
     const publicReplyResult = await postPublicCommentReply({
       commentId,
       accessToken: instagramAccount.access_token,
-      message: flow.public_reply_message,
+      message: withCommenterMention(flow.public_reply_message, commenterUsername),
     });
 
     if (!publicReplyResult.success) {
@@ -730,11 +1301,34 @@ async function handleMessagingEvent(
 
   const senderId = event.sender?.id;
   const text = event.message?.text?.trim();
+  const mid = event.message?.mid;
+  const storyId = event.message?.reply_to?.story?.id;
 
   if (!senderId || !text) return;
 
   const instagramAccount = await resolveInstagramAccount(instagramAccountId);
   if (!instagramAccount || !instagramAccount.is_active) return;
+
+  // A story reply is its own trigger, matched against story_reply rules
+  // rather than an in-progress dm_flow session or a pending email ask.
+  if (storyId && mid) {
+    await handleStoryReplyEvent({
+      instagramAccount,
+      senderId,
+      storyId,
+      mid,
+      text,
+    });
+    return;
+  }
+
+  // An outstanding email ask owns the next reply from that sender.
+  const emailHandled = await handlePendingEmailPrompt({
+    instagramAccount,
+    senderId,
+    text,
+  });
+  if (emailHandled) return;
 
   const { data: session, error: sessionError } = await supabaseAdmin
     .from("dm_flow_sessions")
@@ -901,6 +1495,307 @@ async function handleMessagingEvent(
 
 /**
  * ============================================
+ * HANDLE STORY REPLY
+ * A DM whose message.reply_to.story is set. Matched against story_reply
+ * automation_rules the same way a comment matches comment_keyword rules
+ * (account + specific story or account-wide + keyword), but sent as an
+ * ordinary thread message ({id: senderId}) since there's no comment to
+ * privately reply to, and deduped on the inbound mid rather than a
+ * comment id.
+ * ============================================
+ */
+
+async function handleStoryReplyEvent({
+  instagramAccount,
+  senderId,
+  storyId,
+  mid,
+  text,
+}: {
+  instagramAccount: { id: string; instagram_user_id: string; username: string | null; access_token: string };
+  senderId: string;
+  storyId: string;
+  mid: string;
+  text: string;
+}) {
+  const { data: existingExecution } = await supabaseAdmin
+    .from("automation_executions")
+    .select("id")
+    .eq("inbound_message_id", mid)
+    .maybeSingle();
+
+  if (existingExecution) {
+    console.log("Story reply already processed:", mid);
+    return;
+  }
+
+  const { data: rules, error: rulesError } = await supabaseAdmin
+    .from("automation_rules")
+    .select(
+      "id, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type"
+    )
+    .eq("instagram_account_id", instagramAccount.id)
+    .eq("trigger_type", "story_reply")
+    .eq("is_active", true);
+
+  if (rulesError) {
+    console.error("Failed to load story_reply automation_rules:", rulesError.message);
+    return;
+  }
+
+  const normalizedText = text.trim().toLowerCase();
+
+  const matchedRule = ((rules ?? []) as AutomationRule[])
+    .filter(
+      (rule) =>
+        rule.instagram_media_id === storyId || rule.instagram_media_id === null
+    )
+    .filter((rule) => commentMatchesRule(rule, normalizedText))
+    .sort(
+      (a, b) =>
+        (a.instagram_media_id === null ? 1 : 0) -
+          (b.instagram_media_id === null ? 1 : 0) ||
+        (a.keyword_match === "any" ? 1 : 0) - (b.keyword_match === "any" ? 1 : 0)
+    )[0];
+
+  if (!matchedRule) {
+    console.log("No story-reply automation matched for story:", storyId);
+    return;
+  }
+
+  console.log("Story-reply automation matched:", matchedRule.id);
+
+  let outgoingMessage = matchedRule.dm_message;
+  let isFollowPrompt = false;
+
+  if (matchedRule.require_follow) {
+    const isFollowing = await checkUserFollowsBusiness(
+      senderId,
+      instagramAccount.access_token
+    );
+
+    if (!isFollowing) {
+      const { data: existingPrompt } = await supabaseAdmin
+        .from("automation_follow_prompts")
+        .select("id")
+        .eq("automation_rule_id", matchedRule.id)
+        .eq("commenter_instagram_id", senderId)
+        .maybeSingle();
+
+      if (existingPrompt) {
+        await supabaseAdmin.from("automation_executions").insert({
+          automation_rule_id: matchedRule.id,
+          instagram_account_id: instagramAccount.id,
+          inbound_message_id: mid,
+          commenter_instagram_id: senderId,
+          instagram_media_id: storyId,
+          comment_text: text,
+          status: "skipped_already_prompted",
+        });
+        console.log("Already prompted to follow, skipping story reply:", mid);
+        return;
+      }
+
+      const profileLink = `${INSTAGRAM_AUTHORIZE_BASE_URL}/_u/${
+        instagramAccount.username ?? instagramAccount.instagram_user_id
+      }/`;
+      outgoingMessage = (matchedRule.follow_prompt_message ?? "").replaceAll(
+        "{profile_link}",
+        profileLink
+      );
+      isFollowPrompt = true;
+    } else {
+      await supabaseAdmin
+        .from("automation_follow_prompts")
+        .update({ followed_at: new Date().toISOString() })
+        .eq("automation_rule_id", matchedRule.id)
+        .eq("commenter_instagram_id", senderId)
+        .is("followed_at", null);
+    }
+  }
+
+  let isEmailPrompt = false;
+
+  if (matchedRule.collect_email && !isFollowPrompt) {
+    const { data: lead } = await supabaseAdmin
+      .from("automation_rule_leads")
+      .select("id")
+      .eq("automation_rule_id", matchedRule.id)
+      .eq("ig_sender_id", senderId)
+      .maybeSingle();
+
+    if (!lead) {
+      const { data: existingPrompt } = await supabaseAdmin
+        .from("automation_email_prompts")
+        .select("id")
+        .eq("automation_rule_id", matchedRule.id)
+        .eq("ig_sender_id", senderId)
+        .maybeSingle();
+
+      if (existingPrompt) {
+        await supabaseAdmin.from("automation_executions").insert({
+          automation_rule_id: matchedRule.id,
+          instagram_account_id: instagramAccount.id,
+          inbound_message_id: mid,
+          commenter_instagram_id: senderId,
+          instagram_media_id: storyId,
+          comment_text: text,
+          status: "skipped_already_prompted",
+        });
+        console.log("Already asked for an email, skipping story reply:", mid);
+        return;
+      }
+
+      outgoingMessage = matchedRule.email_prompt_message ?? "";
+      isEmailPrompt = true;
+    }
+  }
+
+  const { error: executionInsertError } = await supabaseAdmin
+    .from("automation_executions")
+    .insert({
+      automation_rule_id: matchedRule.id,
+      instagram_account_id: instagramAccount.id,
+      inbound_message_id: mid,
+      commenter_instagram_id: senderId,
+      instagram_media_id: storyId,
+      comment_text: text,
+      status: "processing",
+      dm_message: outgoingMessage,
+    });
+
+  if (executionInsertError) {
+    if (executionInsertError.code === "23505") {
+      console.log("Duplicate story-reply execution detected:", mid);
+      return;
+    }
+
+    console.error("Failed to create story-reply execution:", executionInsertError.message);
+    return;
+  }
+
+  const isPrompt = isFollowPrompt || isEmailPrompt;
+  const buttons = isPrompt ? [] : (matchedRule.dm_buttons ?? []);
+  const delaySeconds = isPrompt ? 0 : (matchedRule.send_delay_seconds ?? 0);
+
+  if (delaySeconds > LIVE_SEND_MAX_DELAY_SECONDS) {
+    const sendAt = Date.now() + delaySeconds * 1000;
+
+    const { error: scheduleError } = await supabaseAdmin
+      .from("scheduled_dms")
+      .insert(
+        scheduledMessagePayloads({
+          text: outgoingMessage,
+          buttons,
+          cardTitle: matchedRule.dm_button_card_title,
+          attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
+          attachmentType: isPrompt ? null : matchedRule.attachment_type,
+        }).map((payload, index) => ({
+          instagram_account_id: instagramAccount.id,
+          automation_rule_id: matchedRule.id,
+          recipient_ig_id: senderId,
+          message: typeof payload.text === "string" ? payload.text : "",
+          message_payload: payload,
+          // One second apart so the sweep keeps them in order.
+          send_after: new Date(sendAt + index * 1000).toISOString(),
+        }))
+      );
+
+    await supabaseAdmin
+      .from("automation_executions")
+      .update({
+        status: scheduleError ? "failed" : "scheduled",
+        error_message: scheduleError?.message ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("inbound_message_id", mid);
+
+    if (scheduleError) {
+      console.error("Failed to schedule delayed story-reply DM:", mid, scheduleError.message);
+      return;
+    }
+
+    await scheduleFollowups({
+      ruleId: matchedRule.id,
+      instagramAccountId: instagramAccount.id,
+      recipientIgId: senderId,
+      baseDelaySeconds: delaySeconds,
+    });
+
+    console.log("Story-reply DM scheduled:", mid);
+    return;
+  }
+
+  if (delaySeconds > 0) {
+    await sleep(delaySeconds * 1000);
+  }
+
+  const result = await sendRuleOrStepMessage({
+    instagramUserId: instagramAccount.instagram_user_id,
+    accessToken: instagramAccount.access_token,
+    recipient: { id: senderId },
+    text: outgoingMessage,
+    buttons,
+    cardTitle: matchedRule.dm_button_card_title,
+    attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
+    attachmentType: isPrompt ? null : matchedRule.attachment_type,
+  });
+
+  if (result.success) {
+    await supabaseAdmin
+      .from("automation_executions")
+      .update({
+        status: isFollowPrompt
+          ? "follow_prompt_sent"
+          : isEmailPrompt
+            ? "email_prompt_sent"
+            : "sent",
+        instagram_message_id: result.messageId ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("inbound_message_id", mid);
+
+    if (isFollowPrompt) {
+      await supabaseAdmin.from("automation_follow_prompts").insert({
+        automation_rule_id: matchedRule.id,
+        commenter_instagram_id: senderId,
+      });
+    }
+
+    if (isEmailPrompt) {
+      await supabaseAdmin.from("automation_email_prompts").insert({
+        automation_rule_id: matchedRule.id,
+        instagram_account_id: instagramAccount.id,
+        ig_sender_id: senderId,
+      });
+    }
+
+    if (!isPrompt) {
+      await scheduleFollowups({
+        ruleId: matchedRule.id,
+        instagramAccountId: instagramAccount.id,
+        recipientIgId: senderId,
+        baseDelaySeconds: 0,
+      });
+    }
+
+    console.log("Story-reply DM sent:", mid);
+  } else {
+    await supabaseAdmin
+      .from("automation_executions")
+      .update({
+        status: "failed",
+        error_message: result.error,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("inbound_message_id", mid);
+
+    console.error("Story-reply DM failed:", mid, result.error);
+  }
+}
+
+/**
+ * ============================================
  * VERIFY META WEBHOOK SIGNATURE
  * ============================================
  */
@@ -1039,6 +1934,81 @@ async function sendInstagramMessage({
   accessToken: string;
   recipient: { comment_id: string } | { id: string };
   message: string;
+}) {
+  return await sendMessagePayload({
+    instagramUserId,
+    accessToken,
+    recipient,
+    message: { text: message },
+  });
+}
+
+/**
+ * Up to three link buttons, as a one-element generic template — the template
+ * Instagram Login supports (the plain button template and quick_replies are
+ * dropped on this integration). The card carries its own title, so the DM
+ * text is sent as a separate message just before it.
+ *
+ * Callers fall back to plain text when this fails — see sendRuleOrStepMessage.
+ */
+async function sendInstagramButtonTemplate({
+  instagramUserId,
+  accessToken,
+  recipient,
+  title,
+  subtitle,
+  imageUrl,
+  buttons,
+}: {
+  instagramUserId: string;
+  accessToken: string;
+  recipient: { comment_id: string } | { id: string };
+  title: string;
+  subtitle: string | null;
+  imageUrl: string | null;
+  buttons: RuleButton[];
+}) {
+  return await sendMessagePayload({
+    instagramUserId,
+    accessToken,
+    recipient,
+    message: {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "generic",
+          elements: [
+            {
+              title: title.slice(0, CARD_TITLE_MAX_LENGTH),
+              ...(subtitle
+                ? { subtitle: subtitle.slice(0, CARD_SUBTITLE_MAX_LENGTH) }
+                : {}),
+              ...(imageUrl ? { image_url: imageUrl } : {}),
+              buttons: buttons.slice(0, 3).map((button) => ({
+                type: "web_url",
+                url: button.url,
+                title: button.label,
+              })),
+            },
+          ],
+        },
+      },
+    },
+  });
+}
+
+/** Shared POST to /{ig-user-id}/messages — the message object is whatever
+ *  shape the caller needs (text, attachment, template). */
+async function sendMessagePayload({
+  instagramUserId,
+  accessToken,
+  recipient,
+  message,
+}: {
+  instagramUserId: string;
+  accessToken: string;
+  recipient: { comment_id: string } | { id: string };
+  message: Record<string, unknown>;
 }): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
   const url = `${INSTAGRAM_GRAPH_BASE_URL}/${INSTAGRAM_API_VERSION}/${instagramUserId}/messages`;
 
@@ -1051,10 +2021,7 @@ async function sendInstagramMessage({
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        recipient,
-        message: { text: message },
-      }),
+      body: JSON.stringify({ recipient, message }),
     });
   } catch (networkError) {
     return {
@@ -1166,12 +2133,12 @@ async function sendInstagramAttachment({
 
 /**
  * ============================================
- * SEND RULE/STEP MESSAGE (text, then optional attachment)
- * Shared by automation_rules and dm_flow_steps sends: always sends the
- * text first (rules/steps always require a message), then the attachment
- * if one is configured. The attachment's result (if sent) is returned,
- * since it's the more recent/significant send — matches what callers
- * store as "the" message id for this execution/step.
+ * SEND RULE/STEP MESSAGE (text and/or button card, then attachment)
+ * Shared by automation_rules and dm_flow_steps sends. Without buttons it
+ * sends the text, then the attachment if one is configured. With buttons
+ * the text rides on the card when it fits there, so the DM lands as a
+ * single bubble. The last send's result is returned, since that's what
+ * callers store as "the" message id for this execution/step.
  * ============================================
  */
 
@@ -1180,6 +2147,8 @@ async function sendRuleOrStepMessage({
   accessToken,
   recipient,
   text,
+  buttons = [],
+  cardTitle,
   attachmentUrl,
   attachmentType,
 }: {
@@ -1187,18 +2156,72 @@ async function sendRuleOrStepMessage({
   accessToken: string;
   recipient: { comment_id: string } | { id: string };
   text: string;
+  buttons?: RuleButton[];
+  cardTitle?: string | null;
   attachmentUrl: string | null;
   attachmentType: AttachmentType | null;
 }): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
-  const textResult = await sendInstagramMessage({
-    instagramUserId,
-    accessToken,
-    recipient,
-    message: text,
-  });
+  // With buttons, the DM text rides on the card itself whenever it fits, so
+  // the recipient gets one bubble instead of a message plus a card.
+  const copy = buttons.length ? cardCopy(text, cardTitle ?? null) : null;
 
-  if (!textResult.success || !attachmentUrl) {
-    return textResult;
+  let lastResult: { success: true; messageId?: string } | { success: false; error: string } = {
+    success: true,
+  };
+
+  if (!copy || copy.sendTextSeparately) {
+    lastResult = await sendInstagramMessage({
+      instagramUserId,
+      accessToken,
+      recipient,
+      message: text,
+    });
+
+    if (!lastResult.success) return lastResult;
+  }
+
+  // An image shown on the card isn't sent again as a separate attachment.
+  let imageSentOnCard = false;
+
+  if (copy) {
+    const cardImage =
+      attachmentUrl && (attachmentType ?? "image") === "image" ? attachmentUrl : null;
+
+    const cardResult = await sendInstagramButtonTemplate({
+      instagramUserId,
+      accessToken,
+      recipient,
+      title: copy.title,
+      subtitle: copy.subtitle,
+      imageUrl: cardImage,
+      buttons,
+    });
+
+    if (cardResult.success) {
+      lastResult = cardResult;
+      imageSentOnCard = Boolean(cardImage);
+    } else {
+      // Templates aren't accepted on every account — send the links as text
+      // so the DM still carries them.
+      console.error("Generic template rejected, falling back to text:", cardResult.error);
+
+      const linksResult = await sendInstagramMessage({
+        instagramUserId,
+        accessToken,
+        recipient,
+        // The card never went out, so its copy has to come along as text.
+        message: copy.sendTextSeparately
+          ? buttonLinksText(buttons)
+          : `${text}\n\n${buttonLinksText(buttons)}`,
+      });
+
+      if (!linksResult.success) return linksResult;
+      lastResult = linksResult;
+    }
+  }
+
+  if (!attachmentUrl || imageSentOnCard) {
+    return lastResult;
   }
 
   return await sendInstagramAttachment({

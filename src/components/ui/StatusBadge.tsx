@@ -34,6 +34,16 @@ const STYLES: Record<string, { pill: string; dot: string; label: string }> = {
     dot: "bg-brand-500",
     label: "Follow prompt sent",
   },
+  email_prompt_sent: {
+    pill: "bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300",
+    dot: "bg-brand-500",
+    label: "Email prompt sent",
+  },
+  scheduled: {
+    pill: "bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
+    dot: "bg-sky-500",
+    label: "Scheduled",
+  },
   skipped_already_prompted: {
     pill: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
     dot: "bg-zinc-400",

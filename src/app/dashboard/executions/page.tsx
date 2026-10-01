@@ -107,7 +107,7 @@ export default async function ExecutionsPage() {
         <EmptyState
           icon={<ClockIcon className="h-6 w-6" />}
           title="No automations have run yet"
-          description="Once a rule matches a comment, the reply shows up here."
+          description="Once an AutoDM matches a comment, the reply shows up here."
         />
       ) : (
         <ExecutionsTable

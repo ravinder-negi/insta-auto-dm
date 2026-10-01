@@ -11,17 +11,46 @@ export interface InstagramAccount {
   updated_at: string;
 }
 
+/** A link button rendered under the primary DM. */
+export interface RuleButton {
+  label: string;
+  url: string;
+}
+
+export interface AutomationRuleFollowup {
+  id: string;
+  automation_rule_id: string;
+  step_order: number;
+  delay_minutes: number;
+  message: string;
+  created_at: string;
+}
+
+/** "specific" fires on the rule's keywords, "any" on every comment. */
+export type KeywordMatch = "specific" | "any";
+
 export interface AutomationRule {
   id: string;
   instagram_account_id: string;
   name: string;
   trigger_type: string;
-  keyword: string;
+  keyword_match: KeywordMatch;
+  keywords: string[];
+  excluded_keywords: string[];
+  /** Legacy single-keyword column, kept in sync with keywords[0]. */
+  keyword: string | null;
   instagram_media_id: string | null;
+  send_delay_seconds: number;
   dm_message: string;
+  dm_buttons: RuleButton[];
+  dm_button_card_title: string | null;
   require_follow: boolean;
   follow_prompt_message: string | null;
+  collect_email: boolean;
+  email_prompt_message: string | null;
   send_public_reply: boolean;
+  public_reply_messages: string[];
+  /** Legacy single-reply column, kept in sync with public_reply_messages[0]. */
   public_reply_message: string | null;
   attachment_url: string | null;
   attachment_type: AttachmentType | null;
@@ -35,6 +64,8 @@ export type ExecutionStatus =
   | "sent"
   | "failed"
   | "follow_prompt_sent"
+  | "email_prompt_sent"
+  | "scheduled"
   | "skipped_already_prompted";
 
 export interface AutomationExecution {
@@ -52,6 +83,26 @@ export interface AutomationExecution {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** A commenter nudged to follow before the real DM; followed_at is stamped
+ *  the next time they trigger the rule while already following. */
+export interface AutomationFollowPrompt {
+  id: string;
+  automation_rule_id: string;
+  commenter_instagram_id: string;
+  prompted_at: string;
+  followed_at: string | null;
+}
+
+/** An email captured by a rule's pre-DM email ask. */
+export interface AutomationRuleLead {
+  id: string;
+  automation_rule_id: string;
+  instagram_account_id: string;
+  ig_sender_id: string;
+  email: string;
+  collected_at: string;
 }
 
 export interface DmFlow {

@@ -52,7 +52,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Automation",
     links: [
       { href: "/dashboard/accounts", label: "Accounts", icon: HomeIcon },
-      { href: "/dashboard/rules", label: "Rules", icon: BoltIcon },
+      { href: "/dashboard/rules", label: "AutoDMs", icon: BoltIcon },
       { href: "/dashboard/flows", label: "DM Flows", icon: LayersIcon },
       { href: "/dashboard/executions", label: "Executions", icon: ClockIcon },
       { href: "/dashboard/analytics", label: "Analytics", icon: ChartIcon },

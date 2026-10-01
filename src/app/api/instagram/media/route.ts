@@ -7,6 +7,10 @@ import {
 
 export async function GET(request: NextRequest) {
   const accountId = request.nextUrl.searchParams.get("account_id");
+  // Stories are a separate Graph API node from posts/reels, and only expose
+  // a subset of fields (no caption, no permalink) — they're ephemeral, so
+  // this only ever returns whatever's currently live on the account.
+  const isStory = request.nextUrl.searchParams.get("type") === "story";
 
   if (!accountId) {
     return NextResponse.json({ error: "account_id is required" }, { status: 400 });
@@ -33,11 +37,15 @@ export async function GET(request: NextRequest) {
   }
 
   const mediaUrl = new URL(
-    `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${account.instagram_user_id}/media`
+    `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${account.instagram_user_id}/${
+      isStory ? "stories" : "media"
+    }`
   );
   mediaUrl.searchParams.set(
     "fields",
-    "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp"
+    isStory
+      ? "id,media_type,media_url,thumbnail_url,timestamp"
+      : "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp"
   );
   mediaUrl.searchParams.set("limit", "25");
   mediaUrl.searchParams.set("access_token", account.access_token);
@@ -47,7 +55,11 @@ export async function GET(request: NextRequest) {
 
   if (!mediaResponse.ok) {
     return NextResponse.json(
-      { error: mediaBody?.error?.message ?? "Failed to load posts from Instagram" },
+      {
+        error:
+          mediaBody?.error?.message ??
+          `Failed to load ${isStory ? "stories" : "posts"} from Instagram`,
+      },
       { status: 502 }
     );
   }
@@ -58,7 +70,7 @@ export async function GET(request: NextRequest) {
     media_type: string;
     media_url?: string;
     thumbnail_url?: string;
-    permalink: string;
+    permalink?: string;
     timestamp: string;
   }
 
@@ -67,7 +79,7 @@ export async function GET(request: NextRequest) {
     caption: item.caption ?? null,
     media_type: item.media_type,
     thumbnail_url: item.thumbnail_url ?? item.media_url ?? null,
-    permalink: item.permalink,
+    permalink: item.permalink ?? null,
     timestamp: item.timestamp,
   }));
 

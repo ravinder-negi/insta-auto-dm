@@ -157,6 +157,55 @@ input[type="reset"]:disabled {
   );
 }
 
+/* ------------------------------------------------------------------
+   Data-viz tokens (analytics charts)
+
+   Series hues are assigned in fixed slot order and never cycled. The dark
+   column is a *selected* set of steps for the dark card surface, not an
+   automatic flip of the light one. Both columns were validated against the
+   surfaces they actually paint on — light #ffffff, dark ≈ #131315 (white/4
+   over #09090b) — for lightness band, chroma floor, CVD separation and
+   normal-vision separation. Light slot 3 (aqua) sits at 2.8:1 on white,
+   under the 3:1 bar: the leaderboard table and the direct value labels are
+   the required relief, so no value is reachable by hue alone.
+
+   Slot 1 is the brand violet so the primary series matches the rest of the UI.
+   ------------------------------------------------------------------ */
+.viz {
+  --viz-series-1: #6d5ef6; /* DMs sent */
+  --viz-series-2: #eb6834; /* Emails collected */
+  --viz-series-3: #1baf7a; /* Followers gained */
+  --viz-critical: #d03b3b; /* reserved: failures only, always with a label */
+  --viz-grid: #e4e4e7;
+  --viz-axis: #d4d4d8;
+  --viz-muted: #898781;
+  --viz-surface: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .viz {
+    --viz-series-1: #8a79f9;
+    --viz-series-2: #d95926;
+    --viz-series-3: #199e70;
+    --viz-critical: #e66767;
+    --viz-grid: #27272a;
+    --viz-axis: #3f3f46;
+    --viz-muted: #898781;
+    --viz-surface: #131315;
+  }
+}
+
+.dark .viz {
+  --viz-series-1: #8a79f9;
+  --viz-series-2: #d95926;
+  --viz-series-3: #199e70;
+  --viz-critical: #e66767;
+  --viz-grid: #27272a;
+  --viz-axis: #3f3f46;
+  --viz-muted: #898781;
+  --viz-surface: #131315;
+}
+
 /* Hide the scrollbar on the filter/tab strips without losing the scroll. */
 .no-scrollbar {
   scrollbar-width: none;

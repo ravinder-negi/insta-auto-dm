@@ -2,6 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import {
+  FIRST_ONBOARDING_STEP,
+  ONBOARDING_PATH,
+} from "@/lib/auth/onboarding";
 
 export type AuthState = { error: string } | undefined;
 
@@ -38,7 +42,11 @@ export async function signUp(
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { display_name: name } },
+    // onboarding_step is the gate proxy.ts reads; the profiles trigger copies
+    // it into the new profile row. See @/lib/auth/onboarding.
+    options: {
+      data: { display_name: name, onboarding_step: FIRST_ONBOARDING_STEP },
+    },
   });
 
   if (error) {
@@ -51,7 +59,7 @@ export async function signUp(
     };
   }
 
-  redirect("/dashboard");
+  redirect(ONBOARDING_PATH);
 }
 
 export async function signOut() {
