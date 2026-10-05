@@ -114,14 +114,7 @@ export interface RuleWizardAccountOption {
   handle: string;
 }
 
-export interface InstagramMediaOption {
-  id: string;
-  caption: string | null;
-  media_type: string;
-  thumbnail_url: string | null;
-  permalink: string | null;
-  timestamp: string;
-}
+export type { InstagramMediaOption } from "@/lib/hooks/useInstagramMedia";
 
 /** "specific" targets one post, "any" every post of the account. */
 export type MediaScope = "specific" | "any";

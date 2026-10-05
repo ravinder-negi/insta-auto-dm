@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
@@ -23,6 +22,8 @@ import { Spinner } from "@/components/ui/Spinner";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/Toast";
 import { deleteRule, duplicateRule, toggleRuleActive } from "@/features/rules/actions";
+import { NewRuleButton } from "./NewRuleButton";
+import { RuleFormModal } from "./RuleFormModal";
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
@@ -60,6 +61,7 @@ export function RulesTable({
 }) {
   const [query, setQuery] = useState("");
   const [accountId, setAccountId] = useState("all");
+  const [editRuleId, setEditRuleId] = useState<string | null>(null);
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -138,16 +140,158 @@ export function RulesTable({
             </option>
           ))}
         </SelectField>
-        <Link
-          href="/dashboard/rules/new"
-          className={primaryButtonClass}
-        >
+        <NewRuleButton className={primaryButtonClass}>
           <PlusIcon className="h-4 w-4" />
           New rule
-        </Link>
+        </NewRuleButton>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4">
+      <div className="flex flex-col gap-3 sm:hidden">
+        {visible.map((rule) => (
+          <div
+            key={rule.id}
+            className="rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                    rule.is_active
+                      ? "bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
+                      : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800"
+                  }`}
+                >
+                  <BoltIcon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{rule.name}</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {rule.triggerType === "story_reply" && (
+                      <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
+                        Story reply
+                      </span>
+                    )}
+                    {rule.require_follow && (
+                      <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
+                        Follow-gated
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <StatusBadge
+                status={
+                  !rule.accountActive
+                    ? "failed"
+                    : rule.is_active
+                      ? "active"
+                      : "paused"
+                }
+              />
+            </div>
+
+            <div className="mt-3 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+              <Avatar name={rule.accountHandle} size="sm" muted={!rule.accountActive} />
+              <span>@{rule.accountHandle}</span>
+            </div>
+
+            <div className="mt-3">
+              {rule.keywordMatch === "any" ? (
+                <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-white/8 dark:text-zinc-300">
+                  Any comment
+                </span>
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {rule.keywords.map((keyword) => (
+                    <span
+                      key={keyword}
+                      className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-700 dark:bg-white/8 dark:text-zinc-300"
+                    >
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <p className="mt-3 text-xs text-zinc-400">
+              {rule.instagram_media_id
+                ? `Target: ${rule.instagram_media_id}`
+                : rule.triggerType === "story_reply"
+                  ? "Target: Any story"
+                  : "Target: All posts"}
+              {" · "}
+              {formatDate(rule.created_at)} {formatTime(rule.created_at)}
+            </p>
+
+            <div className="mt-3 flex items-center gap-1 border-t border-black/6 pt-3 dark:border-white/8">
+              <form action={() => handleToggle(rule.id, rule.name, !rule.is_active)}>
+                <ToggleSwitchButton isActive={rule.is_active} />
+              </form>
+
+              <button
+                type="button"
+                title="Edit AutoDM"
+                aria-label={`Edit ${rule.name}`}
+                onClick={() => setEditRuleId(rule.id)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+              >
+                <PencilIcon className="h-4 w-4" />
+              </button>
+
+              <form action={() => handleDuplicate(rule.id, rule.name)}>
+                <DuplicateRuleButton ruleName={rule.name} />
+              </form>
+
+              <ConfirmAction
+                action={() => handleDelete(rule.id, rule.name)}
+                title="Delete this AutoDM?"
+                description={`“${rule.name}” will stop replying to comments. This can't be undone.`}
+                confirmLabel="Delete AutoDM"
+                trigger={
+                  <button
+                    type="button"
+                    title="Delete AutoDM"
+                    aria-label={`Delete ${rule.name}`}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                }
+              />
+
+              <RowMenu
+                label={`More actions for ${rule.name}`}
+                items={[
+                  {
+                    label: "Copy keywords",
+                    onSelect: () => {
+                      navigator.clipboard?.writeText(rule.keywords.join(", "));
+                      toast.info("Keywords copied to clipboard.");
+                    },
+                  },
+                  {
+                    label: "Copy AutoDM ID",
+                    onSelect: () => {
+                      navigator.clipboard?.writeText(rule.id);
+                      toast.info("AutoDM ID copied to clipboard.");
+                    },
+                  },
+                ]}
+              />
+            </div>
+          </div>
+        ))}
+
+        {visible.length === 0 && (
+          <p className="flex items-center justify-center gap-2 rounded-2xl border border-black/6 px-5 py-14 text-sm text-zinc-500 dark:border-white/8">
+            <SearchIcon className="h-4 w-4" />
+            No rules match the current filters.
+          </p>
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] sm:block dark:border-white/8 dark:bg-white/4">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">
             <thead className="border-b border-black/6 bg-zinc-50/70 dark:border-white/8 dark:bg-white/3">
@@ -271,14 +415,15 @@ export function RulesTable({
                         <ToggleSwitchButton isActive={rule.is_active} />
                       </form>
 
-                      <Link
-                        href={`/dashboard/rules/${rule.id}/edit`}
+                      <button
+                        type="button"
                         title="Edit AutoDM"
                         aria-label={`Edit ${rule.name}`}
+                        onClick={() => setEditRuleId(rule.id)}
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
                       >
                         <PencilIcon className="h-4 w-4" />
-                      </Link>
+                      </button>
 
                       <form action={() => handleDuplicate(rule.id, rule.name)}>
                         <DuplicateRuleButton ruleName={rule.name} />
@@ -337,6 +482,18 @@ export function RulesTable({
           </p>
         )}
       </div>
+
+      {editRuleId && (
+        <RuleFormModal
+          ruleId={editRuleId}
+          onClose={() => setEditRuleId(null)}
+          onSaved={() => {
+            setEditRuleId(null);
+            toast.success("AutoDM updated.");
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

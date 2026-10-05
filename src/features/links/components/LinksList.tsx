@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { LinkFormModal } from "@/features/links/components/LinkFormModal";
+import { NewLinkButton } from "@/features/links/components/NewLinkButton";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ConfirmAction } from "@/components/ui/ConfirmAction";
@@ -33,6 +34,7 @@ export function LinksList({
   const toastShown = useRef(false);
 
   const [search, setSearch] = useState("");
+  const [editLinkId, setEditLinkId] = useState<string | null>(null);
   const [localOrder, setLocalOrder] = useState<string[] | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [pendingReorders, setPendingReorders] = useState(0);
@@ -130,10 +132,10 @@ export function LinksList({
           </span>
         )}
         <SearchField value={search} onChange={setSearch} placeholder="Search links..." />
-        <Link href="/dashboard/links/new" className={primaryButtonClass}>
+        <NewLinkButton className={primaryButtonClass}>
           <PlusIcon className="h-4 w-4" />
           Add link
-        </Link>
+        </NewLinkButton>
       </div>
 
       <ul className="flex flex-col gap-2.5">
@@ -148,56 +150,59 @@ export function LinksList({
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => handleDrop(link.id)}
               onDragEnd={() => setDraggingId(null)}
-              className={`flex items-center gap-3 rounded-2xl border border-black/6 bg-white p-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-opacity dark:border-white/8 dark:bg-white/4 ${
+              className={`flex flex-col gap-3 rounded-2xl border border-black/6 bg-white p-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-opacity sm:flex-row sm:items-center dark:border-white/8 dark:bg-white/4 ${
                 draggingId === link.id ? "opacity-40" : ""
               }`}
             >
-              <span
-                className="flex h-8 w-5 shrink-0 cursor-grab items-center justify-center text-zinc-300 active:cursor-grabbing dark:text-zinc-600"
-                aria-hidden="true"
-              >
-                <GripIcon className="h-4 w-4" />
-              </span>
+              <div className="flex min-w-0 items-center gap-3">
+                <span
+                  className="hidden h-8 w-5 shrink-0 cursor-grab items-center justify-center text-zinc-300 active:cursor-grabbing sm:flex dark:text-zinc-600"
+                  aria-hidden="true"
+                >
+                  <GripIcon className="h-4 w-4" />
+                </span>
 
-              <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl text-white"
-                style={{ background }}
-              >
-                {customImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL
-                  <img src={customImageUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <Icon className="h-4 w-4" />
-                )}
-              </span>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <p className="truncate text-sm font-semibold">{link.title}</p>
-                  {link.is_featured && (
-                    <span className="shrink-0 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
-                      Featured
-                    </span>
+                <span
+                  className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl text-white"
+                  style={{ background }}
+                >
+                  {customImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL
+                    <img src={customImageUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <Icon className="h-4 w-4" />
                   )}
+                </span>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-sm font-semibold">{link.title}</p>
+                    {link.is_featured && (
+                      <span className="shrink-0 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
+                        Featured
+                      </span>
+                    )}
+                  </div>
+                  <p className="truncate text-xs text-zinc-500">{link.url}</p>
                 </div>
-                <p className="truncate text-xs text-zinc-500">{link.url}</p>
+
+                <StatusBadge status={link.is_active ? "active" : "inactive"} />
               </div>
 
-              <StatusBadge status={link.is_active ? "active" : "inactive"} />
-
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center justify-end gap-1 sm:ml-auto">
                 <form action={() => handleToggle(link.id, link.title, !link.is_active)}>
                   <ToggleSwitchButton isActive={link.is_active} />
                 </form>
 
-                <Link
-                  href={`/dashboard/links/${link.id}/edit`}
+                <button
+                  type="button"
                   title="Edit link"
                   aria-label={`Edit ${link.title}`}
+                  onClick={() => setEditLinkId(link.id)}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
                 >
                   <PencilIcon className="h-4 w-4" />
-                </Link>
+                </button>
 
                 <ConfirmAction
                   action={() => handleDelete(link.id, link.title)}
@@ -234,6 +239,18 @@ export function LinksList({
           );
         })}
       </ul>
+
+      {editLinkId && (
+        <LinkFormModal
+          linkId={editLinkId}
+          onClose={() => setEditLinkId(null)}
+          onSaved={() => {
+            setEditLinkId(null);
+            toast.success("Link updated.");
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

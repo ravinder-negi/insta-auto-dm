@@ -61,24 +61,38 @@ export default async function LeadMagnetLeadsPage({
           description="Emails visitors submit for this lead magnet will show up here."
         />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-black/6 text-left text-xs font-semibold tracking-[0.08em] text-zinc-400 uppercase dark:border-white/8">
-                <th className="px-5 py-3">Email</th>
-                <th className="px-5 py-3">Captured</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leads.map((lead) => (
-                <tr key={lead.id} className="border-b border-black/6 last:border-0 dark:border-white/8">
-                  <td className="px-5 py-3.5 font-medium">{lead.email}</td>
-                  <td className="px-5 py-3.5 text-zinc-500">{formatDate(lead.created_at)}</td>
+        <>
+          <div className="flex flex-col gap-3 sm:hidden">
+            {leads.map((lead) => (
+              <div
+                key={lead.id}
+                className="rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4"
+              >
+                <p className="truncate font-medium">{lead.email}</p>
+                <p className="mt-1 text-xs text-zinc-500">{formatDate(lead.created_at)}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] sm:block dark:border-white/8 dark:bg-white/4">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-black/6 text-left text-xs font-semibold tracking-[0.08em] text-zinc-400 uppercase dark:border-white/8">
+                  <th className="px-5 py-3">Email</th>
+                  <th className="px-5 py-3">Captured</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {leads.map((lead) => (
+                  <tr key={lead.id} className="border-b border-black/6 last:border-0 dark:border-white/8">
+                    <td className="px-5 py-3.5 font-medium">{lead.email}</td>
+                    <td className="px-5 py-3.5 text-zinc-500">{formatDate(lead.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

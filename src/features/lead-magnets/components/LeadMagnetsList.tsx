@@ -17,6 +17,8 @@ import {
   reorderLeadMagnets,
   toggleLeadMagnetActive,
 } from "@/features/lead-magnets/actions";
+import { LeadMagnetFormModal } from "./LeadMagnetFormModal";
+import { NewLeadMagnetButton } from "./NewLeadMagnetButton";
 
 export interface LeadMagnetRow {
   id: string;
@@ -38,6 +40,7 @@ export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] 
   const toastShown = useRef(false);
 
   const [search, setSearch] = useState("");
+  const [editMagnetId, setEditMagnetId] = useState<string | null>(null);
   const [localOrder, setLocalOrder] = useState<string[] | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [pendingReorders, setPendingReorders] = useState(0);
@@ -134,10 +137,10 @@ export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] 
           onChange={setSearch}
           placeholder="Search lead magnets..."
         />
-        <Link href="/dashboard/lead-magnets/new" className={primaryButtonClass}>
+        <NewLeadMagnetButton className={primaryButtonClass}>
           <PlusIcon className="h-4 w-4" />
           Add lead magnet
-        </Link>
+        </NewLeadMagnetButton>
       </div>
 
       <ul className="flex flex-col gap-2.5">
@@ -149,50 +152,53 @@ export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] 
             onDragOver={(event) => event.preventDefault()}
             onDrop={() => handleDrop(magnet.id)}
             onDragEnd={() => setDraggingId(null)}
-            className={`flex items-center gap-3 rounded-2xl border border-black/6 bg-white p-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-opacity dark:border-white/8 dark:bg-white/4 ${
+            className={`flex flex-col gap-3 rounded-2xl border border-black/6 bg-white p-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-opacity sm:flex-row sm:items-center dark:border-white/8 dark:bg-white/4 ${
               draggingId === magnet.id ? "opacity-40" : ""
             }`}
           >
-            <span
-              className="flex h-8 w-5 shrink-0 cursor-grab items-center justify-center text-zinc-300 active:cursor-grabbing dark:text-zinc-600"
-              aria-hidden="true"
-            >
-              <GripIcon className="h-4 w-4" />
-            </span>
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className="hidden h-8 w-5 shrink-0 cursor-grab items-center justify-center text-zinc-300 active:cursor-grabbing sm:flex dark:text-zinc-600"
+                aria-hidden="true"
+              >
+                <GripIcon className="h-4 w-4" />
+              </span>
 
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
-              <DocumentIcon className="h-4 w-4" />
-            </span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
+                <DocumentIcon className="h-4 w-4" />
+              </span>
 
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{magnet.title}</p>
-              <p className="truncate text-xs text-zinc-500">
-                {magnet.file_name ?? "File"}
-              </p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">{magnet.title}</p>
+                <p className="truncate text-xs text-zinc-500">
+                  {magnet.file_name ?? "File"}
+                </p>
+              </div>
+
+              <Link
+                href={`/dashboard/lead-magnets/${magnet.id}/leads`}
+                className="shrink-0 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+              >
+                {magnet.leadCount} {magnet.leadCount === 1 ? "lead" : "leads"}
+              </Link>
+
+              <StatusBadge status={magnet.is_active ? "active" : "inactive"} />
             </div>
 
-            <Link
-              href={`/dashboard/lead-magnets/${magnet.id}/leads`}
-              className="shrink-0 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
-            >
-              {magnet.leadCount} {magnet.leadCount === 1 ? "lead" : "leads"}
-            </Link>
-
-            <StatusBadge status={magnet.is_active ? "active" : "inactive"} />
-
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="flex shrink-0 items-center justify-end gap-1 sm:ml-auto">
               <form action={() => handleToggle(magnet.id, magnet.title, !magnet.is_active)}>
                 <ToggleSwitchButton isActive={magnet.is_active} />
               </form>
 
-              <Link
-                href={`/dashboard/lead-magnets/${magnet.id}/edit`}
+              <button
+                type="button"
                 title="Edit lead magnet"
                 aria-label={`Edit ${magnet.title}`}
+                onClick={() => setEditMagnetId(magnet.id)}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
               >
                 <PencilIcon className="h-4 w-4" />
-              </Link>
+              </button>
 
               <ConfirmAction
                 action={() => handleDelete(magnet.id, magnet.title)}
@@ -221,6 +227,18 @@ export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] 
           </li>
         ))}
       </ul>
+
+      {editMagnetId && (
+        <LeadMagnetFormModal
+          leadMagnetId={editMagnetId}
+          onClose={() => setEditMagnetId(null)}
+          onSaved={() => {
+            setEditMagnetId(null);
+            toast.success("Lead magnet updated.");
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

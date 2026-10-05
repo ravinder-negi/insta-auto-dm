@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ArrowLeftIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ProductForm } from "@/features/products/components/ProductForm";
-import { createProduct } from "@/features/products/actions";
+import { createProductAndRedirect } from "@/features/products/actions";
 
 export default async function NewProductPage() {
   const supabase = await createClient();
@@ -33,7 +33,11 @@ export default async function NewProductPage() {
         />
       </div>
 
-      <ProductForm action={createProduct} submitLabel="Add product" userId={user.id} />
+      <ProductForm
+        action={createProductAndRedirect}
+        submitLabel="Add product"
+        userId={user.id}
+      />
     </div>
   );
 }

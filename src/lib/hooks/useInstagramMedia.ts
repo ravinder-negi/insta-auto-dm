@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { InstagramMediaOption } from "./shared";
+
+export interface InstagramMediaOption {
+  id: string;
+  caption: string | null;
+  media_type: string;
+  thumbnail_url: string | null;
+  permalink: string | null;
+  timestamp: string;
+}
 
 /** Loads the selected account's recent posts (or, with `kind: "story"`, its
  *  currently-live stories; `kind: "none"` skips fetching entirely, since

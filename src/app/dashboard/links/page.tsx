@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -7,6 +6,7 @@ import { LinkIcon, PlusIcon } from "@/components/icons";
 import { primaryButtonClass } from "@/components/ui/styles";
 import { LinksList } from "@/features/links/components/LinksList";
 import { LinksPreview } from "@/features/links/components/LinksPreview";
+import { NewLinkButton } from "@/features/links/components/NewLinkButton";
 import type { Profile, ProfileLink } from "@/types";
 
 export default async function LinksPage() {
@@ -47,10 +47,10 @@ export default async function LinksPage() {
             title="No links yet"
             description="Add a website, YouTube channel, blog, product, or custom page to your profile."
             action={
-              <Link href="/dashboard/links/new" className={primaryButtonClass}>
+              <NewLinkButton className={primaryButtonClass}>
                 <PlusIcon className="h-4 w-4" />
                 Add your first link
-              </Link>
+              </NewLinkButton>
             }
           />
         ) : (

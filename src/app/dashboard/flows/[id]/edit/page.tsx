@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { FlowForm } from "@/features/flows/components/FlowForm";
+import { FlowWizard } from "@/features/flows/components/wizard/FlowWizard";
 import { FlowFormPageHeader } from "@/features/flows/components/FlowFormPageHeader";
-import { updateFlow } from "@/features/flows/actions";
+import { updateFlowAndRedirect } from "@/features/flows/actions";
 
 export default async function EditFlowPage(
   props: PageProps<"/dashboard/flows/[id]/edit">
@@ -52,9 +52,9 @@ export default async function EditFlowPage(
         description="Update the trigger keyword and steps for this flow."
       />
 
-      <FlowForm
+      <FlowWizard
         accounts={accounts}
-        action={updateFlow.bind(null, id)}
+        action={updateFlowAndRedirect.bind(null, id)}
         initialValues={{
           instagram_account_id: flow.instagram_account_id,
           name: flow.name,

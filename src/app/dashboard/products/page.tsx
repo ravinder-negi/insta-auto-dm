@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PlusIcon, ShoppingBagIcon } from "@/components/icons";
 import { primaryButtonClass } from "@/components/ui/styles";
+import { NewProductButton } from "@/features/products/components/NewProductButton";
 import { ProductsList } from "@/features/products/components/ProductsList";
 import type { Product } from "@/types";
 
@@ -41,10 +41,10 @@ export default async function ProductsPage() {
           title="No products yet"
           description="Showcase products, resources, or offers on your public profile."
           action={
-            <Link href="/dashboard/products/new" className={primaryButtonClass}>
+            <NewProductButton className={primaryButtonClass}>
               <PlusIcon className="h-4 w-4" />
               Add product
-            </Link>
+            </NewProductButton>
           }
         />
       ) : (

@@ -3,9 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { InstagramIcon, PlusIcon } from "@/components/icons";
 import { primaryButtonClass } from "@/components/ui/styles";
-import { FlowForm } from "@/features/flows/components/FlowForm";
+import { FlowWizard } from "@/features/flows/components/wizard/FlowWizard";
 import { FlowFormPageHeader } from "@/features/flows/components/FlowFormPageHeader";
-import { createFlow } from "@/features/flows/actions";
+import { createFlowAndRedirect } from "@/features/flows/actions";
 
 export default async function NewFlowPage() {
   const supabase = await createClient();
@@ -47,7 +47,7 @@ export default async function NewFlowPage() {
           }
         />
       ) : (
-        <FlowForm accounts={accounts} action={createFlow} submitLabel="Create flow" />
+        <FlowWizard accounts={accounts} action={createFlowAndRedirect} submitLabel="Create flow" />
       )}
     </div>
   );

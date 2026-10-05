@@ -3,9 +3,10 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { LinkIconKey, LinkType } from "@/types";
+import type { LinkIconKey, LinkType, Profile } from "@/types";
+import type { LinkFormInitialValues } from "@/features/links/components/LinkForm";
 
-export type LinkFormState = { error: string } | undefined;
+export type LinkFormState = { error: string } | { ok: true } | undefined;
 
 const LINK_TYPES: LinkType[] = ["website", "youtube", "blog", "product", "custom"];
 const ICON_KEYS: LinkIconKey[] = ["link", "youtube", "instagram", "globe", "mail", "custom"];
@@ -61,10 +62,7 @@ function readLinkFields(
   };
 }
 
-export async function createLink(
-  _prevState: LinkFormState,
-  formData: FormData
-): Promise<LinkFormState> {
+async function createLinkCore(formData: FormData): Promise<LinkFormState> {
   const parsed = readLinkFields(formData);
   if (!parsed.ok) return { error: parsed.error };
 
@@ -98,14 +96,29 @@ export async function createLink(
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/links");
-  redirect("/dashboard/links?created=1");
+  return { ok: true };
 }
 
-export async function updateLink(
-  id: string,
+/** Used by the "Add link" modal — reports success back so the modal can
+ *  close itself instead of navigating away. */
+export async function createLink(
   _prevState: LinkFormState,
   formData: FormData
 ): Promise<LinkFormState> {
+  return createLinkCore(formData);
+}
+
+/** Used by the standalone /dashboard/links/new page. */
+export async function createLinkAndRedirect(
+  _prevState: LinkFormState,
+  formData: FormData
+): Promise<LinkFormState> {
+  const result = await createLinkCore(formData);
+  if (result && "error" in result) return result;
+  redirect("/dashboard/links?created=1");
+}
+
+async function updateLinkCore(id: string, formData: FormData): Promise<LinkFormState> {
   const parsed = readLinkFields(formData);
   if (!parsed.ok) return { error: parsed.error };
 
@@ -128,6 +141,26 @@ export async function updateLink(
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/links");
+  return { ok: true };
+}
+
+/** Used by the edit modal — reports success back instead of navigating away. */
+export async function updateLink(
+  id: string,
+  _prevState: LinkFormState,
+  formData: FormData
+): Promise<LinkFormState> {
+  return updateLinkCore(id, formData);
+}
+
+/** Used by the standalone /dashboard/links/[id]/edit page. */
+export async function updateLinkAndRedirect(
+  id: string,
+  _prevState: LinkFormState,
+  formData: FormData
+): Promise<LinkFormState> {
+  const result = await updateLinkCore(id, formData);
+  if (result && "error" in result) return result;
   redirect("/dashboard/links?updated=1");
 }
 
@@ -222,4 +255,81 @@ export async function moveLink(id: string, direction: "up" | "down") {
   }
 
   revalidatePath("/dashboard/links");
+}
+
+export interface LinkFormData {
+  userId: string;
+  profile: {
+    brandColor: string;
+    avatarUrl: string | null;
+    displayName: string | null;
+    username: string | null;
+    bio: string | null;
+  };
+  initialValues?: LinkFormInitialValues;
+}
+
+/** Fetches everything the link-form modal needs to render — the profile
+ *  (for the preview) always, and the link's own data when editing — in one
+ *  round trip from the client, since the modal isn't backed by a
+ *  server-rendered page. */
+export async function getLinkFormData(
+  id?: string
+): Promise<LinkFormData | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+
+  const profilePromise = supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single<Profile>();
+
+  if (!id) {
+    const { data: profile } = await profilePromise;
+    return { userId: user.id, profile: formatLinkFormProfile(profile) };
+  }
+
+  const [{ data: profile }, { data: link }] = await Promise.all([
+    profilePromise,
+    supabase
+      .from("profile_links")
+      .select(
+        "title, subtitle, url, link_type, icon, custom_icon_url, is_active, is_featured"
+      )
+      .eq("id", id)
+      .maybeSingle(),
+  ]);
+
+  if (!link) {
+    return { error: "Link not found." };
+  }
+
+  return {
+    userId: user.id,
+    profile: formatLinkFormProfile(profile),
+    initialValues: {
+      title: link.title,
+      subtitle: link.subtitle,
+      url: link.url,
+      link_type: link.link_type,
+      icon: link.icon,
+      custom_icon_url: link.custom_icon_url,
+      is_active: link.is_active,
+      is_featured: link.is_featured,
+    },
+  };
+}
+
+function formatLinkFormProfile(profile: Profile | null | undefined) {
+  return {
+    brandColor: profile?.brand_color || "#6366f1",
+    avatarUrl: profile?.avatar_url ?? null,
+    displayName: profile?.display_name ?? null,
+    username: profile?.username ?? null,
+    bio: profile?.bio ?? null,
+  };
 }

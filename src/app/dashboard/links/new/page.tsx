@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ArrowLeftIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LinkForm } from "@/features/links/components/LinkForm";
-import { createLink } from "@/features/links/actions";
+import { createLinkAndRedirect } from "@/features/links/actions";
 import type { Profile } from "@/types";
 
 export default async function NewLinkPage() {
@@ -41,7 +41,7 @@ export default async function NewLinkPage() {
       </div>
 
       <LinkForm
-        action={createLink}
+        action={createLinkAndRedirect}
         submitLabel="Add link"
         userId={user.id}
         profile={{

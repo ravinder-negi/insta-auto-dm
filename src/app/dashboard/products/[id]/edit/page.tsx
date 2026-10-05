@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ArrowLeftIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ProductForm } from "@/features/products/components/ProductForm";
-import { updateProduct } from "@/features/products/actions";
+import { updateProductAndRedirect } from "@/features/products/actions";
 import type { Product } from "@/types";
 
 export default async function EditProductPage({
@@ -65,7 +65,7 @@ export default async function EditProductPage({
       </div>
 
       <ProductForm
-        action={updateProduct.bind(null, id)}
+        action={updateProductAndRedirect.bind(null, id)}
         initialValues={{
           name: product.name,
           description: product.description,

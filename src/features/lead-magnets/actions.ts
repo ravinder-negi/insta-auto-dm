@@ -3,8 +3,9 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { LeadMagnetFormInitialValues } from "@/features/lead-magnets/components/LeadMagnetForm";
 
-export type LeadMagnetFormState = { error: string } | undefined;
+export type LeadMagnetFormState = { error: string } | { ok: true } | undefined;
 
 const URL_PATTERN = /^https?:\/\/\S+$/;
 
@@ -44,10 +45,7 @@ function readLeadMagnetFields(
   };
 }
 
-export async function createLeadMagnet(
-  _prevState: LeadMagnetFormState,
-  formData: FormData
-): Promise<LeadMagnetFormState> {
+async function createLeadMagnetCore(formData: FormData): Promise<LeadMagnetFormState> {
   const parsed = readLeadMagnetFields(formData);
   if (!parsed.ok) return { error: parsed.error };
 
@@ -78,14 +76,29 @@ export async function createLeadMagnet(
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/lead-magnets");
-  redirect("/dashboard/lead-magnets?created=1");
+  return { ok: true };
 }
 
-export async function updateLeadMagnet(
-  id: string,
+/** Used by the "Add lead magnet" modal — reports success back so the modal
+ *  can close itself instead of navigating away. */
+export async function createLeadMagnet(
   _prevState: LeadMagnetFormState,
   formData: FormData
 ): Promise<LeadMagnetFormState> {
+  return createLeadMagnetCore(formData);
+}
+
+/** Used by the standalone /dashboard/lead-magnets/new page. */
+export async function createLeadMagnetAndRedirect(
+  _prevState: LeadMagnetFormState,
+  formData: FormData
+): Promise<LeadMagnetFormState> {
+  const result = await createLeadMagnetCore(formData);
+  if (result && "error" in result) return result;
+  redirect("/dashboard/lead-magnets?created=1");
+}
+
+async function updateLeadMagnetCore(id: string, formData: FormData): Promise<LeadMagnetFormState> {
   const parsed = readLeadMagnetFields(formData);
   if (!parsed.ok) return { error: parsed.error };
 
@@ -105,6 +118,26 @@ export async function updateLeadMagnet(
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/lead-magnets");
+  return { ok: true };
+}
+
+/** Used by the edit modal — reports success back instead of navigating away. */
+export async function updateLeadMagnet(
+  id: string,
+  _prevState: LeadMagnetFormState,
+  formData: FormData
+): Promise<LeadMagnetFormState> {
+  return updateLeadMagnetCore(id, formData);
+}
+
+/** Used by the standalone /dashboard/lead-magnets/[id]/edit page. */
+export async function updateLeadMagnetAndRedirect(
+  id: string,
+  _prevState: LeadMagnetFormState,
+  formData: FormData
+): Promise<LeadMagnetFormState> {
+  const result = await updateLeadMagnetCore(id, formData);
+  if (result && "error" in result) return result;
   redirect("/dashboard/lead-magnets?updated=1");
 }
 
@@ -199,4 +232,46 @@ export async function moveLeadMagnet(id: string, direction: "up" | "down") {
   }
 
   revalidatePath("/dashboard/lead-magnets");
+}
+
+export interface LeadMagnetFormData {
+  userId: string;
+  initialValues?: LeadMagnetFormInitialValues;
+}
+
+/** Fetches the lead magnet's own data when editing — the modal isn't backed
+ *  by a server-rendered page, so it fetches on mount instead. */
+export async function getLeadMagnetFormData(
+  id?: string
+): Promise<LeadMagnetFormData | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+
+  if (!id) {
+    return { userId: user.id };
+  }
+
+  const { data: magnet } = await supabase
+    .from("lead_magnets")
+    .select("title, description, file_url, file_name, is_active")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!magnet) {
+    return { error: "Lead magnet not found." };
+  }
+
+  return {
+    userId: user.id,
+    initialValues: {
+      title: magnet.title,
+      description: magnet.description,
+      file_url: magnet.file_url,
+      file_name: magnet.file_name,
+      is_active: magnet.is_active,
+    },
+  };
 }

@@ -5,7 +5,7 @@ import { InstagramIcon, PlusIcon } from "@/components/icons";
 import { primaryButtonClass } from "@/components/ui/styles";
 import { RuleWizard } from "@/features/rules/components/wizard/RuleWizard";
 import { RuleFormPageHeader } from "@/features/rules/components/RuleFormPageHeader";
-import { createRule } from "@/features/rules/actions";
+import { createRuleAndRedirect } from "@/features/rules/actions";
 
 export default async function NewRulePage() {
   const supabase = await createClient();
@@ -47,7 +47,7 @@ export default async function NewRulePage() {
           }
         />
       ) : (
-        <RuleWizard accounts={accounts} action={createRule} submitLabel="Create AutoDM" />
+        <RuleWizard accounts={accounts} action={createRuleAndRedirect} submitLabel="Create AutoDM" />
       )}
     </div>
   );

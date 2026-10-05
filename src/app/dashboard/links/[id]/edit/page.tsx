@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ArrowLeftIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LinkForm } from "@/features/links/components/LinkForm";
-import { updateLink } from "@/features/links/actions";
+import { updateLinkAndRedirect } from "@/features/links/actions";
 import type { Profile, ProfileLink } from "@/types";
 
 export default async function EditLinkPage({
@@ -66,7 +66,7 @@ export default async function EditLinkPage({
       </div>
 
       <LinkForm
-        action={updateLink.bind(null, id)}
+        action={updateLinkAndRedirect.bind(null, id)}
         initialValues={{
           title: link.title,
           subtitle: link.subtitle,

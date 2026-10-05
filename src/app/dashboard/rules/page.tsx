@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { AutomationRule, InstagramAccount } from "@/types";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -12,6 +11,7 @@ import {
   PauseIcon,
   PlusIcon,
 } from "@/components/icons";
+import { NewRuleButton } from "@/features/rules/components/NewRuleButton";
 import { RulesTable, type RuleTableRow } from "@/features/rules/components/RulesTable";
 
 type RuleQueryRow = Pick<
@@ -136,13 +136,10 @@ export default async function RulesPage() {
           title="No AutoDMs yet"
           description="Connect an account first, then create an AutoDM to reply to comments containing a keyword."
           action={
-            <Link
-              href="/dashboard/rules/new"
-              className={`${primaryButtonClass} mt-2`}
-            >
+            <NewRuleButton className={`${primaryButtonClass} mt-2`}>
               <PlusIcon className="h-4 w-4" />
               Create your first AutoDM
-            </Link>
+            </NewRuleButton>
           }
         />
       ) : (

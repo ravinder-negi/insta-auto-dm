@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CURRENCIES } from "./currencies";
+import type { ProductFormInitialValues } from "@/features/products/components/ProductForm";
 
-export type ProductFormState = { error: string } | undefined;
+export type ProductFormState = { error: string } | { ok: true } | undefined;
 
 const URL_PATTERN = /^https?:\/\/\S+$/;
 
@@ -66,10 +67,7 @@ function readProductFields(
   };
 }
 
-export async function createProduct(
-  _prevState: ProductFormState,
-  formData: FormData
-): Promise<ProductFormState> {
+async function createProductCore(formData: FormData): Promise<ProductFormState> {
   const parsed = readProductFields(formData);
   if (!parsed.ok) return { error: parsed.error };
 
@@ -103,14 +101,29 @@ export async function createProduct(
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/products");
-  redirect("/dashboard/products?created=1");
+  return { ok: true };
 }
 
-export async function updateProduct(
-  id: string,
+/** Used by the "Add product" modal — reports success back so the modal can
+ *  close itself instead of navigating away. */
+export async function createProduct(
   _prevState: ProductFormState,
   formData: FormData
 ): Promise<ProductFormState> {
+  return createProductCore(formData);
+}
+
+/** Used by the standalone /dashboard/products/new page. */
+export async function createProductAndRedirect(
+  _prevState: ProductFormState,
+  formData: FormData
+): Promise<ProductFormState> {
+  const result = await createProductCore(formData);
+  if (result && "error" in result) return result;
+  redirect("/dashboard/products?created=1");
+}
+
+async function updateProductCore(id: string, formData: FormData): Promise<ProductFormState> {
   const parsed = readProductFields(formData);
   if (!parsed.ok) return { error: parsed.error };
 
@@ -133,6 +146,26 @@ export async function updateProduct(
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/products");
+  return { ok: true };
+}
+
+/** Used by the edit modal — reports success back instead of navigating away. */
+export async function updateProduct(
+  id: string,
+  _prevState: ProductFormState,
+  formData: FormData
+): Promise<ProductFormState> {
+  return updateProductCore(id, formData);
+}
+
+/** Used by the standalone /dashboard/products/[id]/edit page. */
+export async function updateProductAndRedirect(
+  id: string,
+  _prevState: ProductFormState,
+  formData: FormData
+): Promise<ProductFormState> {
+  const result = await updateProductCore(id, formData);
+  if (result && "error" in result) return result;
   redirect("/dashboard/products?updated=1");
 }
 
@@ -233,4 +266,49 @@ export async function moveProduct(id: string, direction: "up" | "down") {
   }
 
   revalidatePath("/dashboard/products");
+}
+
+export interface ProductFormData {
+  userId: string;
+  initialValues?: ProductFormInitialValues;
+}
+
+/** Fetches the product's own data when editing — the modal isn't backed by a
+ *  server-rendered page, so it fetches on mount instead. */
+export async function getProductFormData(
+  id?: string
+): Promise<ProductFormData | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+
+  if (!id) {
+    return { userId: user.id };
+  }
+
+  const { data: product } = await supabase
+    .from("products")
+    .select("name, description, image_url, product_url, price, currency, is_featured, is_active")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!product) {
+    return { error: "Product not found." };
+  }
+
+  return {
+    userId: user.id,
+    initialValues: {
+      name: product.name,
+      description: product.description,
+      image_url: product.image_url,
+      product_url: product.product_url,
+      price: product.price,
+      currency: product.currency,
+      is_featured: product.is_featured,
+      is_active: product.is_active,
+    },
+  };
 }

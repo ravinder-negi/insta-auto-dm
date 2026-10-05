@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useId, useRef, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fieldClass, SelectField } from "@/components/ui/controls";
 import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/styles";
@@ -28,17 +28,32 @@ export function ProductForm({
   initialValues,
   submitLabel,
   userId,
+  onCancel,
+  onSuccess,
 }: {
   action: (prevState: ProductFormState, formData: FormData) => Promise<ProductFormState>;
   initialValues?: ProductFormInitialValues;
   submitLabel: string;
   userId: string;
+  /** Renders Cancel as a button instead of a link to "/dashboard/products" —
+   *  used when the form runs inside a modal. */
+  onCancel?: () => void;
+  /** Called when `action` reports success without redirecting — used inside
+   *  a modal, which closes itself instead of navigating away. */
+  onSuccess?: () => void;
 }) {
   const toast = useToast();
   const [state, formAction, pending] = useActionState<ProductFormState, FormData>(
     action,
     undefined
   );
+
+  useEffect(() => {
+    if (state && "ok" in state && state.ok) {
+      onSuccess?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   const [imageUrl, setImageUrl] = useState(initialValues?.image_url ?? "");
   const [uploading, setUploading] = useState(false);
@@ -238,16 +253,22 @@ export function ProductForm({
         </label>
       </div>
 
-      {state?.error && (
+      {state && "error" in state && (
         <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400">
           {state.error}
         </p>
       )}
 
       <div className="flex items-center justify-end gap-2.5">
-        <Link href="/dashboard/products" className={secondaryButtonClass}>
-          Cancel
-        </Link>
+        {onCancel ? (
+          <button type="button" onClick={onCancel} className={secondaryButtonClass}>
+            Cancel
+          </button>
+        ) : (
+          <Link href="/dashboard/products" className={secondaryButtonClass}>
+            Cancel
+          </Link>
+        )}
         <button type="submit" disabled={pending || uploading} className={primaryButtonClass}>
           {pending ? "Saving…" : submitLabel}
         </button>

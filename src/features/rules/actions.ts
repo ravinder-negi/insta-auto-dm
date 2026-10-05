@@ -3,8 +3,10 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { followupFromMinutes } from "@/features/rules/components/wizard/shared";
+import type { RuleWizardInitialValues } from "@/features/rules/components/wizard/RuleWizard";
 
-export type RuleFormState = { error: string } | undefined;
+export type RuleFormState = { error: string } | { ok: true } | undefined;
 
 const ATTACHMENT_TYPES = ["image", "video", "audio"] as const;
 
@@ -352,10 +354,7 @@ async function replaceFollowups(
   return insertError ? insertError.message : null;
 }
 
-export async function createRule(
-  _prevState: RuleFormState,
-  formData: FormData
-): Promise<RuleFormState> {
+async function createRuleCore(formData: FormData): Promise<RuleFormState> {
   const parsed = readRuleFields(formData);
   if (!parsed.ok) return { error: parsed.error };
 
@@ -381,12 +380,31 @@ export async function createRule(
   if (followupError) return { error: followupError };
 
   revalidatePath("/dashboard/rules");
+  return { ok: true };
+}
+
+/** Used by the "New rule" modal — reports success back so the modal can close
+ *  itself instead of navigating away. */
+export async function createRule(
+  _prevState: RuleFormState,
+  formData: FormData
+): Promise<RuleFormState> {
+  return createRuleCore(formData);
+}
+
+/** Used by the standalone /dashboard/rules/new page (e.g. the onboarding
+ *  shortcut), which has no modal to close and still expects a redirect. */
+export async function createRuleAndRedirect(
+  _prevState: RuleFormState,
+  formData: FormData
+): Promise<RuleFormState> {
+  const result = await createRuleCore(formData);
+  if (result && "error" in result) return result;
   redirect("/dashboard/rules?created=1");
 }
 
-export async function updateRule(
+async function updateRuleCore(
   id: string,
-  _prevState: RuleFormState,
   formData: FormData
 ): Promise<RuleFormState> {
   const parsed = readRuleFields(formData);
@@ -406,7 +424,123 @@ export async function updateRule(
   if (followupError) return { error: followupError };
 
   revalidatePath("/dashboard/rules");
+  return { ok: true };
+}
+
+/** Used by the edit modal — reports success back instead of navigating away. */
+export async function updateRule(
+  id: string,
+  _prevState: RuleFormState,
+  formData: FormData
+): Promise<RuleFormState> {
+  return updateRuleCore(id, formData);
+}
+
+/** Used by the standalone /dashboard/rules/[id]/edit page. */
+export async function updateRuleAndRedirect(
+  id: string,
+  _prevState: RuleFormState,
+  formData: FormData
+): Promise<RuleFormState> {
+  const result = await updateRuleCore(id, formData);
+  if (result && "error" in result) return result;
   redirect("/dashboard/rules?updated=1");
+}
+
+export interface RuleFormData {
+  accounts: { id: string; handle: string; label: string }[];
+  initialValues?: RuleWizardInitialValues;
+  name?: string;
+}
+
+/** Fetches everything the rule-form modal needs to render — the account list
+ *  always, and the rule's own data when editing — in one round trip from the
+ *  client, since the modal isn't backed by a server-rendered page anymore. */
+export async function getRuleFormData(
+  id?: string
+): Promise<RuleFormData | { error: string }> {
+  const supabase = await createClient();
+
+  const accountsPromise = supabase
+    .from("instagram_accounts")
+    .select("id, username, instagram_user_id")
+    .order("created_at", { ascending: false });
+
+  if (!id) {
+    const { data } = await accountsPromise;
+    return { accounts: mapRuleFormAccounts(data) };
+  }
+
+  const [{ data: accountsData }, { data: rule }] = await Promise.all([
+    accountsPromise,
+    supabase
+      .from("automation_rules")
+      .select(
+        "id, instagram_account_id, name, trigger_type, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type, automation_rule_followups(step_order, delay_minutes, message)"
+      )
+      .eq("id", id)
+      .maybeSingle(),
+  ]);
+
+  if (!rule) {
+    return { error: "AutoDM not found." };
+  }
+
+  const keywords = rule.keywords?.length
+    ? rule.keywords
+    : rule.keyword
+      ? [rule.keyword]
+      : [];
+
+  const publicReplyMessages = rule.public_reply_messages?.length
+    ? rule.public_reply_messages
+    : rule.public_reply_message
+      ? [rule.public_reply_message]
+      : [];
+
+  const followups = (rule.automation_rule_followups ?? [])
+    .slice()
+    .sort((a, b) => a.step_order - b.step_order)
+    .map((followup) => ({
+      ...followupFromMinutes(followup.delay_minutes),
+      message: followup.message,
+    }));
+
+  return {
+    accounts: mapRuleFormAccounts(accountsData),
+    name: rule.name,
+    initialValues: {
+      instagram_account_id: rule.instagram_account_id,
+      name: rule.name,
+      trigger_type: rule.trigger_type,
+      keyword_match: rule.keyword_match,
+      keywords,
+      excluded_keywords: rule.excluded_keywords ?? [],
+      instagram_media_id: rule.instagram_media_id,
+      dm_message: rule.dm_message,
+      require_follow: rule.require_follow,
+      follow_prompt_message: rule.follow_prompt_message,
+      send_public_reply: rule.send_public_reply,
+      public_reply_messages: publicReplyMessages,
+      collect_email: rule.collect_email,
+      email_prompt_message: rule.email_prompt_message,
+      send_delay_seconds: rule.send_delay_seconds,
+      dm_buttons: rule.dm_buttons,
+      dm_button_card_title: rule.dm_button_card_title,
+      followups,
+      attachment_url: rule.attachment_url,
+      attachment_type: rule.attachment_type,
+    },
+  };
+}
+
+function mapRuleFormAccounts(
+  data: { id: string; username: string | null; instagram_user_id: string }[] | null
+) {
+  return (data ?? []).map((account) => {
+    const handle = account.username ?? account.instagram_user_id;
+    return { id: account.id, handle, label: `@${handle}` };
+  });
 }
 
 export async function deleteRule(id: string) {

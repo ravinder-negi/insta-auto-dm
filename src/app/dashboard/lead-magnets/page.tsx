@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -6,6 +5,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { GiftIcon, PlusIcon } from "@/components/icons";
 import { primaryButtonClass } from "@/components/ui/styles";
 import { LeadMagnetsList, type LeadMagnetRow } from "@/features/lead-magnets/components/LeadMagnetsList";
+import { NewLeadMagnetButton } from "@/features/lead-magnets/components/NewLeadMagnetButton";
 
 export default async function LeadMagnetsPage() {
   const supabase = await createClient();
@@ -46,10 +46,10 @@ export default async function LeadMagnetsPage() {
           title="No lead magnets yet"
           description="Offer a PDF, ebook, template, or guide to grow your email list."
           action={
-            <Link href="/dashboard/lead-magnets/new" className={primaryButtonClass}>
+            <NewLeadMagnetButton className={primaryButtonClass}>
               <PlusIcon className="h-4 w-4" />
               Add your first lead magnet
-            </Link>
+            </NewLeadMagnetButton>
           }
         />
       ) : (

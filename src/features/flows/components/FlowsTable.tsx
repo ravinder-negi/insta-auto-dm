@@ -21,6 +21,8 @@ import {
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/Toast";
 import { deleteFlow, toggleFlowActive } from "@/features/flows/actions";
+import { FlowFormModal } from "./FlowFormModal";
+import { NewFlowButton } from "./NewFlowButton";
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
@@ -56,6 +58,7 @@ export function FlowsTable({
 }) {
   const [query, setQuery] = useState("");
   const [accountId, setAccountId] = useState("all");
+  const [editFlowId, setEditFlowId] = useState<string | null>(null);
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -123,13 +126,113 @@ export function FlowsTable({
             </option>
           ))}
         </SelectField>
-        <Link href="/dashboard/flows/new" className={primaryButtonClass}>
+        <NewFlowButton className={primaryButtonClass}>
           <PlusIcon className="h-4 w-4" />
           New flow
-        </Link>
+        </NewFlowButton>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4">
+      <div className="flex flex-col gap-3 sm:hidden">
+        {visible.map((flow) => (
+          <div
+            key={flow.id}
+            className="rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                    flow.is_active
+                      ? "bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
+                      : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800"
+                  }`}
+                >
+                  <LayersIcon className="h-4 w-4" />
+                </span>
+                <p className="truncate font-semibold">{flow.name}</p>
+              </div>
+              <StatusBadge
+                status={
+                  !flow.accountActive
+                    ? "failed"
+                    : flow.is_active
+                      ? "active"
+                      : "paused"
+                }
+              />
+            </div>
+
+            <div className="mt-3 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+              <Avatar name={flow.accountHandle} size="sm" muted={!flow.accountActive} />
+              <span>@{flow.accountHandle}</span>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-700 dark:bg-white/8 dark:text-zinc-300">
+                {flow.trigger_keyword}
+              </span>
+              <span className="text-xs text-zinc-400">
+                {flow.step_count} step{flow.step_count === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            <p className="mt-3 text-xs text-zinc-400">
+              {formatDate(flow.created_at)} {formatTime(flow.created_at)}
+            </p>
+
+            <div className="mt-3 flex items-center gap-1 border-t border-black/6 pt-3 dark:border-white/8">
+              <form action={() => handleToggle(flow.id, flow.name, !flow.is_active)}>
+                <ToggleSwitchButton isActive={flow.is_active} />
+              </form>
+
+              <Link
+                href={`/dashboard/flows/${flow.id}/leads`}
+                title="View collected emails"
+                aria-label={`View emails collected by ${flow.name}`}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+              >
+                <MailIcon className="h-4 w-4" />
+              </Link>
+
+              <button
+                type="button"
+                title="Edit flow"
+                aria-label={`Edit ${flow.name}`}
+                onClick={() => setEditFlowId(flow.id)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+              >
+                <PencilIcon className="h-4 w-4" />
+              </button>
+
+              <ConfirmAction
+                action={() => handleDelete(flow.id, flow.name)}
+                title="Delete this flow?"
+                description={`“${flow.name}” will stop starting for new comments, and any conversations in progress will stop advancing. This can't be undone.`}
+                confirmLabel="Delete flow"
+                trigger={
+                  <button
+                    type="button"
+                    title="Delete flow"
+                    aria-label={`Delete ${flow.name}`}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                }
+              />
+            </div>
+          </div>
+        ))}
+
+        {visible.length === 0 && (
+          <p className="flex items-center justify-center gap-2 rounded-2xl border border-black/6 px-5 py-14 text-sm text-zinc-500 dark:border-white/8">
+            <SearchIcon className="h-4 w-4" />
+            No flows match the current filters.
+          </p>
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] sm:block dark:border-white/8 dark:bg-white/4">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">
             <thead className="border-b border-black/6 bg-zinc-50/70 dark:border-white/8 dark:bg-white/3">
@@ -221,14 +324,15 @@ export function FlowsTable({
                         <MailIcon className="h-4 w-4" />
                       </Link>
 
-                      <Link
-                        href={`/dashboard/flows/${flow.id}/edit`}
+                      <button
+                        type="button"
                         title="Edit flow"
                         aria-label={`Edit ${flow.name}`}
+                        onClick={() => setEditFlowId(flow.id)}
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
                       >
                         <PencilIcon className="h-4 w-4" />
-                      </Link>
+                      </button>
 
                       <ConfirmAction
                         action={() => handleDelete(flow.id, flow.name)}
@@ -261,6 +365,18 @@ export function FlowsTable({
           </p>
         )}
       </div>
+
+      {editFlowId && (
+        <FlowFormModal
+          flowId={editFlowId}
+          onClose={() => setEditFlowId(null)}
+          onSaved={() => {
+            setEditFlowId(null);
+            toast.success("Flow updated.");
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

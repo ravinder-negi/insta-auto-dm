@@ -54,7 +54,24 @@ export function LeadsTable({
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4">
+      <div className="flex flex-col gap-3 sm:hidden">
+        {leads.map((lead) => (
+          <div
+            key={lead.id}
+            className="rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4"
+          >
+            <p className="truncate font-medium">{lead.email}</p>
+            <p className="mt-1 truncate font-mono text-xs text-zinc-500">
+              {lead.ig_sender_id}
+            </p>
+            <p className="mt-2 text-xs text-zinc-400">
+              {formatDate(lead.collected_at)} {formatTime(lead.collected_at)}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] sm:block dark:border-white/8 dark:bg-white/4">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[600px] text-sm">
             <thead className="border-b border-black/6 bg-zinc-50/70 dark:border-white/8 dark:bg-white/3">

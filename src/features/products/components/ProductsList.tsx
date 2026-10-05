@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
@@ -25,6 +24,8 @@ import {
   toggleProductActive,
   toggleProductFeatured,
 } from "@/features/products/actions";
+import { NewProductButton } from "./NewProductButton";
+import { ProductFormModal } from "./ProductFormModal";
 import type { Product } from "@/types";
 
 function errorMessage(err: unknown, fallback: string) {
@@ -45,6 +46,7 @@ export function ProductsList({ products }: { products: Product[] }) {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [editProductId, setEditProductId] = useState<string | null>(null);
   const [localOrder, setLocalOrder] = useState<string[] | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [pendingReorders, setPendingReorders] = useState(0);
@@ -162,10 +164,10 @@ export function ProductsList({ products }: { products: Product[] }) {
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </SelectField>
-        <Link href="/dashboard/products/new" className={primaryButtonClass}>
+        <NewProductButton className={primaryButtonClass}>
           <PlusIcon className="h-4 w-4" />
           Add product
-        </Link>
+        </NewProductButton>
       </div>
 
       <ul className="flex flex-col gap-2.5">
@@ -180,62 +182,65 @@ export function ProductsList({ products }: { products: Product[] }) {
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => handleDrop(product.id)}
               onDragEnd={() => setDraggingId(null)}
-              className={`flex items-center gap-3 rounded-2xl border border-black/6 bg-white p-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-opacity dark:border-white/8 dark:bg-white/4 ${
+              className={`flex flex-col gap-3 rounded-2xl border border-black/6 bg-white p-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-opacity sm:flex-row sm:items-center dark:border-white/8 dark:bg-white/4 ${
                 draggingId === product.id ? "opacity-40" : ""
               }`}
             >
-              <span
-                className="flex h-8 w-5 shrink-0 cursor-grab items-center justify-center text-zinc-300 active:cursor-grabbing dark:text-zinc-600"
-                aria-hidden="true"
-              >
-                <GripIcon className="h-4 w-4" />
-              </span>
-
-              {product.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL
-                <img
-                  src={product.image_url}
-                  alt=""
-                  className="h-9 w-9 shrink-0 rounded-xl object-cover"
-                />
-              ) : (
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
-                  <ShoppingBagIcon className="h-4 w-4" />
+              <div className="flex min-w-0 items-center gap-3">
+                <span
+                  className="hidden h-8 w-5 shrink-0 cursor-grab items-center justify-center text-zinc-300 active:cursor-grabbing sm:flex dark:text-zinc-600"
+                  aria-hidden="true"
+                >
+                  <GripIcon className="h-4 w-4" />
                 </span>
-              )}
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <p className="truncate text-sm font-semibold">{product.name}</p>
-                  {product.is_featured && (
-                    <span className="flex shrink-0 items-center gap-1 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
-                      <StarIcon className="h-2.5 w-2.5" />
-                      Featured
-                    </span>
-                  )}
+                {product.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL
+                  <img
+                    src={product.image_url}
+                    alt=""
+                    className="h-9 w-9 shrink-0 rounded-xl object-cover"
+                  />
+                ) : (
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
+                    <ShoppingBagIcon className="h-4 w-4" />
+                  </span>
+                )}
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-sm font-semibold">{product.name}</p>
+                    {product.is_featured && (
+                      <span className="flex shrink-0 items-center gap-1 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
+                        <StarIcon className="h-2.5 w-2.5" />
+                        Featured
+                      </span>
+                    )}
+                  </div>
+                  <p className="truncate text-xs text-zinc-500">
+                    {priceLabel ?? "No price set"}
+                  </p>
                 </div>
-                <p className="truncate text-xs text-zinc-500">
-                  {priceLabel ?? "No price set"}
-                </p>
+
+                <StatusBadge status={product.is_active ? "active" : "inactive"} />
               </div>
 
-              <StatusBadge status={product.is_active ? "active" : "inactive"} />
-
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center justify-end gap-1 sm:ml-auto">
                 <form
                   action={() => handleToggleActive(product.id, product.name, !product.is_active)}
                 >
                   <ToggleSwitchButton isActive={product.is_active} />
                 </form>
 
-                <Link
-                  href={`/dashboard/products/${product.id}/edit`}
+                <button
+                  type="button"
                   title="Edit product"
                   aria-label={`Edit ${product.name}`}
+                  onClick={() => setEditProductId(product.id)}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
                 >
                   <PencilIcon className="h-4 w-4" />
-                </Link>
+                </button>
 
                 <ConfirmAction
                   action={() => handleDelete(product.id, product.name)}
@@ -270,6 +275,18 @@ export function ProductsList({ products }: { products: Product[] }) {
           );
         })}
       </ul>
+
+      {editProductId && (
+        <ProductFormModal
+          productId={editProductId}
+          onClose={() => setEditProductId(null)}
+          onSaved={() => {
+            setEditProductId(null);
+            toast.success("Product updated.");
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

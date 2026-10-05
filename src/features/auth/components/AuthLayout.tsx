@@ -14,7 +14,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
 
         {children}
       </div>
-      <div className="order-2 lg:order-1 lg:flex-1">
+      <div className="hidden lg:order-1 lg:flex lg:flex-1">
         <BrandingPanel />
       </div>
     </div>

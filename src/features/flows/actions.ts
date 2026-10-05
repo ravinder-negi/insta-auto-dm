@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { DmFlowIntentMap, DmFlowStepOption } from "@/types";
+import type { FlowWizardInitialValues } from "@/features/flows/components/wizard/FlowWizard";
 
-export type FlowFormState = { error: string } | undefined;
+export type FlowFormState = { error: string } | { ok: true } | undefined;
 
 const ATTACHMENT_TYPES = ["image", "video", "audio"] as const;
 
@@ -176,10 +177,7 @@ async function insertSteps(
   return error;
 }
 
-export async function createFlow(
-  _prevState: FlowFormState,
-  formData: FormData
-): Promise<FlowFormState> {
+async function createFlowCore(formData: FormData): Promise<FlowFormState> {
   const parsed = readFlowFields(formData);
   if (!parsed.ok) return { error: parsed.error };
 
@@ -208,14 +206,29 @@ export async function createFlow(
   }
 
   revalidatePath("/dashboard/flows");
-  redirect("/dashboard/flows?created=1");
+  return { ok: true };
 }
 
-export async function updateFlow(
-  id: string,
+/** Used by the "New flow" modal — reports success back so the modal can close
+ *  itself instead of navigating away. */
+export async function createFlow(
   _prevState: FlowFormState,
   formData: FormData
 ): Promise<FlowFormState> {
+  return createFlowCore(formData);
+}
+
+/** Used by the standalone /dashboard/flows/new page. */
+export async function createFlowAndRedirect(
+  _prevState: FlowFormState,
+  formData: FormData
+): Promise<FlowFormState> {
+  const result = await createFlowCore(formData);
+  if (result && "error" in result) return result;
+  redirect("/dashboard/flows?created=1");
+}
+
+async function updateFlowCore(id: string, formData: FormData): Promise<FlowFormState> {
   const parsed = readFlowFields(formData);
   if (!parsed.ok) return { error: parsed.error };
 
@@ -256,6 +269,26 @@ export async function updateFlow(
   }
 
   revalidatePath("/dashboard/flows");
+  return { ok: true };
+}
+
+/** Used by the edit modal — reports success back instead of navigating away. */
+export async function updateFlow(
+  id: string,
+  _prevState: FlowFormState,
+  formData: FormData
+): Promise<FlowFormState> {
+  return updateFlowCore(id, formData);
+}
+
+/** Used by the standalone /dashboard/flows/[id]/edit page. */
+export async function updateFlowAndRedirect(
+  id: string,
+  _prevState: FlowFormState,
+  formData: FormData
+): Promise<FlowFormState> {
+  const result = await updateFlowCore(id, formData);
+  if (result && "error" in result) return result;
   redirect("/dashboard/flows?updated=1");
 }
 
@@ -268,6 +301,86 @@ export async function deleteFlow(id: string) {
   }
 
   revalidatePath("/dashboard/flows");
+}
+
+export interface FlowFormData {
+  accounts: { id: string; handle: string; label: string }[];
+  initialValues?: FlowWizardInitialValues;
+}
+
+/** Fetches everything the flow-form modal needs to render — the account list
+ *  always, and the flow's own data when editing — in one round trip from the
+ *  client, since the modal isn't backed by a server-rendered page. */
+export async function getFlowFormData(
+  id?: string
+): Promise<FlowFormData | { error: string }> {
+  const supabase = await createClient();
+
+  const accountsPromise = supabase
+    .from("instagram_accounts")
+    .select("id, username, instagram_user_id")
+    .order("created_at", { ascending: false });
+
+  if (!id) {
+    const { data } = await accountsPromise;
+    return { accounts: mapFlowFormAccounts(data) };
+  }
+
+  const [{ data: accountsData }, { data: flow }, { data: steps }] = await Promise.all([
+    accountsPromise,
+    supabase
+      .from("dm_flows")
+      .select(
+        "id, instagram_account_id, name, trigger_keyword, instagram_media_id, send_public_reply, public_reply_message"
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("dm_flow_steps")
+      .select(
+        "step_order, message_text, expects_reply, collects_email, intent_map, options, attachment_url, attachment_type, followup_enabled, followup_delay_hours, followup_message"
+      )
+      .eq("flow_id", id)
+      .order("step_order", { ascending: true }),
+  ]);
+
+  if (!flow) {
+    return { error: "Flow not found." };
+  }
+
+  return {
+    accounts: mapFlowFormAccounts(accountsData),
+    initialValues: {
+      instagram_account_id: flow.instagram_account_id,
+      name: flow.name,
+      trigger_keyword: flow.trigger_keyword,
+      instagram_media_id: flow.instagram_media_id,
+      send_public_reply: flow.send_public_reply,
+      public_reply_message: flow.public_reply_message,
+      steps: (steps ?? []).map((step) => ({
+        step_order: step.step_order,
+        message_text: step.message_text,
+        expects_reply: step.expects_reply,
+        collects_email: step.collects_email,
+        intent_map: step.intent_map ?? {},
+        options: step.options ?? [],
+        attachment_url: step.attachment_url,
+        attachment_type: step.attachment_type,
+        followup_enabled: step.followup_enabled,
+        followup_delay_hours: step.followup_delay_hours,
+        followup_message: step.followup_message,
+      })),
+    },
+  };
+}
+
+function mapFlowFormAccounts(
+  data: { id: string; username: string | null; instagram_user_id: string }[] | null
+) {
+  return (data ?? []).map((account) => {
+    const handle = (account.username ?? account.instagram_user_id) as string;
+    return { id: account.id as string, handle, label: `@${handle}` };
+  });
 }
 
 export async function toggleFlowActive(id: string, isActive: boolean) {

@@ -1,13 +1,14 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import type { RuleFormState } from "@/features/rules/actions";
+import { WizardShell, type WizardStepMeta } from "@/components/ui/WizardShell";
+import { useInstagramMedia } from "@/lib/hooks/useInstagramMedia";
 import { AccountStep } from "./AccountStep";
 import { KeywordStep } from "./KeywordStep";
 import { MessageStep } from "./MessageStep";
 import { PostStep } from "./PostStep";
 import { TriggerStep } from "./TriggerStep";
-import { WizardShell, type WizardStepMeta } from "./WizardShell";
 import {
   DEFAULT_CARD_TITLE,
   DEFAULT_DM_MESSAGE,
@@ -25,7 +26,6 @@ import {
   type RuleWizardValues,
   type TriggerType,
 } from "./shared";
-import { useInstagramMedia } from "./useInstagramMedia";
 
 function getSteps(triggerType: TriggerType): WizardStepMeta[] {
   const isStory = triggerType === "story_reply";
@@ -92,16 +92,31 @@ export function RuleWizard({
   action,
   initialValues,
   submitLabel,
+  onCancel,
+  onSuccess,
 }: {
   accounts: RuleWizardAccountOption[];
   action: (state: RuleFormState, formData: FormData) => Promise<RuleFormState>;
   initialValues?: RuleWizardInitialValues;
   submitLabel: string;
+  /** Renders Cancel as a button instead of a link to "/dashboard/rules" —
+   *  used when the wizard runs inside a modal. */
+  onCancel?: () => void;
+  /** Called when `action` reports success without redirecting — used inside
+   *  a modal, which closes itself instead of navigating away. */
+  onSuccess?: () => void;
 }) {
   const [state, formAction, pending] = useActionState<RuleFormState, FormData>(
     action,
     undefined
   );
+
+  useEffect(() => {
+    if (state && "ok" in state && state.ok) {
+      onSuccess?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   const [step, setStep] = useState(0);
   const [manualEntry, setManualEntry] = useState(false);
@@ -370,8 +385,9 @@ export function RuleWizard({
         canContinue={stepValid[step]}
         pending={pending}
         nextLabel={isLastStep ? submitLabel : "Next"}
-        cancelHref="/dashboard/rules"
-        error={state?.error}
+        cancelHref={onCancel ? undefined : "/dashboard/rules"}
+        onCancel={onCancel}
+        error={state && "error" in state ? state.error : undefined}
       >
         {step === 0 && (
           <TriggerStep value={values.trigger_type} onChange={selectTriggerType} />

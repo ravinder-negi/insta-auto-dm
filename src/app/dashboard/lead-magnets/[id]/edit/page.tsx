@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ArrowLeftIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LeadMagnetForm } from "@/features/lead-magnets/components/LeadMagnetForm";
-import { updateLeadMagnet } from "@/features/lead-magnets/actions";
+import { updateLeadMagnetAndRedirect } from "@/features/lead-magnets/actions";
 import type { LeadMagnet } from "@/types";
 
 export default async function EditLeadMagnetPage({
@@ -52,7 +52,7 @@ export default async function EditLeadMagnetPage({
       </div>
 
       <LeadMagnetForm
-        action={updateLeadMagnet.bind(null, id)}
+        action={updateLeadMagnetAndRedirect.bind(null, id)}
         initialValues={{
           title: magnet.title,
           description: magnet.description,

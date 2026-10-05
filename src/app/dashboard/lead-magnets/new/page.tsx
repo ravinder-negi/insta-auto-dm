@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ArrowLeftIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LeadMagnetForm } from "@/features/lead-magnets/components/LeadMagnetForm";
-import { createLeadMagnet } from "@/features/lead-magnets/actions";
+import { createLeadMagnetAndRedirect } from "@/features/lead-magnets/actions";
 
 export default async function NewLeadMagnetPage() {
   const supabase = await createClient();
@@ -33,7 +33,11 @@ export default async function NewLeadMagnetPage() {
         />
       </div>
 
-      <LeadMagnetForm action={createLeadMagnet} submitLabel="Add lead magnet" userId={user.id} />
+      <LeadMagnetForm
+        action={createLeadMagnetAndRedirect}
+        submitLabel="Add lead magnet"
+        userId={user.id}
+      />
     </div>
   );
 }

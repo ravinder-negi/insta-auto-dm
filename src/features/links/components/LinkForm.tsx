@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useId, useRef, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { LinkInBioPreview } from "./LinkInBioPreview";
 import { SelectField, fieldClass } from "@/components/ui/controls";
@@ -38,6 +38,9 @@ export function LinkForm({
   submitLabel,
   userId,
   profile,
+  onCancel,
+  onSuccess,
+  showPreview = true,
 }: {
   action: (prevState: LinkFormState, formData: FormData) => Promise<LinkFormState>;
   initialValues?: LinkFormInitialValues;
@@ -50,12 +53,28 @@ export function LinkForm({
     username: string | null;
     bio: string | null;
   };
+  /** Renders Cancel as a button instead of a link to "/dashboard/links" —
+   *  used when the form runs inside a modal. */
+  onCancel?: () => void;
+  /** Called when `action` reports success without redirecting — used inside
+   *  a modal, which closes itself instead of navigating away. */
+  onSuccess?: () => void;
+  /** Hides the live-preview sidebar — off by default inside the modal, which
+   *  is too narrow for a side-by-side preview. */
+  showPreview?: boolean;
 }) {
   const toast = useToast();
   const [state, formAction, pending] = useActionState<LinkFormState, FormData>(
     action,
     undefined
   );
+
+  useEffect(() => {
+    if (state && "ok" in state && state.ok) {
+      onSuccess?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   const [title, setTitle] = useState(initialValues?.title ?? "");
   const [subtitle, setSubtitle] = useState(initialValues?.subtitle ?? "");
@@ -100,7 +119,11 @@ export function LinkForm({
   }
 
   return (
-    <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+    <div
+      className={
+        showPreview ? "grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]" : undefined
+      }
+    >
       <form
         action={formAction}
         className="flex flex-col gap-5 rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] sm:p-5 dark:border-white/8 dark:bg-white/4"
@@ -255,22 +278,29 @@ export function LinkForm({
           </label>
         </div>
 
-        {state?.error && (
+        {state && "error" in state && (
           <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400">
             {state.error}
           </p>
         )}
 
         <div className="flex items-center justify-end gap-2.5">
-          <Link href="/dashboard/links" className={secondaryButtonClass}>
-            Cancel
-          </Link>
+          {onCancel ? (
+            <button type="button" onClick={onCancel} className={secondaryButtonClass}>
+              Cancel
+            </button>
+          ) : (
+            <Link href="/dashboard/links" className={secondaryButtonClass}>
+              Cancel
+            </Link>
+          )}
           <button type="submit" disabled={pending || uploading} className={primaryButtonClass}>
             {pending ? "Saving…" : submitLabel}
           </button>
         </div>
       </form>
 
+      {showPreview && (
       <aside className="lg:sticky lg:top-6">
         <div className="rounded-2xl border border-black/6 bg-white p-6 shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4">
           <h2 className="text-base font-semibold tracking-tight">Live preview</h2>
@@ -299,6 +329,7 @@ export function LinkForm({
           </div>
         </div>
       </aside>
+      )}
     </div>
   );
 }

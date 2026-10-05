@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { DmFlow, InstagramAccount } from "@/types";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -7,6 +6,7 @@ import { StatCard } from "@/components/ui/StatCard";
 import { primaryButtonClass } from "@/components/ui/styles";
 import { CheckIcon, CloseIcon, LayersIcon, PauseIcon, PlusIcon } from "@/components/icons";
 import { FlowsTable, type FlowTableRow } from "@/features/flows/components/FlowsTable";
+import { NewFlowButton } from "@/features/flows/components/NewFlowButton";
 
 type FlowQueryRow = Pick<
   DmFlow,
@@ -119,10 +119,10 @@ export default async function FlowsPage() {
           title="No flows yet"
           description="Connect an account first, then build a multi-step DM flow that branches on how someone replies."
           action={
-            <Link href="/dashboard/flows/new" className={`${primaryButtonClass} mt-2`}>
+            <NewFlowButton className={`${primaryButtonClass} mt-2`}>
               <PlusIcon className="h-4 w-4" />
               Create your first flow
-            </Link>
+            </NewFlowButton>
           }
         />
       ) : (

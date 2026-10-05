@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { SearchField, SelectField } from "@/components/ui/controls";
 import { formatDateTime } from "@/lib/utils/format";
 import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
   CalendarIcon,
   CloseIcon,
   InstagramIcon,
@@ -42,6 +44,8 @@ const RANGES: Record<string, { label: string; days: number | null }> = {
 const HEAD_CLASS =
   "px-5 py-3 text-left text-[11px] font-semibold tracking-[0.08em] text-zinc-400 uppercase";
 
+const PAGE_SIZE = 20;
+
 export function ExecutionsTable({
   executions,
   accounts,
@@ -56,8 +60,9 @@ export function ExecutionsTable({
   const [accountId, setAccountId] = useState("all");
   const [query, setQuery] = useState("");
   const [detail, setDetail] = useState<ExecutionRow | null>(null);
+  const [page, setPage] = useState(0);
 
-  const visible = useMemo(() => {
+  const filtered = useMemo(() => {
     const days = RANGES[range].days;
     const cutoff = days === null ? null : now - days * 86_400_000;
     const needle = query.trim().toLowerCase();
@@ -72,6 +77,17 @@ export function ExecutionsTable({
         .includes(needle);
     });
   }, [executions, range, accountId, query, now]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [range, accountId, query]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const visible = filtered.slice(
+    currentPage * PAGE_SIZE,
+    currentPage * PAGE_SIZE + PAGE_SIZE
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -113,7 +129,49 @@ export function ExecutionsTable({
         />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4">
+      <div className="flex flex-col gap-3 sm:hidden">
+        {visible.map((execution) => (
+          <button
+            key={execution.id}
+            type="button"
+            onClick={() => setDetail(execution)}
+            className="flex flex-col gap-3 rounded-2xl border border-black/6 bg-white p-4 text-left shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-colors hover:bg-zinc-50/80 dark:border-white/8 dark:bg-white/4 dark:hover:bg-white/3"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                  <UserIcon className="h-4 w-4" />
+                </span>
+                <span className="truncate font-medium">
+                  @{execution.commenter_username ?? "unknown"}
+                </span>
+              </div>
+              <StatusBadge status={execution.status} />
+            </div>
+
+            <p className="truncate text-sm text-zinc-600 dark:text-zinc-300">
+              {execution.comment_text ?? "—"}
+            </p>
+
+            <div className="flex items-center justify-between text-xs text-zinc-400">
+              <div className="flex items-center gap-2">
+                <Avatar name={execution.accountHandle} size="sm" />
+                <span>@{execution.accountHandle}</span>
+              </div>
+              <span>{formatDateTime(execution.created_at)}</span>
+            </div>
+          </button>
+        ))}
+
+        {filtered.length === 0 && (
+          <p className="flex items-center justify-center gap-2 rounded-2xl border border-black/6 px-5 py-14 text-sm text-zinc-500 dark:border-white/8">
+            <SearchIcon className="h-4 w-4" />
+            No executions match the current filters.
+          </p>
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] sm:block dark:border-white/8 dark:bg-white/4">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[840px] text-sm">
             <thead className="border-b border-black/6 bg-zinc-50/70 dark:border-white/8 dark:bg-white/3">
@@ -182,13 +240,47 @@ export function ExecutionsTable({
           </table>
         </div>
 
-        {visible.length === 0 && (
+        {filtered.length === 0 && (
           <p className="flex items-center justify-center gap-2 px-5 py-14 text-sm text-zinc-500">
             <SearchIcon className="h-4 w-4" />
             No executions match the current filters.
           </p>
         )}
       </div>
+
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between text-sm text-zinc-500">
+          <p>
+            Showing {currentPage * PAGE_SIZE + 1}–
+            {Math.min(currentPage * PAGE_SIZE + PAGE_SIZE, filtered.length)} of{" "}
+            {filtered.length}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={currentPage === 0}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-black/4 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:hover:bg-white/10"
+            >
+              <ArrowLeftIcon className="h-3.5 w-3.5" />
+              Prev
+            </button>
+            <span className="text-xs text-zinc-400">
+              Page {currentPage + 1} of {pageCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+              disabled={currentPage >= pageCount - 1}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-black/4 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:hover:bg-white/10"
+            >
+              Next
+              <ArrowRightIcon className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {detail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

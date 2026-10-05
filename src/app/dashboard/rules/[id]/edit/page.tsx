@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { followupFromMinutes } from "@/features/rules/components/wizard/shared";
 import { RuleWizard } from "@/features/rules/components/wizard/RuleWizard";
 import { RuleFormPageHeader } from "@/features/rules/components/RuleFormPageHeader";
-import { updateRule } from "@/features/rules/actions";
+import { updateRuleAndRedirect } from "@/features/rules/actions";
 
 export default async function EditRulePage(
   props: PageProps<"/dashboard/rules/[id]/edit">
@@ -69,7 +69,7 @@ export default async function EditRulePage(
 
       <RuleWizard
         accounts={accounts}
-        action={updateRule.bind(null, id)}
+        action={updateRuleAndRedirect.bind(null, id)}
         initialValues={{
           instagram_account_id: rule.instagram_account_id,
           name: rule.name,
