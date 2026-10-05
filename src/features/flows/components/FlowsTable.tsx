@@ -10,6 +10,8 @@ import { SearchField, SelectField } from "@/components/ui/controls";
 import { primaryButtonClass } from "@/components/ui/styles";
 import { formatDate, formatTime } from "@/lib/utils/format";
 import {
+  ChartIcon,
+  ClockIcon,
   InstagramIcon,
   LayersIcon,
   MailIcon,
@@ -186,6 +188,24 @@ export function FlowsTable({
               </form>
 
               <Link
+                href={`/dashboard/flows/${flow.id}/executions`}
+                title="View executions"
+                aria-label={`View executions for ${flow.name}`}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+              >
+                <ClockIcon className="h-4 w-4" />
+              </Link>
+
+              <Link
+                href={`/dashboard/flows/${flow.id}/analytics`}
+                title="View analytics"
+                aria-label={`View analytics for ${flow.name}`}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+              >
+                <ChartIcon className="h-4 w-4" />
+              </Link>
+
+              <Link
                 href={`/dashboard/flows/${flow.id}/leads`}
                 title="View collected emails"
                 aria-label={`View emails collected by ${flow.name}`}
@@ -314,6 +334,24 @@ export function FlowsTable({
                       >
                         <ToggleSwitchButton isActive={flow.is_active} />
                       </form>
+
+                      <Link
+                        href={`/dashboard/flows/${flow.id}/executions`}
+                        title="View executions"
+                        aria-label={`View executions for ${flow.name}`}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+                      >
+                        <ClockIcon className="h-4 w-4" />
+                      </Link>
+
+                      <Link
+                        href={`/dashboard/flows/${flow.id}/analytics`}
+                        title="View analytics"
+                        aria-label={`View analytics for ${flow.name}`}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+                      >
+                        <ChartIcon className="h-4 w-4" />
+                      </Link>
 
                       <Link
                         href={`/dashboard/flows/${flow.id}/leads`}

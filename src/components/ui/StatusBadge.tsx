@@ -9,6 +9,16 @@ const STYLES: Record<string, { pill: string; dot: string; label: string }> = {
     dot: "bg-zinc-400",
     label: "Inactive",
   },
+  completed: {
+    pill: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+    label: "Completed",
+  },
+  expired: {
+    pill: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
+    dot: "bg-zinc-400",
+    label: "Expired",
+  },
   paused: {
     pill: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
     dot: "bg-amber-500",
