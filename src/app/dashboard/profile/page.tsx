@@ -1,9 +1,10 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { secondaryButtonClass } from "@/components/ui/styles";
-import { ExternalLinkIcon } from "@/components/icons";
+import { ChartIcon, ExternalLinkIcon } from "@/components/icons";
 import { ProfileForm } from "@/features/profile/components/ProfileForm";
 import type { Profile, ProfileLink } from "@/types";
 
@@ -48,17 +49,23 @@ export default async function ProfilePage() {
         title="Creator profile"
         description="This is the base of your public page — links, socials, products, and lead magnets all attach here."
         actions={
-          publicUrl && (
-            <a
-              href={publicUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={secondaryButtonClass}
-            >
-              <ExternalLinkIcon className="h-4 w-4" />
-              View public page
-            </a>
-          )
+          <>
+            <Link href="/dashboard/analytics" className={secondaryButtonClass}>
+              <ChartIcon className="h-4 w-4" />
+              View analytics
+            </Link>
+            {publicUrl && (
+              <a
+                href={publicUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={secondaryButtonClass}
+              >
+                <ExternalLinkIcon className="h-4 w-4" />
+                View public page
+              </a>
+            )}
+          </>
         }
       />
       <ProfileForm

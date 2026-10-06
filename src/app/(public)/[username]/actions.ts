@@ -2,6 +2,36 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+/** Public, unauthenticated: logs one page view of a published profile. Fired
+ *  from the page component on every render — RLS (`profile_views_insert_public`)
+ *  re-checks the profile is still published, so a rejected insert never fails
+ *  the page, but it's logged (not swallowed) so a misconfigured policy or a
+ *  missing migration shows up in the server console instead of vanishing.
+ *
+ *  Takes a pre-built client rather than calling createClient() itself: this
+ *  runs inside next/server's `after()`, and createClient() reads cookies(),
+ *  which `after()` callbacks aren't allowed to call. */
+export async function recordProfileView(
+  supabase: SupabaseServerClient,
+  profileId: string,
+  referrer: string | null,
+  utm: { source: string | null; medium: string | null; campaign: string | null }
+) {
+  const { error } = await supabase.from("profile_views").insert({
+    profile_id: profileId,
+    referrer,
+    utm_source: utm.source,
+    utm_medium: utm.medium,
+    utm_campaign: utm.campaign,
+  });
+
+  if (error) {
+    console.error("[recordProfileView] insert failed:", error.message, { profileId });
+  }
+}
+
 export type LeadMagnetSubmitState =
   | { error: string }
   | { success: true; fileUrl: string }

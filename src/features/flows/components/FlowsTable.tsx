@@ -10,8 +10,6 @@ import { SearchField, SelectField } from "@/components/ui/controls";
 import { primaryButtonClass } from "@/components/ui/styles";
 import { formatDate, formatTime } from "@/lib/utils/format";
 import {
-  ChartIcon,
-  ClockIcon,
   InstagramIcon,
   LayersIcon,
   MailIcon,
@@ -23,6 +21,7 @@ import {
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/Toast";
 import { deleteFlow, toggleFlowActive } from "@/features/flows/actions";
+import type { KeywordMatch } from "@/types";
 import { FlowFormModal } from "./FlowFormModal";
 import { NewFlowButton } from "./NewFlowButton";
 
@@ -33,7 +32,8 @@ function errorMessage(err: unknown, fallback: string) {
 export interface FlowTableRow {
   id: string;
   name: string;
-  trigger_keyword: string;
+  keywordMatch: KeywordMatch;
+  keywords: string[];
   instagram_media_id: string | null;
   step_count: number;
   is_active: boolean;
@@ -99,7 +99,7 @@ export function FlowsTable({
     return flows.filter((flow) => {
       if (accountId !== "all" && flow.accountId !== accountId) return false;
       if (!needle) return true;
-      return `${flow.name} ${flow.trigger_keyword} ${flow.accountHandle}`
+      return `${flow.name} ${flow.keywords.join(" ")} ${flow.accountHandle}`
         .toLowerCase()
         .includes(needle);
     });
@@ -170,9 +170,20 @@ export function FlowsTable({
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-700 dark:bg-white/8 dark:text-zinc-300">
-                {flow.trigger_keyword}
-              </span>
+              {flow.keywordMatch === "any" ? (
+                <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-white/8 dark:text-zinc-300">
+                  Any comment
+                </span>
+              ) : (
+                flow.keywords.map((keyword) => (
+                  <span
+                    key={keyword}
+                    className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-700 dark:bg-white/8 dark:text-zinc-300"
+                  >
+                    {keyword}
+                  </span>
+                ))
+              )}
               <span className="text-xs text-zinc-400">
                 {flow.step_count} step{flow.step_count === 1 ? "" : "s"}
               </span>
@@ -186,24 +197,6 @@ export function FlowsTable({
               <form action={() => handleToggle(flow.id, flow.name, !flow.is_active)}>
                 <ToggleSwitchButton isActive={flow.is_active} />
               </form>
-
-              <Link
-                href={`/dashboard/flows/${flow.id}/executions`}
-                title="View executions"
-                aria-label={`View executions for ${flow.name}`}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-              >
-                <ClockIcon className="h-4 w-4" />
-              </Link>
-
-              <Link
-                href={`/dashboard/flows/${flow.id}/analytics`}
-                title="View analytics"
-                aria-label={`View analytics for ${flow.name}`}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-              >
-                <ChartIcon className="h-4 w-4" />
-              </Link>
 
               <Link
                 href={`/dashboard/flows/${flow.id}/leads`}
@@ -288,9 +281,22 @@ export function FlowsTable({
                   </td>
 
                   <td className="px-5 py-4">
-                    <span className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-700 dark:bg-white/8 dark:text-zinc-300">
-                      {flow.trigger_keyword}
-                    </span>
+                    {flow.keywordMatch === "any" ? (
+                      <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-white/8 dark:text-zinc-300">
+                        Any comment
+                      </span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {flow.keywords.map((keyword) => (
+                          <span
+                            key={keyword}
+                            className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-700 dark:bg-white/8 dark:text-zinc-300"
+                          >
+                            {keyword}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </td>
 
                   <td className="px-5 py-4 text-zinc-500">{flow.step_count}</td>
@@ -334,24 +340,6 @@ export function FlowsTable({
                       >
                         <ToggleSwitchButton isActive={flow.is_active} />
                       </form>
-
-                      <Link
-                        href={`/dashboard/flows/${flow.id}/executions`}
-                        title="View executions"
-                        aria-label={`View executions for ${flow.name}`}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-                      >
-                        <ClockIcon className="h-4 w-4" />
-                      </Link>
-
-                      <Link
-                        href={`/dashboard/flows/${flow.id}/analytics`}
-                        title="View analytics"
-                        aria-label={`View analytics for ${flow.name}`}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-                      >
-                        <ChartIcon className="h-4 w-4" />
-                      </Link>
 
                       <Link
                         href={`/dashboard/flows/${flow.id}/leads`}

@@ -1,15 +1,18 @@
 import { ShoppingBagIcon, StarIcon } from "@/components/icons";
+import { TrackedLink } from "./TrackedLink";
 import type { Product } from "@/types";
 
 export function ProductCard({
   product,
+  profileId,
   brandColor,
   buttonRadiusClass,
 }: {
   product: Pick<
     Product,
-    "name" | "description" | "image_url" | "product_url" | "price" | "currency" | "is_featured"
+    "id" | "name" | "description" | "image_url" | "product_url" | "price" | "currency" | "is_featured"
   >;
+  profileId: string;
   brandColor: string;
   buttonRadiusClass: string;
 }) {
@@ -74,7 +77,10 @@ export function ProductCard({
         )}
 
         {product.product_url && (
-          <a
+          <TrackedLink
+            profileId={profileId}
+            targetType="product"
+            targetId={product.id}
             href={product.product_url}
             target="_blank"
             rel="noopener noreferrer"
@@ -82,7 +88,7 @@ export function ProductCard({
             style={{ backgroundColor: brandColor }}
           >
             View Product
-          </a>
+          </TrackedLink>
         )}
       </div>
     </div>

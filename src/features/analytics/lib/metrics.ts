@@ -23,7 +23,7 @@ export const RANGES: Record<string, { label: string; days: number }> = {
   "90": { label: "Last 90 days", days: 90 },
 };
 
-export type LeadSource = "rule" | "flow" | "link";
+export type LeadSource = "rule" | "link";
 
 export interface AnalyticsAccount {
   id: string;
@@ -93,7 +93,6 @@ export const STATUS_LABELS: Record<string, string> = {
 
 export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
   rule: "AutoDM email ask",
-  flow: "DM flow step",
   link: "Link-in-bio magnet",
 };
 
@@ -348,7 +347,7 @@ export function statusBreakdown(slice: Slice) {
 }
 
 export function leadSourceBreakdown(slice: Slice) {
-  const order: LeadSource[] = ["rule", "flow", "link"];
+  const order: LeadSource[] = ["rule", "link"];
   const counts = new Map<LeadSource, number>(order.map((key) => [key, 0]));
   for (const bucket of slice.leads) {
     counts.set(bucket.source, (counts.get(bucket.source) ?? 0) + bucket.count);

@@ -1,12 +1,15 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { AutomationRule, InstagramAccount } from "@/types";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
-import { primaryButtonClass } from "@/components/ui/styles";
+import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/styles";
 import {
   BoltIcon,
+  ChartIcon,
   CheckIcon,
+  ClockIcon,
   CloseIcon,
   PauseIcon,
   PlusIcon,
@@ -95,6 +98,18 @@ export default async function RulesPage() {
         eyebrow="Automation"
         title="AutoDMs"
         description="Each AutoDM watches for a keyword in your comments and sends the DM you wrote."
+        actions={
+          <>
+            <Link href="/dashboard/rules/analytics" className={secondaryButtonClass}>
+              <ChartIcon className="h-4 w-4" />
+              Analytics
+            </Link>
+            <Link href="/dashboard/rules/executions" className={secondaryButtonClass}>
+              <ClockIcon className="h-4 w-4" />
+              Execution log
+            </Link>
+          </>
+        }
       />
 
       {error && (

@@ -109,9 +109,15 @@ export interface DmFlow {
   id: string;
   instagram_account_id: string;
   name: string;
-  trigger_keyword: string;
+  keyword_match: KeywordMatch;
+  keywords: string[];
+  excluded_keywords: string[];
+  /** Legacy single-keyword column, kept in sync with keywords[0]. */
+  trigger_keyword: string | null;
   instagram_media_id: string | null;
   send_public_reply: boolean;
+  public_reply_messages: string[];
+  /** Legacy single-reply column, kept in sync with public_reply_messages[0]. */
   public_reply_message: string | null;
   is_active: boolean;
   created_at: string;
@@ -125,6 +131,11 @@ export type DmFlowIntentMap = Partial<Record<"yes" | "no" | "default", number>>;
 export interface DmFlowStepOption {
   label: string;
   target_step_order: number | null;
+}
+
+export interface DmFlowStepButton {
+  label: string;
+  url: string;
 }
 
 export interface DmFlowStep {
@@ -141,6 +152,9 @@ export interface DmFlowStep {
   followup_enabled: boolean;
   followup_delay_hours: number | null;
   followup_message: string | null;
+  /** Only meaningful on a flow's terminal step — see StepsStep.tsx. */
+  buttons: DmFlowStepButton[];
+  button_card_title: string | null;
   created_at: string;
 }
 
@@ -279,6 +293,29 @@ export interface Product {
   position: number;
   created_at: string;
   updated_at: string;
+}
+
+export type LinkClickTargetType = "profile_link" | "lead_magnet" | "product" | "social";
+
+/** A single page view of a creator's public profile. */
+export interface ProfileView {
+  id: string;
+  profile_id: string;
+  referrer: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  created_at: string;
+}
+
+/** A click on any clickable element on a creator's public profile. */
+export interface LinkClick {
+  id: string;
+  profile_id: string;
+  target_type: LinkClickTargetType;
+  target_id: string;
+  referrer: string | null;
+  created_at: string;
 }
 
 /** Single-row app-wide config, admin-only write (see src/lib/auth/admin.ts). */

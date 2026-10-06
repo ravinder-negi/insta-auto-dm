@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { AuthBrandHeader } from "./AuthBrandHeader";
 import { AuthCard } from "./AuthCard";
 import { PasswordField } from "./PasswordField";
@@ -13,6 +13,10 @@ export function SignupForm() {
     signUp,
     undefined
   );
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   return (
     <AuthCard>
@@ -39,6 +43,8 @@ export function SignupForm() {
               required
               autoComplete="name"
               placeholder="Jane Doe"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pr-3.5 pl-10 text-sm outline-none transition-all duration-200 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10 dark:border-white/15 dark:focus:border-brand-400/70"
             />
           </div>
@@ -57,6 +63,8 @@ export function SignupForm() {
               required
               autoComplete="email"
               placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pr-3.5 pl-10 text-sm outline-none transition-all duration-200 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10 dark:border-white/15 dark:focus:border-brand-400/70"
             />
           </div>
@@ -68,13 +76,27 @@ export function SignupForm() {
           label="Password"
           autoComplete="new-password"
           minLength={6}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
         />
 
-        {state?.error && (
-          <p className="animate-fade-in-up text-sm text-red-600 dark:text-red-400">
-            {state.error}
-          </p>
-        )}
+        <div className="flex flex-col gap-1">
+          <PasswordField
+            id="confirmPassword"
+            name="confirmPassword"
+            label="Confirm password"
+            autoComplete="new-password"
+            minLength={6}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+
+          {state?.error && (
+            <p className="animate-fade-in-up text-sm text-red-600 dark:text-red-400">
+              {state.error}
+            </p>
+          )}
+        </div>
 
         <button
           type="submit"

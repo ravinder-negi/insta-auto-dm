@@ -3,7 +3,14 @@
 import { SelectField, fieldClass } from "@/components/ui/controls";
 import { PlusIcon, TrashIcon } from "@/components/icons";
 import type { FlowStepInput } from "@/features/flows/actions";
-import { ATTACHMENT_TYPES, MESSAGE_MAX_LENGTH, emptyStep } from "./shared";
+import {
+  ATTACHMENT_TYPES,
+  BUTTON_LABEL_MAX_LENGTH,
+  CARD_TITLE_MAX_LENGTH,
+  MAX_BUTTONS,
+  MESSAGE_MAX_LENGTH,
+  emptyStep,
+} from "./shared";
 
 export function StepsStep({
   steps,
@@ -71,6 +78,14 @@ function StepEditor({
     (n) => n !== index + 1
   );
 
+  function updateButton(buttonIndex: number, patch: Partial<FlowStepInput["buttons"][number]>) {
+    onChange({
+      buttons: step.buttons.map((button, i) =>
+        i === buttonIndex ? { ...button, ...patch } : button
+      ),
+    });
+  }
+
   return (
     <div className="rounded-xl border border-black/10 p-3.5 dark:border-white/12">
       <div className="mb-2.5 flex items-center justify-between">
@@ -123,6 +138,81 @@ function StepEditor({
           placeholder="Attachment URL (optional) — https://..."
           className={`${fieldClass} flex-1`}
         />
+      </div>
+
+      <div className="mt-3 flex flex-col gap-3">
+        {step.buttons.length > 0 && (
+            <div className="flex flex-col">
+              <label
+                htmlFor={`step-card-title-${index}`}
+                className="mb-1.5 text-sm font-semibold"
+              >
+                Card heading for long messages
+              </label>
+              <input
+                id={`step-card-title-${index}`}
+                value={step.button_card_title ?? ""}
+                onChange={(event) => onChange({ button_card_title: event.target.value })}
+                maxLength={CARD_TITLE_MAX_LENGTH}
+                placeholder="Tap the button below 👇"
+                className={fieldClass}
+              />
+            </div>
+          )}
+
+          {step.buttons.map((button, buttonIndex) => (
+            <div
+              key={buttonIndex}
+              className="rounded-xl border border-black/8 p-3.5 dark:border-white/10"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold">Button #{buttonIndex + 1}</p>
+                <button
+                  type="button"
+                  aria-label={`Remove button ${buttonIndex + 1}`}
+                  onClick={() =>
+                    onChange({
+                      buttons: step.buttons.filter((_, i) => i !== buttonIndex),
+                    })
+                  }
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/15"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </div>
+              <input
+                value={button.label}
+                onChange={(event) => updateButton(buttonIndex, { label: event.target.value })}
+                maxLength={BUTTON_LABEL_MAX_LENGTH}
+                placeholder="Click me"
+                aria-label={`Button ${buttonIndex + 1} label`}
+                className={`${fieldClass} mt-2`}
+              />
+              <p className="mt-3 mb-1.5 text-sm font-semibold">
+                When someone taps this button, open…
+              </p>
+              <input
+                value={button.url}
+                onChange={(event) => updateButton(buttonIndex, { url: event.target.value })}
+                placeholder="https://your-link.com"
+                aria-label={`Button ${buttonIndex + 1} link`}
+                className={fieldClass}
+              />
+            </div>
+          ))}
+
+          {step.buttons.length < MAX_BUTTONS && (
+            <button
+              type="button"
+              onClick={() =>
+                onChange({ buttons: [...step.buttons, { label: "", url: "" }] })
+              }
+              className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-black/10 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Add {step.buttons.length > 0 ? "another " : "a "}button
+            </button>
+          )}
       </div>
 
       <label className="mt-3 flex cursor-pointer items-center gap-2.5">

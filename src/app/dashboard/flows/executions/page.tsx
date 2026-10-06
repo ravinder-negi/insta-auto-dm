@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AlertIcon, ArrowLeftIcon, CheckIcon, ClockIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -11,40 +10,46 @@ import {
   type FlowSessionRow,
 } from "@/features/flows/components/FlowSessionsTable";
 
-export default async function FlowExecutionsPage(
-  props: PageProps<"/dashboard/flows/[id]/executions">
-) {
-  const { id } = await props.params;
+type SessionQueryRow = {
+  id: string;
+  flow_id: string;
+  ig_sender_id: string;
+  current_step_order: number;
+  status: string;
+  started_at: string;
+  last_interaction_at: string;
+  dm_flows: { name: string } | null;
+};
+
+export default async function FlowsExecutionsPage() {
   const supabase = await createClient();
 
-  const [{ data: flow }, { data: sessions }, { data: steps }] = await Promise.all([
-    supabase.from("dm_flows").select("id, name").eq("id", id).maybeSingle(),
+  const [{ data, error }, { data: steps }] = await Promise.all([
     supabase
       .from("dm_flow_sessions")
-      .select("id, ig_sender_id, current_step_order, status, started_at, last_interaction_at")
-      .eq("flow_id", id)
+      .select(
+        "id, flow_id, ig_sender_id, current_step_order, status, started_at, last_interaction_at, dm_flows(name)"
+      )
       .order("last_interaction_at", { ascending: false })
       .limit(200),
-    supabase
-      .from("dm_flow_steps")
-      .select("step_order")
-      .eq("flow_id", id)
-      .order("step_order", { ascending: false })
-      .limit(1),
+    supabase.from("dm_flow_steps").select("flow_id, step_order"),
   ]);
 
-  if (!flow) {
-    notFound();
+  // Highest step_order per flow — each flow has its own step count.
+  const totalStepsByFlow = new Map<string, number>();
+  for (const step of steps ?? []) {
+    const current = totalStepsByFlow.get(step.flow_id) ?? 0;
+    if (step.step_order > current) totalStepsByFlow.set(step.flow_id, step.step_order);
   }
 
-  const totalSteps = steps?.[0]?.step_order ?? null;
+  const sessions = (data as unknown as SessionQueryRow[]) ?? [];
 
-  const rows: FlowSessionRow[] = (sessions ?? []).map((session) => ({
+  const rows: FlowSessionRow[] = sessions.map((session) => ({
     id: session.id,
-    flowName: flow.name,
+    flowName: session.dm_flows?.name ?? "Deleted flow",
     ig_sender_id: session.ig_sender_id,
     current_step_order: session.current_step_order,
-    totalSteps,
+    totalSteps: totalStepsByFlow.get(session.flow_id) ?? null,
     status: session.status,
     started_at: session.started_at,
     last_interaction_at: session.last_interaction_at,
@@ -65,9 +70,15 @@ export default async function FlowExecutionsPage(
 
       <PageHeader
         eyebrow="Logs"
-        title={flow.name}
-        description="Every conversation started by this flow, newest first."
+        title="Flow execution log"
+        description="Every conversation started by a DM flow, newest first."
       />
+
+      {error && (
+        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400">
+          {error.message}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
@@ -94,7 +105,7 @@ export default async function FlowExecutionsPage(
         <EmptyState
           icon={<ClockIcon className="h-6 w-6" />}
           title="No conversations yet"
-          description="Once someone comments this flow's trigger keyword, their conversation shows up here."
+          description="Once someone comments a flow's trigger keyword, their conversation shows up here."
         />
       ) : (
         <FlowSessionsTable sessions={rows} now={currentTimestamp()} />

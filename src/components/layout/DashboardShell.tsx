@@ -5,9 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   BoltIcon,
-  ChartIcon,
   ChevronDownIcon,
-  ClockIcon,
   CloseIcon,
   GiftIcon,
   HomeIcon,
@@ -54,8 +52,6 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/accounts", label: "Accounts", icon: HomeIcon },
       { href: "/dashboard/rules", label: "AutoDMs", icon: BoltIcon },
       { href: "/dashboard/flows", label: "DM Flows", icon: LayersIcon },
-      { href: "/dashboard/executions", label: "Executions", icon: ClockIcon },
-      { href: "/dashboard/analytics", label: "Analytics", icon: ChartIcon },
     ],
   },
   {

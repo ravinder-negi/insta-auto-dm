@@ -3,12 +3,20 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { DmFlowIntentMap, DmFlowStepOption } from "@/types";
+import type { DmFlowIntentMap, DmFlowStepOption, KeywordMatch } from "@/types";
 import type { FlowWizardInitialValues } from "@/features/flows/components/wizard/FlowWizard";
 
 export type FlowFormState = { error: string } | { ok: true } | undefined;
 
 const ATTACHMENT_TYPES = ["image", "video", "audio"] as const;
+
+const MAX_BUTTONS = 3;
+const MAX_KEYWORDS = 20;
+
+export interface FlowStepButtonInput {
+  label: string;
+  url: string;
+}
 
 export interface FlowStepInput {
   step_order: number;
@@ -22,14 +30,23 @@ export interface FlowStepInput {
   followup_enabled: boolean;
   followup_delay_hours: number | null;
   followup_message: string | null;
+  /** Only sent when this is the flow's last step — see StepsStep.tsx. */
+  buttons: FlowStepButtonInput[];
+  button_card_title: string | null;
 }
 
 interface FlowFields {
   instagram_account_id: string;
   name: string;
-  trigger_keyword: string;
+  keyword_match: KeywordMatch;
+  keywords: string[];
+  excluded_keywords: string[];
+  /** Legacy single-keyword column, kept in sync with keywords[0]. */
+  trigger_keyword: string | null;
   instagram_media_id: string | null;
   send_public_reply: boolean;
+  public_reply_messages: string[];
+  /** Legacy single-reply column, kept in sync with public_reply_messages[0]. */
   public_reply_message: string | null;
   steps: FlowStepInput[];
 }
@@ -39,23 +56,63 @@ function readFlowFields(
 ): { ok: true; fields: FlowFields } | { ok: false; error: string } {
   const instagramAccountId = String(formData.get("instagram_account_id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
-  const triggerKeyword = String(formData.get("trigger_keyword") ?? "").trim();
   const instagramMediaIdRaw = String(formData.get("instagram_media_id") ?? "").trim();
   const sendPublicReply = formData.get("send_public_reply") === "on";
-  const publicReplyMessage = String(formData.get("public_reply_message") ?? "").trim();
   const stepsRaw = String(formData.get("steps") ?? "");
 
-  if (!instagramAccountId || !name || !triggerKeyword) {
+  const keywordMatchRaw = String(formData.get("keyword_match") ?? "specific");
+  const keywordMatch: KeywordMatch = keywordMatchRaw === "any" ? "any" : "specific";
+
+  let keywords: string[] = [];
+  try {
+    keywords = JSON.parse(String(formData.get("keywords") ?? "[]"));
+  } catch {
+    return { ok: false, error: "Invalid keyword data." };
+  }
+  keywords = keywords
+    .map((keyword) => String(keyword).trim())
+    .filter(Boolean)
+    .slice(0, MAX_KEYWORDS);
+
+  let excludedKeywords: string[] = [];
+  try {
+    excludedKeywords = JSON.parse(String(formData.get("excluded_keywords") ?? "[]"));
+  } catch {
+    return { ok: false, error: "Invalid excluded keyword data." };
+  }
+  excludedKeywords = excludedKeywords
+    .map((keyword) => String(keyword).trim())
+    .filter(Boolean)
+    .slice(0, MAX_KEYWORDS);
+
+  let publicReplyMessages: string[] = [];
+  try {
+    publicReplyMessages = JSON.parse(String(formData.get("public_reply_messages") ?? "[]"));
+  } catch {
+    return { ok: false, error: "Invalid public reply data." };
+  }
+  publicReplyMessages = publicReplyMessages
+    .map((message) => String(message).trim())
+    .filter(Boolean);
+
+  if (!instagramAccountId || !name) {
     return {
       ok: false,
-      error: "Account, name, and trigger keyword are required.",
+      error: "Account and name are required.",
     };
   }
 
-  if (sendPublicReply && !publicReplyMessage) {
+  if (keywordMatch === "specific" && keywords.length === 0) {
     return {
       ok: false,
-      error: "Public reply message is required when 'Reply on the comment' is on.",
+      error: "Add at least one trigger keyword, or switch to 'Any comment'.",
+    };
+  }
+
+  if (sendPublicReply && publicReplyMessages.length === 0) {
+    return {
+      ok: false,
+      error: "At least one public reply message is required when 'Auto-Reply to comments' is on.",
     };
   }
 
@@ -76,6 +133,13 @@ function readFlowFields(
     }
     if (step.attachment_url && !/^https:\/\/\S+$/.test(step.attachment_url)) {
       return { ok: false, error: "Attachment URL must be a valid https:// link." };
+    }
+    if (Array.isArray(step.buttons) && step.buttons.length > 0) {
+      for (const button of step.buttons as FlowStepButtonInput[]) {
+        if (!button.label?.trim() || !/^https:\/\/\S+$/.test(button.url ?? "")) {
+          return { ok: false, error: "Every button needs a label and a valid https:// link." };
+        }
+      }
     }
     if (
       step.expects_reply &&
@@ -103,10 +167,14 @@ function readFlowFields(
     fields: {
       instagram_account_id: instagramAccountId,
       name,
-      trigger_keyword: triggerKeyword,
+      keyword_match: keywordMatch,
+      keywords,
+      excluded_keywords: excludedKeywords,
+      trigger_keyword: keywords[0] ?? null,
       instagram_media_id: instagramMediaIdRaw || null,
       send_public_reply: sendPublicReply,
-      public_reply_message: sendPublicReply ? publicReplyMessage : null,
+      public_reply_messages: sendPublicReply ? publicReplyMessages : [],
+      public_reply_message: sendPublicReply ? (publicReplyMessages[0] ?? null) : null,
       steps: steps.map((step, index) => {
         const hasOptions =
           step.expects_reply &&
@@ -147,6 +215,13 @@ function readFlowFields(
             step.expects_reply && step.followup_enabled
               ? step.followup_message?.trim() ?? null
               : null,
+          buttons: Array.isArray(step.buttons)
+            ? step.buttons.slice(0, MAX_BUTTONS).map((button) => ({
+                label: button.label.trim(),
+                url: button.url.trim(),
+              }))
+            : [],
+          button_card_title: step.button_card_title?.trim() || null,
         };
       }),
     },
@@ -172,6 +247,8 @@ async function insertSteps(
       followup_message: step.followup_message,
       intent_map: step.intent_map,
       options: step.options,
+      buttons: step.buttons,
+      button_card_title: step.button_card_title,
     }))
   );
   return error;
@@ -187,9 +264,13 @@ async function createFlowCore(formData: FormData): Promise<FlowFormState> {
     .insert({
       instagram_account_id: parsed.fields.instagram_account_id,
       name: parsed.fields.name,
+      keyword_match: parsed.fields.keyword_match,
+      keywords: parsed.fields.keywords,
+      excluded_keywords: parsed.fields.excluded_keywords,
       trigger_keyword: parsed.fields.trigger_keyword,
       instagram_media_id: parsed.fields.instagram_media_id,
       send_public_reply: parsed.fields.send_public_reply,
+      public_reply_messages: parsed.fields.public_reply_messages,
       public_reply_message: parsed.fields.public_reply_message,
       is_active: true,
     })
@@ -238,9 +319,13 @@ async function updateFlowCore(id: string, formData: FormData): Promise<FlowFormS
     .update({
       instagram_account_id: parsed.fields.instagram_account_id,
       name: parsed.fields.name,
+      keyword_match: parsed.fields.keyword_match,
+      keywords: parsed.fields.keywords,
+      excluded_keywords: parsed.fields.excluded_keywords,
       trigger_keyword: parsed.fields.trigger_keyword,
       instagram_media_id: parsed.fields.instagram_media_id,
       send_public_reply: parsed.fields.send_public_reply,
+      public_reply_messages: parsed.fields.public_reply_messages,
       public_reply_message: parsed.fields.public_reply_message,
       updated_at: new Date().toISOString(),
     })
@@ -331,14 +416,14 @@ export async function getFlowFormData(
     supabase
       .from("dm_flows")
       .select(
-        "id, instagram_account_id, name, trigger_keyword, instagram_media_id, send_public_reply, public_reply_message"
+        "id, instagram_account_id, name, keyword_match, keywords, excluded_keywords, trigger_keyword, instagram_media_id, send_public_reply, public_reply_messages, public_reply_message"
       )
       .eq("id", id)
       .maybeSingle(),
     supabase
       .from("dm_flow_steps")
       .select(
-        "step_order, message_text, expects_reply, collects_email, intent_map, options, attachment_url, attachment_type, followup_enabled, followup_delay_hours, followup_message"
+        "step_order, message_text, expects_reply, collects_email, intent_map, options, attachment_url, attachment_type, followup_enabled, followup_delay_hours, followup_message, buttons, button_card_title"
       )
       .eq("flow_id", id)
       .order("step_order", { ascending: true }),
@@ -353,9 +438,22 @@ export async function getFlowFormData(
     initialValues: {
       instagram_account_id: flow.instagram_account_id,
       name: flow.name,
+      keyword_match: flow.keyword_match,
+      // Flows created before keyword sets existed only have the singular column.
+      keywords: flow.keywords?.length
+        ? flow.keywords
+        : flow.trigger_keyword
+          ? [flow.trigger_keyword]
+          : [],
+      excluded_keywords: flow.excluded_keywords ?? [],
       trigger_keyword: flow.trigger_keyword,
       instagram_media_id: flow.instagram_media_id,
       send_public_reply: flow.send_public_reply,
+      public_reply_messages: flow.public_reply_messages?.length
+        ? flow.public_reply_messages
+        : flow.public_reply_message
+          ? [flow.public_reply_message]
+          : [],
       public_reply_message: flow.public_reply_message,
       steps: (steps ?? []).map((step) => ({
         step_order: step.step_order,
@@ -369,6 +467,8 @@ export async function getFlowFormData(
         followup_enabled: step.followup_enabled,
         followup_delay_hours: step.followup_delay_hours,
         followup_message: step.followup_message,
+        buttons: step.buttons ?? [],
+        button_card_title: step.button_card_title,
       })),
     },
   };

@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { BoltIcon, ChevronDownIcon } from "@/components/icons";
 import { resolveLinkVisual } from "@/features/links/linkTypeIcons";
 import { SOCIAL_PLATFORM_META } from "@/features/socials/socialPlatforms";
 import { getButtonRadiusClass, getThemeFontClassName } from "@/features/theme/themeOptions";
+import { recordProfileView } from "./actions";
 import { LeadMagnetCard } from "./_components/LeadMagnetCard";
 import { ProductCard } from "./_components/ProductCard";
 import { ShareButton } from "./_components/ShareButton";
+import { TrackedLink } from "./_components/TrackedLink";
 import type { LeadMagnet, Product, Profile, ProfileLink, ProfileSocial } from "@/types";
 
 async function getPublishedProfile(username: string) {
@@ -74,6 +78,11 @@ async function getActiveProducts(profileId: string) {
 }
 
 type Params = Promise<{ username: string }>;
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+function firstParam(value: string | string[] | undefined): string | null {
+  return (Array.isArray(value) ? value[0] : value) ?? null;
+}
 
 export async function generateMetadata({
   params,
@@ -99,8 +108,10 @@ export async function generateMetadata({
 
 export default async function CreatorProfilePage({
   params,
+  searchParams,
 }: {
   params: Params;
+  searchParams: SearchParams;
 }) {
   const { username } = await params;
   const profile = await getPublishedProfile(username);
@@ -109,12 +120,27 @@ export default async function CreatorProfilePage({
     notFound();
   }
 
-  const [links, socials, leadMagnets, products] = await Promise.all([
-    getActiveLinks(profile.id),
-    getActiveSocials(profile.id),
-    getActiveLeadMagnets(profile.id),
-    getActiveProducts(profile.id),
-  ]);
+  const [links, socials, leadMagnets, products, query, requestHeaders, viewSupabase] =
+    await Promise.all([
+      getActiveLinks(profile.id),
+      getActiveSocials(profile.id),
+      getActiveLeadMagnets(profile.id),
+      getActiveProducts(profile.id),
+      searchParams,
+      headers(),
+      createClient(),
+    ]);
+
+  // createClient() reads cookies(), which `after()` can't call — so the
+  // client has to be created out here and handed in, not built from scratch
+  // inside the callback.
+  after(() =>
+    recordProfileView(viewSupabase, profile.id, requestHeaders.get("referer"), {
+      source: firstParam(query.utm_source),
+      medium: firstParam(query.utm_medium),
+      campaign: firstParam(query.utm_campaign),
+    })
+  );
   const brandColor = profile.brand_color || "#6366f1";
   const fontClassName = getThemeFontClassName(profile.theme_font);
   const buttonRadiusClass = getButtonRadiusClass(profile.theme_button_style);
@@ -205,8 +231,11 @@ export default async function CreatorProfilePage({
               const meta = SOCIAL_PLATFORM_META[social.platform];
               const Icon = meta.icon;
               return (
-                <a
+                <TrackedLink
                   key={social.id}
+                  profileId={profile.id}
+                  targetType="social"
+                  targetId={social.id}
                   href={social.url}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -216,7 +245,7 @@ export default async function CreatorProfilePage({
                   style={{ background: meta.background, color: meta.foreground ?? "#ffffff" }}
                 >
                   <Icon className="h-5 w-5" />
-                </a>
+                </TrackedLink>
               );
             })}
           </div>
@@ -230,8 +259,11 @@ export default async function CreatorProfilePage({
                 brandColor
               );
               return (
-                <a
+                <TrackedLink
                   key={link.id}
+                  profileId={profile.id}
+                  targetType="profile_link"
+                  targetId={link.id}
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -278,7 +310,7 @@ export default async function CreatorProfilePage({
                   )}
 
                   <ChevronDownIcon className="h-5 w-5 shrink-0 -rotate-90 text-zinc-400 transition-transform group-hover:translate-x-0.5 dark:text-zinc-600" />
-                </a>
+                </TrackedLink>
               );
             })}
           </div>
@@ -290,6 +322,7 @@ export default async function CreatorProfilePage({
               <LeadMagnetCard
                 key={magnet.id}
                 id={magnet.id}
+                profileId={profile.id}
                 title={magnet.title}
                 description={magnet.description}
                 brandColor={brandColor}
@@ -304,6 +337,7 @@ export default async function CreatorProfilePage({
             {products.map((product) => (
               <ProductCard
                 key={product.id}
+                profileId={profile.id}
                 product={product}
                 brandColor={brandColor}
                 buttonRadiusClass={buttonRadiusClass}

@@ -10,6 +10,8 @@ export function PasswordField({
   autoComplete,
   minLength,
   labelAction,
+  value,
+  onChange,
 }: {
   id: string;
   name: string;
@@ -17,6 +19,8 @@ export function PasswordField({
   autoComplete: "current-password" | "new-password";
   minLength?: number;
   labelAction?: React.ReactNode;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   const [visible, setVisible] = useState(false);
 
@@ -38,6 +42,8 @@ export function PasswordField({
           minLength={minLength}
           placeholder="Password"
           autoComplete={autoComplete}
+          value={value}
+          onChange={onChange}
           className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pr-10 pl-10 text-sm outline-none transition-all duration-200 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10 dark:border-white/15 dark:focus:border-brand-400/70"
         />
         <button

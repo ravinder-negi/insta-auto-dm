@@ -1,10 +1,30 @@
 "use client";
 
+import { useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { fieldClass } from "@/components/ui/controls";
-import { CheckIcon, ImageIcon, InstagramIcon, LayersIcon, VideoCameraIcon } from "@/components/icons";
+import {
+  CheckIcon,
+  CloseIcon,
+  ImageIcon,
+  InfoIcon,
+  InstagramIcon,
+  LayersIcon,
+  PlusIcon,
+  VideoCameraIcon,
+} from "@/components/icons";
 import type { InstagramMediaOption } from "@/lib/hooks/useInstagramMedia";
-import type { FlowWizardAccountOption, MediaScope } from "./shared";
+import {
+  MAX_KEYWORDS,
+  type FlowWizardAccountOption,
+  type KeywordMatch,
+  type MediaScope,
+} from "./shared";
+
+const MATCHES: { value: KeywordMatch; label: string }[] = [
+  { value: "specific", label: "Specific keyword" },
+  { value: "any", label: "Any comment" },
+];
 
 /** Tiles are a fixed height so the picker can show exactly two rows before it
  *  scrolls, instead of cutting the second row mid-image. */
@@ -44,8 +64,12 @@ export function TriggerStep({
   error,
   manualEntry,
   onManualEntryChange,
-  triggerKeyword,
-  onTriggerKeywordChange,
+  keywordMatch,
+  onKeywordMatchChange,
+  keywords,
+  onKeywordsChange,
+  excludedKeywords,
+  onExcludedKeywordsChange,
 }: {
   account?: FlowWizardAccountOption;
   scope: MediaScope;
@@ -57,9 +81,14 @@ export function TriggerStep({
   error: string | null;
   manualEntry: boolean;
   onManualEntryChange: (manual: boolean) => void;
-  triggerKeyword: string;
-  onTriggerKeywordChange: (value: string) => void;
+  keywordMatch: KeywordMatch;
+  onKeywordMatchChange: (value: KeywordMatch) => void;
+  keywords: string[];
+  onKeywordsChange: (values: string[]) => void;
+  excludedKeywords: string[];
+  onExcludedKeywordsChange: (values: string[]) => void;
 }) {
+  const [showExcluded, setShowExcluded] = useState(excludedKeywords.length > 0);
   const activeScope = SCOPES.find((item) => item.value === scope);
 
   return (
@@ -204,22 +233,165 @@ export function TriggerStep({
         </div>
       )}
 
-      <div className="flex flex-col">
-        <label htmlFor="trigger_keyword" className="text-sm font-semibold">
-          Trigger keyword
-        </label>
-        <p className="mt-1 mb-2 text-xs text-zinc-500 dark:text-zinc-400">
-          Matched case-insensitively against the full, trimmed comment text.
+      <fieldset>
+        <legend className="text-sm font-semibold">
+          What kind of comment should trigger this flow?
+        </legend>
+
+        <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          {MATCHES.map((option) => {
+            const active = option.value === keywordMatch;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onKeywordMatchChange(option.value)}
+                className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                  active
+                    ? "border-brand-500 bg-brand-50/70 text-brand-700 ring-2 ring-brand-500/15 dark:border-brand-400/70 dark:bg-brand-500/10 dark:text-brand-300"
+                    : "border-black/8 bg-white hover:border-brand-300 hover:bg-brand-50/40 dark:border-white/10 dark:bg-white/5 dark:hover:border-brand-400/40 dark:hover:bg-white/10"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      {keywordMatch === "specific" ? (
+        <div className="flex flex-col gap-5">
+          <ChipInput
+            label="Should include any of these:"
+            placeholder="Type a keyword (min. 1 character)"
+            values={keywords}
+            onChange={onKeywordsChange}
+            hint={
+              <>
+                Keywords are not case-sensitive. A comment triggers this flow
+                when it contains a keyword as a whole word — the keyword
+                &quot;ai&quot; matches &quot;ai&quot; but not &quot;pain&quot;.
+              </>
+            }
+          />
+
+          {showExcluded ? (
+            <ChipInput
+              label="Never trigger when the comment includes:"
+              placeholder="Type a keyword to exclude"
+              values={excludedKeywords}
+              onChange={onExcludedKeywordsChange}
+              hint="An excluded keyword anywhere in the comment stops this flow, even when a trigger keyword also matches."
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowExcluded(true)}
+              className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-brand-600 underline-offset-2 hover:underline dark:text-brand-400"
+            >
+              Add excluded keywords?
+              <InfoIcon className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      ) : (
+        <p className="flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <InfoIcon className="mt-0.5 h-4 w-4 shrink-0" />
+          Every comment triggers this flow — no keyword needed. Your own
+          comments and replies are ignored.
         </p>
+      )}
+    </div>
+  );
+}
+
+/** Add-on-Enter list of short strings, rendered as removable chips. */
+function ChipInput({
+  label,
+  placeholder,
+  values,
+  onChange,
+  hint,
+}: {
+  label: string;
+  placeholder: string;
+  values: string[];
+  onChange: (values: string[]) => void;
+  hint?: React.ReactNode;
+}) {
+  const [draft, setDraft] = useState("");
+  const full = values.length >= MAX_KEYWORDS;
+
+  function add() {
+    const value = draft.trim();
+    if (!value || full) return;
+
+    const duplicate = values.some(
+      (existing) => existing.toLowerCase() === value.toLowerCase()
+    );
+    if (!duplicate) onChange([...values, value]);
+
+    setDraft("");
+  }
+
+  return (
+    <div className="flex flex-col">
+      <p className="text-sm font-semibold">{label}</p>
+
+      <div className="relative mt-2">
         <input
-          id="trigger_keyword"
-          value={triggerKeyword}
-          onChange={(event) => onTriggerKeywordChange(event.target.value)}
-          placeholder="e.g. PRICE"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === ",") {
+              event.preventDefault();
+              add();
+            }
+          }}
+          disabled={full}
+          placeholder={full ? `Limit of ${MAX_KEYWORDS} reached` : placeholder}
           autoComplete="off"
-          className={fieldClass}
+          className={`${fieldClass} pr-24`}
         />
+        <button
+          type="button"
+          onClick={add}
+          disabled={!draft.trim() || full}
+          className="absolute top-1/2 right-1.5 inline-flex -translate-y-1/2 items-center gap-1 rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-xs font-semibold transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:border-white/15 dark:bg-white/10 dark:hover:bg-white/15"
+        >
+          <PlusIcon className="h-3.5 w-3.5" />
+          Add
+        </button>
       </div>
+
+      {values.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          {values.map((value) => (
+            <span
+              key={value}
+              className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 py-1 pr-1.5 pl-3 text-xs font-semibold text-brand-700 dark:border-brand-400/40 dark:bg-brand-500/10 dark:text-brand-300"
+            >
+              {value}
+              <button
+                type="button"
+                aria-label={`Remove ${value}`}
+                onClick={() =>
+                  onChange(values.filter((existing) => existing !== value))
+                }
+                className="flex h-4.5 w-4.5 items-center justify-center rounded-full text-brand-500 transition-colors hover:bg-brand-500/15"
+              >
+                <CloseIcon className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {hint && (
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>
+      )}
     </div>
   );
 }

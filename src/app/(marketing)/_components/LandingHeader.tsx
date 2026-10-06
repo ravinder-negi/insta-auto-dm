@@ -11,10 +11,10 @@ import {
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 const NAV_LINKS = [
-  { href: "#features", label: "Features" },
-  { href: "#how-it-works", label: "How it works" },
-  { href: "#why-choose", label: "Benefits" },
-  { href: "#faq", label: "FAQ" },
+  { href: "/#features", label: "Features" },
+  { href: "/#how-it-works", label: "How it works" },
+  { href: "/#why-choose", label: "Benefits" },
+  { href: "/#faq", label: "FAQ" },
 ];
 
 export function LandingHeader() {

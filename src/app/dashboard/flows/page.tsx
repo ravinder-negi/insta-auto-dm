@@ -1,10 +1,19 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { DmFlow, InstagramAccount } from "@/types";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
-import { primaryButtonClass } from "@/components/ui/styles";
-import { CheckIcon, CloseIcon, LayersIcon, PauseIcon, PlusIcon } from "@/components/icons";
+import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/styles";
+import {
+  ChartIcon,
+  CheckIcon,
+  ClockIcon,
+  CloseIcon,
+  LayersIcon,
+  PauseIcon,
+  PlusIcon,
+} from "@/components/icons";
 import { FlowsTable, type FlowTableRow } from "@/features/flows/components/FlowsTable";
 import { NewFlowButton } from "@/features/flows/components/NewFlowButton";
 
@@ -12,6 +21,8 @@ type FlowQueryRow = Pick<
   DmFlow,
   | "id"
   | "name"
+  | "keyword_match"
+  | "keywords"
   | "trigger_keyword"
   | "instagram_media_id"
   | "is_active"
@@ -32,7 +43,7 @@ export default async function FlowsPage() {
     supabase
       .from("dm_flows")
       .select(
-        "id, name, trigger_keyword, instagram_media_id, is_active, created_at, instagram_account_id, instagram_accounts(username, instagram_user_id, is_active), dm_flow_steps(id)"
+        "id, name, keyword_match, keywords, trigger_keyword, instagram_media_id, is_active, created_at, instagram_account_id, instagram_accounts(username, instagram_user_id, is_active), dm_flow_steps(id)"
       )
       .order("created_at", { ascending: false }),
     supabase
@@ -45,7 +56,13 @@ export default async function FlowsPage() {
     (flow) => ({
       id: flow.id,
       name: flow.name,
-      trigger_keyword: flow.trigger_keyword,
+      keywordMatch: flow.keyword_match,
+      // Flows created before keyword sets existed only have the singular column.
+      keywords: flow.keywords?.length
+        ? flow.keywords
+        : flow.trigger_keyword
+          ? [flow.trigger_keyword]
+          : [],
       instagram_media_id: flow.instagram_media_id,
       step_count: flow.dm_flow_steps?.length ?? 0,
       is_active: flow.is_active,
@@ -78,6 +95,18 @@ export default async function FlowsPage() {
         eyebrow="Automation"
         title="DM flows"
         description="Send a sequence of DMs that branch on how the recipient replies."
+        actions={
+          <>
+            <Link href="/dashboard/flows/analytics" className={secondaryButtonClass}>
+              <ChartIcon className="h-4 w-4" />
+              Analytics
+            </Link>
+            <Link href="/dashboard/flows/executions" className={secondaryButtonClass}>
+              <ClockIcon className="h-4 w-4" />
+              Execution log
+            </Link>
+          </>
+        }
       />
 
       {error && (

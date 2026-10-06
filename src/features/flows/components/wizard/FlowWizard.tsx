@@ -9,9 +9,10 @@ import { SettingsStep } from "./SettingsStep";
 import { StepsStep } from "./StepsStep";
 import { TriggerStep } from "./TriggerStep";
 import {
-  DEFAULT_PUBLIC_REPLY_MESSAGE,
+  DEFAULT_PUBLIC_REPLY_MESSAGES,
   emptyStep,
   type FlowWizardAccountOption,
+  type KeywordMatch,
   type MediaScope,
 } from "./shared";
 
@@ -37,9 +38,15 @@ const STEPS: WizardStepMeta[] = [
 export interface FlowWizardInitialValues {
   instagram_account_id: string;
   name: string;
-  trigger_keyword: string;
+  keyword_match: KeywordMatch;
+  keywords: string[];
+  excluded_keywords: string[];
+  /** Legacy single-keyword column, used when a flow predates keyword sets. */
+  trigger_keyword: string | null;
   instagram_media_id: string | null;
   send_public_reply: boolean;
+  public_reply_messages: string[];
+  /** Legacy single-reply column, used when a flow predates reply slots. */
   public_reply_message: string | null;
   steps: FlowStepInput[];
 }
@@ -89,8 +96,18 @@ export function FlowWizard({
   const [instagramMediaId, setInstagramMediaId] = useState(
     initialValues?.instagram_media_id ?? ""
   );
-  const [triggerKeyword, setTriggerKeyword] = useState(
-    initialValues?.trigger_keyword ?? ""
+  const [keywordMatch, setKeywordMatch] = useState<KeywordMatch>(
+    initialValues?.keyword_match ?? "specific"
+  );
+  const [keywords, setKeywords] = useState<string[]>(
+    initialValues?.keywords?.length
+      ? initialValues.keywords
+      : initialValues?.trigger_keyword
+        ? [initialValues.trigger_keyword]
+        : []
+  );
+  const [excludedKeywords, setExcludedKeywords] = useState<string[]>(
+    initialValues?.excluded_keywords ?? []
   );
   const [steps, setSteps] = useState<FlowStepInput[]>(
     initialValues?.steps?.length ? initialValues.steps : [emptyStep()]
@@ -98,8 +115,12 @@ export function FlowWizard({
   const [sendPublicReply, setSendPublicReply] = useState(
     initialValues?.send_public_reply ?? false
   );
-  const [publicReplyMessage, setPublicReplyMessage] = useState(
-    initialValues?.public_reply_message ?? DEFAULT_PUBLIC_REPLY_MESSAGE
+  const [publicReplyMessages, setPublicReplyMessages] = useState<string[]>(
+    initialValues?.public_reply_messages?.length
+      ? initialValues.public_reply_messages
+      : initialValues?.public_reply_message
+        ? [initialValues.public_reply_message]
+        : DEFAULT_PUBLIC_REPLY_MESSAGES
   );
 
   const account = accounts.find((option) => option.id === selectedAccountId);
@@ -142,9 +163,10 @@ export function FlowWizard({
 
   const stepValid = [
     Boolean(selectedAccountId) && name.trim().length > 0,
-    mediaScope !== "specific" || instagramMediaId.trim().length > 0,
+    (mediaScope !== "specific" || instagramMediaId.trim().length > 0) &&
+      (keywordMatch !== "specific" || keywords.length > 0),
     steps.length > 0 && stepsValid,
-    !sendPublicReply || publicReplyMessage.trim().length > 0,
+    !sendPublicReply || (publicReplyMessages[0]?.trim().length ?? 0) > 0,
   ];
 
   const isLastStep = step === STEPS.length - 1;
@@ -162,7 +184,13 @@ export function FlowWizard({
     >
       <input type="hidden" name="instagram_account_id" value={selectedAccountId} />
       <input type="hidden" name="name" value={name} />
-      <input type="hidden" name="trigger_keyword" value={triggerKeyword} />
+      <input type="hidden" name="keyword_match" value={keywordMatch} />
+      <input type="hidden" name="keywords" value={JSON.stringify(keywords)} />
+      <input
+        type="hidden"
+        name="excluded_keywords"
+        value={JSON.stringify(excludedKeywords)}
+      />
       <input
         type="hidden"
         name="instagram_media_id"
@@ -171,7 +199,11 @@ export function FlowWizard({
       {sendPublicReply && (
         <>
           <input type="hidden" name="send_public_reply" value="on" />
-          <input type="hidden" name="public_reply_message" value={publicReplyMessage} />
+          <input
+            type="hidden"
+            name="public_reply_messages"
+            value={JSON.stringify(publicReplyMessages)}
+          />
         </>
       )}
       <input type="hidden" name="steps" value={JSON.stringify(steps)} />
@@ -210,8 +242,12 @@ export function FlowWizard({
             error={media.error}
             manualEntry={manualEntry}
             onManualEntryChange={setManualEntry}
-            triggerKeyword={triggerKeyword}
-            onTriggerKeywordChange={setTriggerKeyword}
+            keywordMatch={keywordMatch}
+            onKeywordMatchChange={setKeywordMatch}
+            keywords={keywords}
+            onKeywordsChange={setKeywords}
+            excludedKeywords={excludedKeywords}
+            onExcludedKeywordsChange={setExcludedKeywords}
           />
         )}
 
@@ -221,8 +257,8 @@ export function FlowWizard({
           <SettingsStep
             sendPublicReply={sendPublicReply}
             onSendPublicReplyChange={setSendPublicReply}
-            publicReplyMessage={publicReplyMessage}
-            onPublicReplyMessageChange={setPublicReplyMessage}
+            publicReplyMessages={publicReplyMessages}
+            onPublicReplyMessagesChange={setPublicReplyMessages}
           />
         )}
       </WizardShell>

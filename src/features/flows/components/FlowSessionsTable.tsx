@@ -5,8 +5,10 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 
 export interface FlowSessionRow {
   id: string;
+  flowName: string;
   ig_sender_id: string;
   current_step_order: number;
+  totalSteps: number | null;
   status: string;
   started_at: string;
   last_interaction_at: string;
@@ -32,11 +34,9 @@ function StepProgress({
 
 export function FlowSessionsTable({
   sessions,
-  totalSteps,
   now,
 }: {
   sessions: FlowSessionRow[];
-  totalSteps: number | null;
   now: number;
 }) {
   return (
@@ -54,8 +54,10 @@ export function FlowSessionsTable({
               <StatusBadge status={session.status} />
             </div>
 
+            <p className="mt-1 truncate text-xs text-zinc-400">{session.flowName}</p>
+
             <p className="mt-2 text-xs text-zinc-500">
-              <StepProgress current={session.current_step_order} total={totalSteps} />
+              <StepProgress current={session.current_step_order} total={session.totalSteps} />
             </p>
 
             <p className="mt-2 text-xs text-zinc-400">
@@ -70,6 +72,7 @@ export function FlowSessionsTable({
           <table className="w-full min-w-[720px] text-sm">
             <thead className="border-b border-black/6 bg-zinc-50/70 dark:border-white/8 dark:bg-white/3">
               <tr>
+                <th className={HEAD_CLASS}>Flow</th>
                 <th className={HEAD_CLASS}>Sender</th>
                 <th className={HEAD_CLASS}>Progress</th>
                 <th className={HEAD_CLASS}>Status</th>
@@ -83,11 +86,14 @@ export function FlowSessionsTable({
                   key={session.id}
                   className="transition-colors hover:bg-zinc-50/80 dark:hover:bg-white/3"
                 >
+                  <td className="px-5 py-4 text-zinc-600 dark:text-zinc-300">
+                    {session.flowName}
+                  </td>
                   <td className="px-5 py-4 font-mono text-xs text-zinc-700 dark:text-zinc-300">
                     {session.ig_sender_id}
                   </td>
                   <td className="px-5 py-4">
-                    <StepProgress current={session.current_step_order} total={totalSteps} />
+                    <StepProgress current={session.current_step_order} total={session.totalSteps} />
                   </td>
                   <td className="px-5 py-4">
                     <StatusBadge status={session.status} />

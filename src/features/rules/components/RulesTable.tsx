@@ -1,11 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmAction } from "@/components/ui/ConfirmAction";
-import { RowMenu } from "@/components/ui/RowMenu";
 import { SearchField, SelectField } from "@/components/ui/controls";
 import { primaryButtonClass } from "@/components/ui/styles";
 import { formatDate, formatTime } from "@/lib/utils/format";
@@ -13,6 +13,7 @@ import {
   BoltIcon,
   CopyIcon,
   InstagramIcon,
+  MailIcon,
   PencilIcon,
   PlusIcon,
   SearchIcon,
@@ -229,6 +230,15 @@ export function RulesTable({
                 <ToggleSwitchButton isActive={rule.is_active} />
               </form>
 
+              <Link
+                href={`/dashboard/rules/${rule.id}/leads`}
+                title="View collected emails"
+                aria-label={`View emails collected by ${rule.name}`}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+              >
+                <MailIcon className="h-4 w-4" />
+              </Link>
+
               <button
                 type="button"
                 title="Edit AutoDM"
@@ -258,26 +268,6 @@ export function RulesTable({
                     <TrashIcon className="h-4 w-4" />
                   </button>
                 }
-              />
-
-              <RowMenu
-                label={`More actions for ${rule.name}`}
-                items={[
-                  {
-                    label: "Copy keywords",
-                    onSelect: () => {
-                      navigator.clipboard?.writeText(rule.keywords.join(", "));
-                      toast.info("Keywords copied to clipboard.");
-                    },
-                  },
-                  {
-                    label: "Copy AutoDM ID",
-                    onSelect: () => {
-                      navigator.clipboard?.writeText(rule.id);
-                      toast.info("AutoDM ID copied to clipboard.");
-                    },
-                  },
-                ]}
               />
             </div>
           </div>
@@ -415,6 +405,15 @@ export function RulesTable({
                         <ToggleSwitchButton isActive={rule.is_active} />
                       </form>
 
+                      <Link
+                        href={`/dashboard/rules/${rule.id}/leads`}
+                        title="View collected emails"
+                        aria-label={`View emails collected by ${rule.name}`}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+                      >
+                        <MailIcon className="h-4 w-4" />
+                      </Link>
+
                       <button
                         type="button"
                         title="Edit AutoDM"
@@ -444,28 +443,6 @@ export function RulesTable({
                             <TrashIcon className="h-4 w-4" />
                           </button>
                         }
-                      />
-
-                      <RowMenu
-                        label={`More actions for ${rule.name}`}
-                        items={[
-                          {
-                            label: "Copy keywords",
-                            onSelect: () => {
-                              navigator.clipboard?.writeText(
-                                rule.keywords.join(", ")
-                              );
-                              toast.info("Keywords copied to clipboard.");
-                            },
-                          },
-                          {
-                            label: "Copy AutoDM ID",
-                            onSelect: () => {
-                              navigator.clipboard?.writeText(rule.id);
-                              toast.info("AutoDM ID copied to clipboard.");
-                            },
-                          },
-                        ]}
                       />
                     </div>
                   </td>

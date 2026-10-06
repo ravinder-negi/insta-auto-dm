@@ -1,10 +1,11 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { AutomationExecution, InstagramAccount } from "@/types";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
 import { currentTimestamp } from "@/lib/utils/format";
-import { AlertIcon, ClockIcon, SendIcon } from "@/components/icons";
+import { AlertIcon, ArrowLeftIcon, ClockIcon, SendIcon } from "@/components/icons";
 import { ExecutionsTable, type ExecutionRow } from "@/features/executions/components/ExecutionsTable";
 
 type ExecutionQueryRow = Pick<
@@ -70,6 +71,14 @@ export default async function ExecutionsPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <Link
+        href="/dashboard/rules"
+        className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-200"
+      >
+        <ArrowLeftIcon className="h-4 w-4" />
+        Back to AutoDMs
+      </Link>
+
       <PageHeader
         eyebrow="Logs"
         title="Execution log"

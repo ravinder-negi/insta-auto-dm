@@ -121,8 +121,17 @@ function commentIncludesKeyword(normalizedComment: string, keyword: string) {
   ).test(normalizedComment);
 }
 
-/** Excluded keywords veto a match, including on "any comment" rules. */
-function commentMatchesRule(rule: AutomationRule, normalizedComment: string) {
+interface KeywordMatchable {
+  keyword_match: "specific" | "any";
+  keywords: string[] | null;
+  excluded_keywords: string[] | null;
+  keyword: string | null;
+}
+
+/** Excluded keywords veto a match, including on "any comment" rules. Shared
+ *  by automation_rules and dm_flows, which both use the same keyword-set
+ *  shape. */
+function commentMatchesRule(rule: KeywordMatchable, normalizedComment: string) {
   const excluded = rule.excluded_keywords ?? [];
   if (excluded.some((word) => commentIncludesKeyword(normalizedComment, word))) {
     return false;
@@ -266,22 +275,32 @@ function withCommenterMention(message: string, username: string | undefined) {
 }
 
 /** Rotating a few wordings at random keeps public replies from reading like a
- *  bot posting the same line under every comment. */
-function pickPublicReply(rule: AutomationRule) {
-  const messages = (rule.public_reply_messages ?? []).filter(
+ *  bot posting the same line under every comment. Shared by automation_rules
+ *  and dm_flows. */
+function pickPublicReply(entity: {
+  public_reply_messages: string[] | null;
+  public_reply_message: string | null;
+}) {
+  const messages = (entity.public_reply_messages ?? []).filter(
     (message) => message.trim().length > 0
   );
 
-  if (messages.length === 0) return rule.public_reply_message;
+  if (messages.length === 0) return entity.public_reply_message;
 
   return messages[Math.floor(Math.random() * messages.length)];
 }
 
 interface DmFlow {
   id: string;
-  trigger_keyword: string;
+  keyword_match: "specific" | "any";
+  keywords: string[] | null;
+  excluded_keywords: string[] | null;
+  /** Legacy single-keyword column, kept in sync with keywords[0]. */
+  trigger_keyword: string | null;
   instagram_media_id: string | null;
   send_public_reply: boolean;
+  public_reply_messages: string[] | null;
+  /** Legacy single-reply column, kept in sync with public_reply_messages[0]. */
   public_reply_message: string | null;
 }
 
@@ -301,6 +320,8 @@ interface DmFlowStep {
   options: DmFlowStepOption[];
   attachment_url: string | null;
   attachment_type: AttachmentType | null;
+  buttons: RuleButton[];
+  button_card_title: string | null;
 }
 
 interface DmFlowSession {
@@ -564,19 +585,20 @@ async function handleCommentChange(
   /**
    * ======================================
    * MATCH DM FLOW
-   * Same account + (media match or account-wide) + exact keyword match
-   * as automation_rules, checked first. A match starts a multi-step
-   * session instead of sending a single static reply, and short-circuits
-   * the single-rule matching below. trigger_comment_id is unique, so a
-   * retried webhook delivery can't start the same flow twice even though
-   * this path isn't covered by the automation_executions dedupe above.
+   * Same account + (media match or account-wide) + keyword match, same
+   * rules as automation_rules (specific keyword set or "any comment"),
+   * checked first. A match starts a multi-step session instead of
+   * sending a single static reply, and short-circuits the single-rule
+   * matching below. trigger_comment_id is unique, so a retried webhook
+   * delivery can't start the same flow twice even though this path isn't
+   * covered by the automation_executions dedupe above.
    * ======================================
    */
 
   const { data: flows, error: flowsError } = await supabaseAdmin
     .from("dm_flows")
     .select(
-      "id, trigger_keyword, instagram_media_id, send_public_reply, public_reply_message"
+      "id, keyword_match, keywords, excluded_keywords, trigger_keyword, instagram_media_id, send_public_reply, public_reply_messages, public_reply_message"
     )
     .eq("instagram_account_id", instagramAccount.id)
     .eq("is_active", true);
@@ -591,11 +613,22 @@ async function handleCommentChange(
     .filter(
       (flow) => flow.instagram_media_id === mediaId || flow.instagram_media_id === null
     )
-    .filter(
-      (flow) => flow.trigger_keyword.trim().toLowerCase() === normalizedCommentForFlow
+    .filter((flow) =>
+      commentMatchesRule(
+        {
+          keyword_match: flow.keyword_match,
+          keywords: flow.keywords,
+          excluded_keywords: flow.excluded_keywords,
+          keyword: flow.trigger_keyword,
+        },
+        normalizedCommentForFlow
+      )
     )
-    .sort((a, b) =>
-      (a.instagram_media_id === null ? 1 : 0) - (b.instagram_media_id === null ? 1 : 0)
+    .sort(
+      (a, b) =>
+        (a.instagram_media_id === null ? 1 : 0) -
+          (b.instagram_media_id === null ? 1 : 0) ||
+        (a.keyword_match === "any" ? 1 : 0) - (b.keyword_match === "any" ? 1 : 0)
     )[0];
 
   if (matchedFlow) {
@@ -1220,7 +1253,7 @@ async function startDmFlow({
   const { data: firstStep, error: stepError } = await supabaseAdmin
     .from("dm_flow_steps")
     .select(
-      "id, flow_id, step_order, message_text, expects_reply, intent_map, collects_email, options, attachment_url, attachment_type"
+      "id, flow_id, step_order, message_text, expects_reply, intent_map, collects_email, options, attachment_url, attachment_type, buttons, button_card_title"
     )
     .eq("flow_id", flow.id)
     .eq("step_order", 1)
@@ -1251,11 +1284,13 @@ async function startDmFlow({
     return;
   }
 
-  if (flow.send_public_reply && flow.public_reply_message) {
+  const publicReply = pickPublicReply(flow);
+
+  if (flow.send_public_reply && publicReply) {
     const publicReplyResult = await postPublicCommentReply({
       commentId,
       accessToken: instagramAccount.access_token,
-      message: withCommenterMention(flow.public_reply_message, commenterUsername),
+      message: withCommenterMention(publicReply, commenterUsername),
     });
 
     if (!publicReplyResult.success) {
@@ -1271,6 +1306,8 @@ async function startDmFlow({
       (firstStep as DmFlowStep).message_text,
       (firstStep as DmFlowStep).options ?? []
     ),
+    buttons: (firstStep as DmFlowStep).buttons ?? [],
+    cardTitle: (firstStep as DmFlowStep).button_card_title,
     attachmentUrl: (firstStep as DmFlowStep).attachment_url,
     attachmentType: (firstStep as DmFlowStep).attachment_type,
   });
@@ -1453,7 +1490,7 @@ async function handleMessagingEvent(
   const { data: nextStep } = await supabaseAdmin
     .from("dm_flow_steps")
     .select(
-      "id, flow_id, step_order, message_text, expects_reply, intent_map, collects_email, options, attachment_url, attachment_type"
+      "id, flow_id, step_order, message_text, expects_reply, intent_map, collects_email, options, attachment_url, attachment_type, buttons, button_card_title"
     )
     .eq("flow_id", typedSession.flow_id)
     .eq("step_order", targetStepOrder)
@@ -1475,6 +1512,8 @@ async function handleMessagingEvent(
       (nextStep as DmFlowStep).message_text,
       (nextStep as DmFlowStep).options ?? []
     ),
+    buttons: (nextStep as DmFlowStep).buttons ?? [],
+    cardTitle: (nextStep as DmFlowStep).button_card_title,
     attachmentUrl: (nextStep as DmFlowStep).attachment_url,
     attachmentType: (nextStep as DmFlowStep).attachment_type,
   });

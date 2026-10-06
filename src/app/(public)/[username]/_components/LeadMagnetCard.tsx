@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { submitLeadMagnetEmail, type LeadMagnetSubmitState } from "../actions";
+import { TrackedLink } from "./TrackedLink";
 import {
   CheckIcon,
   DownloadIcon,
@@ -12,12 +13,14 @@ import {
 
 export function LeadMagnetCard({
   id,
+  profileId,
   title,
   description,
   brandColor,
   buttonRadiusClass,
 }: {
   id: string;
+  profileId: string;
   title: string;
   description: string | null;
   brandColor: string;
@@ -56,7 +59,10 @@ export function LeadMagnetCard({
           )}
 
           {unlocked ? (
-            <a
+            <TrackedLink
+              profileId={profileId}
+              targetType="lead_magnet"
+              targetId={id}
               href={state.fileUrl}
               target="_blank"
               rel="noopener noreferrer"
@@ -65,7 +71,7 @@ export function LeadMagnetCard({
             >
               <DownloadIcon className="h-4 w-4" />
               Download now
-            </a>
+            </TrackedLink>
           ) : (
             <form action={formAction} className="mt-5 flex flex-col gap-2.5 sm:flex-row">
               <div className="relative min-w-0 flex-1">
