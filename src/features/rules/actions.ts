@@ -22,6 +22,7 @@ const PUBLIC_REPLY_MAX_LENGTH = 140;
 const MAX_BUTTONS = 3;
 const BUTTON_LABEL_MAX_LENGTH = 60;
 const CARD_TITLE_MAX_LENGTH = 80;
+const CARD_SUBTITLE_MAX_LENGTH = 80;
 const MAX_FOLLOWUPS = 3;
 const MIN_DELAY_SECONDS = 1;
 const MAX_DELAY_SECONDS = 86400;
@@ -54,6 +55,8 @@ interface RuleFields {
   dm_message: string;
   dm_buttons: RuleButton[];
   dm_button_card_title: string | null;
+  dm_card_subtitle: string | null;
+  dm_default_action_url: string | null;
   require_follow: boolean;
   follow_prompt_message: string | null;
   collect_email: boolean;
@@ -201,6 +204,14 @@ function readRuleFields(
     .trim()
     .slice(0, CARD_TITLE_MAX_LENGTH);
 
+  const cardSubtitle = String(formData.get("dm_card_subtitle") ?? "")
+    .trim()
+    .slice(0, CARD_SUBTITLE_MAX_LENGTH);
+
+  const defaultActionUrl = String(
+    formData.get("dm_default_action_url") ?? ""
+  ).trim();
+
   const followups = readFollowups(formData);
   if ("error" in followups) return { ok: false, error: followups.error };
 
@@ -222,7 +233,9 @@ function readRuleFields(
   const effectiveInstagramMediaId =
     triggerType === "live_comment" ? null : instagramMediaIdRaw || null;
 
-  if (!instagramAccountId || !name || !dmMessage) {
+  // With buttons, the card itself can carry the whole message (title +
+  // subtitle) — the separate DM text becomes optional extra copy.
+  if (!instagramAccountId || !name || (!dmMessage && buttons.length === 0)) {
     return {
       ok: false,
       error: "Account, name, and DM message are required.",
@@ -248,6 +261,13 @@ function readRuleFields(
     return {
       ok: false,
       error: "Give the button card a title.",
+    };
+  }
+
+  if (defaultActionUrl && !/^https:\/\/\S+$/.test(defaultActionUrl)) {
+    return {
+      ok: false,
+      error: "The card's tap link must be a valid https:// URL.",
     };
   }
 
@@ -310,6 +330,8 @@ function readRuleFields(
       dm_message: dmMessage,
       dm_buttons: buttons,
       dm_button_card_title: buttons.length > 0 ? cardTitle : null,
+      dm_card_subtitle: buttons.length > 0 ? cardSubtitle || null : null,
+      dm_default_action_url: buttons.length > 0 ? defaultActionUrl || null : null,
       require_follow: requireFollow,
       follow_prompt_message: requireFollow ? followPromptMessage : null,
       collect_email: collectEmail,
@@ -476,7 +498,7 @@ export async function getRuleFormData(
     supabase
       .from("automation_rules")
       .select(
-        "id, instagram_account_id, name, trigger_type, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type, automation_rule_followups(step_order, delay_minutes, message)"
+        "id, instagram_account_id, name, trigger_type, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, dm_card_subtitle, dm_default_action_url, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type, automation_rule_followups(step_order, delay_minutes, message)"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -527,6 +549,8 @@ export async function getRuleFormData(
       send_delay_seconds: rule.send_delay_seconds,
       dm_buttons: rule.dm_buttons,
       dm_button_card_title: rule.dm_button_card_title,
+      dm_card_subtitle: rule.dm_card_subtitle,
+      dm_default_action_url: rule.dm_default_action_url,
       followups,
       attachment_url: rule.attachment_url,
       attachment_type: rule.attachment_type,
@@ -573,7 +597,7 @@ export async function duplicateRule(id: string) {
   const { data: rule, error: readError } = await supabase
     .from("automation_rules")
     .select(
-      "instagram_account_id, name, trigger_type, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type"
+      "instagram_account_id, name, trigger_type, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, dm_card_subtitle, dm_default_action_url, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type"
     )
     .eq("id", id)
     .maybeSingle();

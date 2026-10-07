@@ -13,6 +13,7 @@ import {
 } from "@/components/icons";
 import {
   BUTTON_LABEL_MAX_LENGTH,
+  CARD_SUBTITLE_MAX_LENGTH,
   CARD_TITLE_MAX_LENGTH,
   DELAY_UNITS,
   DM_MAX_LENGTH,
@@ -73,6 +74,30 @@ export function MessageStep({
         position === index ? { ...followup, ...patch } : followup
       )
     );
+  }
+
+  const hasButtons = values.dm_buttons.length > 0;
+
+  // Local to this step — purely which fields show. Derived once from
+  // whatever's already saved, so revisiting the step doesn't reset it.
+  const [sendMode, setSendMode] = useState<"message" | "template">(() =>
+    values.dm_card_subtitle.trim() || values.dm_default_action_url.trim()
+      ? "template"
+      : "message"
+  );
+  const isTemplate = sendMode === "template";
+
+  function selectSendMode(mode: "message" | "template") {
+    if (mode === "message") {
+      // The card-only fields are meaningless without a real authored card —
+      // clear them so they don't silently ride along if buttons stay on.
+      update("dm_card_subtitle", "");
+      update("dm_default_action_url", "");
+      update("attachment_url", "");
+    } else if (!hasButtons) {
+      update("dm_buttons", [{ label: "", url: "" }]);
+    }
+    setSendMode(mode);
   }
 
   const delayValue = Number(values.send_delay_value);
@@ -205,26 +230,47 @@ export function MessageStep({
       <div className="border-t border-black/8 pt-6 dark:border-white/10">
         <p className="text-sm font-semibold">The primary DM</p>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          Write the message to auto-send, with buttons that take them to your
-          link or product.
+          Pick one way to send it. Buttons work either way — a template card
+          also gets its own image, subtitle and tap-through link.
         </p>
 
-        <div className="mt-3 flex flex-col gap-4 rounded-2xl border border-dashed border-black/12 p-4 dark:border-white/15">
-          <div className="flex flex-col">
-            <label htmlFor="rule_dm_type" className="mb-1.5 text-sm font-semibold">
-              DM type
-            </label>
-            <SelectField id="rule_dm_type" value="text_button" disabled onChange={() => {}}>
-              <option value="text_button">Text + Button</option>
-            </SelectField>
-          </div>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <SendModeOption
+            active={!isTemplate}
+            title="Message"
+            note="Plain text DM. Add buttons below it if you like — a short message rides on the same card."
+            onClick={() => selectSendMode("message")}
+          />
+          <SendModeOption
+            active={isTemplate}
+            title="Template card"
+            note="One card with an image, heading, subtitle and up to 3 buttons — like a product card."
+            onClick={() => selectSendMode("template")}
+          />
+        </div>
 
+        <div className="mt-4 flex flex-col gap-4 rounded-2xl border border-dashed border-black/12 p-4 dark:border-white/15">
           <div className="flex flex-col">
             <label
               htmlFor="rule_dm_message"
               className="mb-1.5 text-sm font-semibold"
             >
-              DM content
+              {isTemplate ? (
+                <>
+                  Message before the card
+                  <span className="font-normal text-zinc-400"> (optional)</span>
+                </>
+              ) : (
+                <>
+                  DM content
+                  {hasButtons && (
+                    <span className="font-normal text-zinc-400">
+                      {" "}
+                      (optional)
+                    </span>
+                  )}
+                </>
+              )}
             </label>
 
             <div className="rounded-xl border border-black/10 transition-all duration-200 focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-500/10 dark:border-white/12">
@@ -235,7 +281,11 @@ export function MessageStep({
                 maxLength={DM_MAX_LENGTH}
                 value={values.dm_message}
                 onChange={(event) => update("dm_message", event.target.value)}
-                placeholder="Hey there! Thanks for commenting 🙌 Here's the link I mentioned ⬇️"
+                placeholder={
+                  isTemplate
+                    ? "Optional — sent as its own message just before the card"
+                    : "Hey there! Thanks for commenting 🙌 Here's the link I mentioned ⬇️"
+                }
                 className="w-full resize-y rounded-t-xl bg-transparent px-3.5 py-2.5 text-sm outline-none placeholder:text-zinc-400"
               />
               <div className="relative flex items-center justify-between px-3 py-2">
@@ -269,6 +319,19 @@ export function MessageStep({
               </div>
             </div>
 
+            {isTemplate && (
+              <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                Leave this blank to send only the card below.
+              </p>
+            )}
+
+            {!isTemplate && hasButtons && (
+              <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                Short enough and it rides on the card itself, as one bubble.
+                Longer, and it&apos;s sent first, on its own.
+              </p>
+            )}
+
             {HAS_URL_PATTERN.test(values.dm_message) && (
               <p className="mt-1.5 text-xs text-zinc-500">
                 Links are sent as plain text — Instagram turns them into a
@@ -277,13 +340,17 @@ export function MessageStep({
             )}
           </div>
 
-          {values.dm_buttons.length > 0 && (
+          {hasButtons && (
             <div className="flex flex-col">
               <label
                 htmlFor="rule_card_title"
                 className="mb-1.5 text-sm font-semibold"
               >
-                Card heading for long DMs
+                Card heading
+                <span className="text-rose-500" aria-hidden="true">
+                  {" "}
+                  *
+                </span>
               </label>
               <div className="relative">
                 <input
@@ -301,82 +368,172 @@ export function MessageStep({
                 </span>
               </div>
               <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                Instagram shows buttons on a card. A DM of up to 160 characters
-                is printed on that card, so it arrives as one message. A longer
-                DM is sent on its own first, and the card below it uses this
-                heading.
+                {isTemplate
+                  ? "The card's bold headline, shown above the buttons."
+                  : "Instagram shows buttons on a card. A short DM above rides on that card as its heading; a longer one is sent first, and the card below uses this heading instead."}
               </p>
             </div>
           )}
 
-          {values.dm_buttons.map((button, index) => (
-            <div
-              key={index}
-              className="rounded-xl border border-black/8 p-3.5 dark:border-white/10"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold">Button #{index + 1}</p>
-                <button
-                  type="button"
-                  aria-label={`Remove button ${index + 1}`}
-                  onClick={() =>
-                    update(
-                      "dm_buttons",
-                      values.dm_buttons.filter((_, position) => position !== index)
-                    )
-                  }
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/15"
+          {hasButtons && isTemplate && (
+            <>
+              <div className="flex flex-col">
+                <label
+                  htmlFor="rule_card_image"
+                  className="mb-1.5 text-sm font-semibold"
                 >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="relative mt-2">
+                  Card image (optional)
+                </label>
+                <p className="mb-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  Shown at the top of the card, above the heading — not sent
+                  as a separate message.
+                </p>
                 <input
-                  value={button.label}
+                  id="rule_card_image"
+                  value={values.attachment_url}
                   onChange={(event) =>
-                    updateButton(index, { label: event.target.value })
+                    update("attachment_url", event.target.value)
                   }
-                  maxLength={BUTTON_LABEL_MAX_LENGTH}
-                  placeholder="Click me"
-                  aria-label={`Button ${index + 1} label`}
-                  className={`${fieldClass} pr-16`}
+                  placeholder="https://... (public image URL)"
+                  aria-label="Card image URL"
+                  className={fieldClass}
                 />
-                <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-zinc-400">
-                  {button.label.length}/{BUTTON_LABEL_MAX_LENGTH}
-                </span>
               </div>
 
-              <p className="mt-3 mb-1.5 text-sm font-semibold">
-                When someone taps this button, open…
-              </p>
-              <input
-                value={button.url}
-                onChange={(event) =>
-                  updateButton(index, { url: event.target.value })
-                }
-                placeholder="https://your-link.com"
-                aria-label={`Button ${index + 1} link`}
-                className={fieldClass}
-              />
-            </div>
-          ))}
+              <div className="flex flex-col">
+                <label
+                  htmlFor="rule_card_subtitle"
+                  className="mb-1.5 text-sm font-semibold"
+                >
+                  Card subtitle (optional)
+                </label>
+                <div className="relative">
+                  <input
+                    id="rule_card_subtitle"
+                    value={values.dm_card_subtitle}
+                    onChange={(event) =>
+                      update("dm_card_subtitle", event.target.value)
+                    }
+                    maxLength={CARD_SUBTITLE_MAX_LENGTH}
+                    placeholder="Explore our catalog"
+                    className={`${fieldClass} pr-16`}
+                  />
+                  <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-zinc-400">
+                    {values.dm_card_subtitle.length}/{CARD_SUBTITLE_MAX_LENGTH}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  A caption line under the heading, e.g. &quot;Explore our
+                  catalog&quot;.
+                </p>
+              </div>
 
-          {values.dm_buttons.length < MAX_BUTTONS && (
-            <button
-              type="button"
-              onClick={() =>
-                update("dm_buttons", [
-                  ...values.dm_buttons,
-                  { label: "", url: "" },
-                ])
-              }
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-black/10 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-            >
-              <PlusIcon className="h-4 w-4" />
-              Add {values.dm_buttons.length > 0 ? "another " : "a "}button
-            </button>
+              <div className="flex flex-col">
+                <label
+                  htmlFor="rule_default_action_url"
+                  className="mb-1.5 text-sm font-semibold"
+                >
+                  Open this link when the card is tapped (optional)
+                </label>
+                <input
+                  id="rule_default_action_url"
+                  value={values.dm_default_action_url}
+                  onChange={(event) =>
+                    update("dm_default_action_url", event.target.value)
+                  }
+                  placeholder="https://your-link.com"
+                  className={fieldClass}
+                />
+                <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  Makes the whole card tappable, not just its buttons. Leave
+                  blank to require a button tap.
+                </p>
+              </div>
+            </>
           )}
+
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-semibold">
+              Buttons
+              <span className="font-normal text-zinc-400">
+                {" "}
+                (up to {MAX_BUTTONS})
+              </span>
+            </p>
+
+            {values.dm_buttons.map((button, index) => (
+              <div
+                key={index}
+                className="rounded-xl border border-black/8 p-3.5 dark:border-white/10"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold">
+                    Button #{index + 1}
+                  </p>
+                  <button
+                    type="button"
+                    aria-label={`Remove button ${index + 1}`}
+                    onClick={() =>
+                      update(
+                        "dm_buttons",
+                        values.dm_buttons.filter(
+                          (_, position) => position !== index
+                        )
+                      )
+                    }
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/15"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="relative mt-2">
+                  <input
+                    value={button.label}
+                    onChange={(event) =>
+                      updateButton(index, { label: event.target.value })
+                    }
+                    maxLength={BUTTON_LABEL_MAX_LENGTH}
+                    placeholder="Click me"
+                    aria-label={`Button ${index + 1} label`}
+                    className={`${fieldClass} pr-16`}
+                  />
+                  <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-zinc-400">
+                    {button.label.length}/{BUTTON_LABEL_MAX_LENGTH}
+                  </span>
+                </div>
+
+                <p className="mt-3 mb-1.5 text-sm font-semibold">
+                  When someone taps this button, open…
+                </p>
+                <input
+                  value={button.url}
+                  onChange={(event) =>
+                    updateButton(index, { url: event.target.value })
+                  }
+                  placeholder="https://your-link.com"
+                  aria-label={`Button ${index + 1} link`}
+                  className={fieldClass}
+                />
+              </div>
+            ))}
+
+            {values.dm_buttons.length < MAX_BUTTONS && (
+              <button
+                type="button"
+                onClick={() =>
+                  update("dm_buttons", [
+                    ...values.dm_buttons,
+                    { label: "", url: "" },
+                  ])
+                }
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-black/10 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Add {values.dm_buttons.length > 0 ? "another " : "a "}button
+              </button>
+            )}
+          </div>
 
           <div className="rounded-xl bg-zinc-50 p-3.5 dark:bg-white/5">
             <p className="flex items-center gap-1.5 text-sm font-semibold">
@@ -487,36 +644,79 @@ export function MessageStep({
         </div>
       </div>
 
-      <div className="border-t border-black/8 pt-6 dark:border-white/10">
-        <p className="text-sm font-semibold">Attachment (optional)</p>
-        <p className="mt-1 mb-2 text-xs text-zinc-500 dark:text-zinc-400">
-          Sent as a second DM right after the primary one — a real inline
-          image, not just a link.
-        </p>
-        <div className="flex flex-col gap-2.5 sm:flex-row">
-          <div className="sm:w-32">
-            <SelectField
-              value={values.attachment_type}
-              aria-label="Attachment type"
-              onChange={(event) => update("attachment_type", event.target.value)}
-            >
-              {ATTACHMENT_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </SelectField>
+      {!hasButtons && (
+        <div className="border-t border-black/8 pt-6 dark:border-white/10">
+          <p className="text-sm font-semibold">Attachment (optional)</p>
+          <p className="mt-1 mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+            Sent as a second DM right after the primary one — a real inline
+            image, not just a link.
+          </p>
+          <div className="flex flex-col gap-2.5 sm:flex-row">
+            <div className="sm:w-32">
+              <SelectField
+                value={values.attachment_type}
+                aria-label="Attachment type"
+                onChange={(event) => update("attachment_type", event.target.value)}
+              >
+                {ATTACHMENT_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </SelectField>
+            </div>
+            <input
+              value={values.attachment_url}
+              onChange={(event) => update("attachment_url", event.target.value)}
+              placeholder="https://... (public URL)"
+              aria-label="Attachment URL"
+              className={`${fieldClass} flex-1`}
+            />
           </div>
-          <input
-            value={values.attachment_url}
-            onChange={(event) => update("attachment_url", event.target.value)}
-            placeholder="https://... (public URL)"
-            aria-label="Attachment URL"
-            className={`${fieldClass} flex-1`}
-          />
         </div>
-      </div>
+      )}
     </div>
+  );
+}
+
+/** Choice between a plain-text DM and a generic-template card. Buttons are
+ *  available either way; this only decides whether the card also gets its
+ *  own image, subtitle and tap-through link. */
+function SendModeOption({
+  active,
+  title,
+  note,
+  onClick,
+}: {
+  active: boolean;
+  title: string;
+  note: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col items-start gap-1 rounded-2xl border p-3.5 text-left transition-colors ${
+        active
+          ? "border-brand-400 bg-brand-50/60 dark:border-brand-400/60 dark:bg-brand-500/10"
+          : "border-black/10 bg-white hover:bg-black/5 dark:border-white/12 dark:bg-white/5 dark:hover:bg-white/10"
+      }`}
+    >
+      <span className="flex items-center gap-2 text-sm font-semibold">
+        <span
+          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+            active
+              ? "border-brand-600 bg-brand-600"
+              : "border-zinc-300 dark:border-zinc-600"
+          }`}
+        >
+          {active && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+        </span>
+        {title}
+      </span>
+      <span className="text-xs text-zinc-500 dark:text-zinc-400">{note}</span>
+    </button>
   );
 }
 

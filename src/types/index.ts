@@ -44,6 +44,12 @@ export interface AutomationRule {
   dm_message: string;
   dm_buttons: RuleButton[];
   dm_button_card_title: string | null;
+  /** Authored card caption, independent of the DM text. When set, the DM
+   *  text always sends separately, since the card carries its own copy. */
+  dm_card_subtitle: string | null;
+  /** Generic template default_action: opens this link when the card itself
+   *  is tapped, not just one of its buttons. */
+  dm_default_action_url: string | null;
   require_follow: boolean;
   follow_prompt_message: string | null;
   collect_email: boolean;

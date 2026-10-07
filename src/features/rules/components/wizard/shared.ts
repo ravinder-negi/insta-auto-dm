@@ -13,6 +13,7 @@ export const MAX_KEYWORDS = 20;
 export const MAX_BUTTONS = 3;
 export const BUTTON_LABEL_MAX_LENGTH = 60;
 export const CARD_TITLE_MAX_LENGTH = 80;
+export const CARD_SUBTITLE_MAX_LENGTH = 80;
 
 /** Instagram renders link buttons as a card, which needs a title of its own;
  *  the DM text is sent as a separate message right before it. */
@@ -147,6 +148,12 @@ export interface RuleWizardValues {
   send_delay_unit: DelayUnit;
   dm_buttons: RuleButtonValue[];
   dm_button_card_title: string;
+  /** Authored card caption, independent of the DM text — a real generic-
+   *  template card (e.g. a product image with its own headline/caption). */
+  dm_card_subtitle: string;
+  /** Generic template default_action — opens this link when the card itself
+   *  is tapped, not just one of its buttons. */
+  dm_default_action_url: string;
   followups: RuleFollowupValue[];
   attachment_url: string;
   attachment_type: string;

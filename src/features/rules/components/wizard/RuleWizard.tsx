@@ -82,6 +82,8 @@ export interface RuleWizardInitialValues {
   send_delay_seconds: number | null;
   dm_buttons: RuleButtonValue[] | null;
   dm_button_card_title: string | null;
+  dm_card_subtitle: string | null;
+  dm_default_action_url: string | null;
   followups: RuleFollowupValue[];
   attachment_url: string | null;
   attachment_type: string | null;
@@ -156,6 +158,8 @@ export function RuleWizard({
     dm_buttons: initialValues?.dm_buttons ?? [],
     dm_button_card_title:
       initialValues?.dm_button_card_title ?? DEFAULT_CARD_TITLE,
+    dm_card_subtitle: initialValues?.dm_card_subtitle ?? "",
+    dm_default_action_url: initialValues?.dm_default_action_url ?? "",
     followups: initialValues?.followups ?? [],
     attachment_url: initialValues?.attachment_url ?? "",
     attachment_type: initialValues?.attachment_type ?? "image",
@@ -240,7 +244,9 @@ export function RuleWizard({
       values.instagram_media_id.trim().length > 0,
     (values.keyword_match === "any" || values.keywords.length > 0) &&
       (!values.send_public_reply || publicReplies.length > 0),
-    values.dm_message.trim().length > 0 &&
+    // With buttons, the card can carry the whole message — the separate DM
+    // text becomes optional extra copy.
+    (values.dm_message.trim().length > 0 || values.dm_buttons.length > 0) &&
       (!values.require_follow || values.follow_prompt_message.trim().length > 0) &&
       (!values.collect_email || values.email_prompt_message.trim().length > 0) &&
       delaySeconds > 0 &&
@@ -346,11 +352,23 @@ export function RuleWizard({
         )}
       />
       {values.dm_buttons.length > 0 && (
-        <input
-          type="hidden"
-          name="dm_button_card_title"
-          value={values.dm_button_card_title}
-        />
+        <>
+          <input
+            type="hidden"
+            name="dm_button_card_title"
+            value={values.dm_button_card_title}
+          />
+          <input
+            type="hidden"
+            name="dm_card_subtitle"
+            value={values.dm_card_subtitle}
+          />
+          <input
+            type="hidden"
+            name="dm_default_action_url"
+            value={values.dm_default_action_url}
+          />
+        </>
       )}
       {values.followups.map((followup, index) => (
         <span key={index}>

@@ -94,6 +94,8 @@ interface AutomationRule {
   dm_message: string;
   dm_buttons: RuleButton[] | null;
   dm_button_card_title: string | null;
+  dm_card_subtitle: string | null;
+  dm_default_action_url: string | null;
   collect_email: boolean;
   email_prompt_message: string | null;
   require_follow: boolean;
@@ -167,14 +169,34 @@ function sleep(ms: number) {
 const DEFAULT_CARD_TITLE = "Tap the button below 👇";
 
 /**
- * Instagram shows buttons on a card with its own title and subtitle, so a DM
- * short enough to fit there goes out as ONE bubble: card copy = the DM text.
- * Only a message too long for both lines is sent as its own message first,
- * with the configured heading on the card beneath it.
+ * Instagram shows buttons on a card with its own title and subtitle.
+ *
+ * With an authored subtitle (a real generic-template card: its own headline
+ * and caption, e.g. alongside a product image), the card always carries that
+ * title + subtitle and the DM text goes out as its own message beforehand —
+ * the two are unrelated copy.
+ *
+ * Without one, the card doubles as the DM bubble: a message short enough to
+ * fit goes out as ONE bubble (card copy = the DM text). Only a message too
+ * long for both lines is sent as its own message first, with the configured
+ * heading on the card beneath it.
  */
-function cardCopy(text: string, cardTitle: string | null) {
+function cardCopy(
+  text: string,
+  cardTitle: string | null,
+  cardSubtitle?: string | null
+) {
   const message = text.trim();
   const fallbackTitle = cardTitle?.trim() || DEFAULT_CARD_TITLE;
+  const subtitle = cardSubtitle?.trim();
+
+  if (subtitle) {
+    return {
+      title: fallbackTitle,
+      subtitle: subtitle.slice(0, CARD_SUBTITLE_MAX_LENGTH),
+      sendTextSeparately: true,
+    };
+  }
 
   if (!message) {
     return { title: fallbackTitle, subtitle: null, sendTextSeparately: false };
@@ -206,22 +228,28 @@ function scheduledMessagePayloads({
   text,
   buttons,
   cardTitle,
+  cardSubtitle,
+  defaultActionUrl,
   attachmentUrl,
   attachmentType,
 }: {
   text: string;
   buttons: RuleButton[];
   cardTitle: string | null;
+  cardSubtitle?: string | null;
+  defaultActionUrl?: string | null;
   attachmentUrl: string | null;
   attachmentType: AttachmentType | null;
 }): Record<string, unknown>[] {
   const cardImage =
     attachmentUrl && (attachmentType ?? "image") === "image" ? attachmentUrl : null;
 
-  const copy = buttons.length ? cardCopy(text, cardTitle) : null;
+  const copy = buttons.length ? cardCopy(text, cardTitle, cardSubtitle) : null;
 
+  // An empty DM text (buttons with no separate message) has nothing to
+  // queue as its own bubble — the card carries the whole thing.
   const payloads: Record<string, unknown>[] =
-    copy && !copy.sendTextSeparately ? [] : [{ text }];
+    !text.trim() || (copy && !copy.sendTextSeparately) ? [] : [{ text }];
 
   if (copy) {
     payloads.push({
@@ -234,6 +262,14 @@ function scheduledMessagePayloads({
               title: copy.title,
               ...(copy.subtitle ? { subtitle: copy.subtitle } : {}),
               ...(cardImage ? { image_url: cardImage } : {}),
+              ...(defaultActionUrl
+                ? {
+                    default_action: {
+                      type: "web_url",
+                      url: defaultActionUrl,
+                    },
+                  }
+                : {}),
               buttons: buttons.slice(0, 3).map((button) => ({
                 type: "web_url",
                 url: button.url,
@@ -655,7 +691,7 @@ async function handleCommentChange(
   const { data: rules, error: rulesError } = await supabaseAdmin
     .from("automation_rules")
     .select(
-      "id, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type"
+      "id, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, dm_card_subtitle, dm_default_action_url, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type"
     )
     .eq("instagram_account_id", instagramAccount.id)
     .eq("trigger_type", triggerType)
@@ -885,6 +921,8 @@ async function handleCommentChange(
           text: outgoingMessage,
           buttons,
           cardTitle: matchedRule.dm_button_card_title,
+          cardSubtitle: isPrompt ? null : matchedRule.dm_card_subtitle,
+          defaultActionUrl: isPrompt ? null : matchedRule.dm_default_action_url,
           attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
           attachmentType: isPrompt ? null : matchedRule.attachment_type,
         }).map((payload, index) => ({
@@ -943,7 +981,10 @@ async function handleCommentChange(
     text: outgoingMessage,
     buttons,
     cardTitle: matchedRule.dm_button_card_title,
-    // Attachment belongs to the real dm_message, not a follow/email nudge.
+    // Attachment and default_action belong to the real dm_message, not a
+    // follow/email nudge.
+    cardSubtitle: isPrompt ? null : matchedRule.dm_card_subtitle,
+    defaultActionUrl: isPrompt ? null : matchedRule.dm_default_action_url,
     attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
     attachmentType: isPrompt ? null : matchedRule.attachment_type,
   });
@@ -1127,7 +1168,7 @@ async function handlePendingEmailPrompt({
   const { data: rule } = await supabaseAdmin
     .from("automation_rules")
     .select(
-      "id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, attachment_url, attachment_type"
+      "id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, dm_card_subtitle, dm_default_action_url, attachment_url, attachment_type"
     )
     .eq("id", ruleId)
     .maybeSingle();
@@ -1141,6 +1182,8 @@ async function handlePendingEmailPrompt({
     | "dm_message"
     | "dm_buttons"
     | "dm_button_card_title"
+    | "dm_card_subtitle"
+    | "dm_default_action_url"
     | "attachment_url"
     | "attachment_type"
   >;
@@ -1155,6 +1198,8 @@ async function handlePendingEmailPrompt({
         text: typedRule.dm_message,
         buttons,
         cardTitle: typedRule.dm_button_card_title,
+        cardSubtitle: typedRule.dm_card_subtitle,
+        defaultActionUrl: typedRule.dm_default_action_url,
         attachmentUrl: typedRule.attachment_url,
         attachmentType: typedRule.attachment_type,
       }).map((payload, index) => ({
@@ -1178,6 +1223,8 @@ async function handlePendingEmailPrompt({
       text: typedRule.dm_message,
       buttons,
       cardTitle: typedRule.dm_button_card_title,
+      cardSubtitle: typedRule.dm_card_subtitle,
+      defaultActionUrl: typedRule.dm_default_action_url,
       attachmentUrl: typedRule.attachment_url,
       attachmentType: typedRule.attachment_type,
     });
@@ -1571,7 +1618,7 @@ async function handleStoryReplyEvent({
   const { data: rules, error: rulesError } = await supabaseAdmin
     .from("automation_rules")
     .select(
-      "id, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type"
+      "id, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, dm_card_subtitle, dm_default_action_url, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type"
     )
     .eq("instagram_account_id", instagramAccount.id)
     .eq("trigger_type", "story_reply")
@@ -1727,6 +1774,8 @@ async function handleStoryReplyEvent({
           text: outgoingMessage,
           buttons,
           cardTitle: matchedRule.dm_button_card_title,
+          cardSubtitle: isPrompt ? null : matchedRule.dm_card_subtitle,
+          defaultActionUrl: isPrompt ? null : matchedRule.dm_default_action_url,
           attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
           attachmentType: isPrompt ? null : matchedRule.attachment_type,
         }).map((payload, index) => ({
@@ -1776,6 +1825,8 @@ async function handleStoryReplyEvent({
     text: outgoingMessage,
     buttons,
     cardTitle: matchedRule.dm_button_card_title,
+    cardSubtitle: isPrompt ? null : matchedRule.dm_card_subtitle,
+    defaultActionUrl: isPrompt ? null : matchedRule.dm_default_action_url,
     attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
     attachmentType: isPrompt ? null : matchedRule.attachment_type,
   });
@@ -1997,6 +2048,7 @@ async function sendInstagramButtonTemplate({
   title,
   subtitle,
   imageUrl,
+  defaultActionUrl,
   buttons,
 }: {
   instagramUserId: string;
@@ -2005,6 +2057,7 @@ async function sendInstagramButtonTemplate({
   title: string;
   subtitle: string | null;
   imageUrl: string | null;
+  defaultActionUrl?: string | null;
   buttons: RuleButton[];
 }) {
   return await sendMessagePayload({
@@ -2023,6 +2076,14 @@ async function sendInstagramButtonTemplate({
                 ? { subtitle: subtitle.slice(0, CARD_SUBTITLE_MAX_LENGTH) }
                 : {}),
               ...(imageUrl ? { image_url: imageUrl } : {}),
+              ...(defaultActionUrl
+                ? {
+                    default_action: {
+                      type: "web_url",
+                      url: defaultActionUrl,
+                    },
+                  }
+                : {}),
               buttons: buttons.slice(0, 3).map((button) => ({
                 type: "web_url",
                 url: button.url,
@@ -2188,6 +2249,8 @@ async function sendRuleOrStepMessage({
   text,
   buttons = [],
   cardTitle,
+  cardSubtitle,
+  defaultActionUrl,
   attachmentUrl,
   attachmentType,
 }: {
@@ -2197,18 +2260,24 @@ async function sendRuleOrStepMessage({
   text: string;
   buttons?: RuleButton[];
   cardTitle?: string | null;
+  cardSubtitle?: string | null;
+  defaultActionUrl?: string | null;
   attachmentUrl: string | null;
   attachmentType: AttachmentType | null;
 }): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
-  // With buttons, the DM text rides on the card itself whenever it fits, so
-  // the recipient gets one bubble instead of a message plus a card.
-  const copy = buttons.length ? cardCopy(text, cardTitle ?? null) : null;
+  // With an authored subtitle, the card carries its own title + subtitle and
+  // the DM text always goes out separately. Otherwise, the DM text rides on
+  // the card itself whenever it fits, so the recipient gets one bubble
+  // instead of a message plus a card.
+  const copy = buttons.length ? cardCopy(text, cardTitle ?? null, cardSubtitle) : null;
 
   let lastResult: { success: true; messageId?: string } | { success: false; error: string } = {
     success: true,
   };
 
-  if (!copy || copy.sendTextSeparately) {
+  // Buttons with no separate message (the card carries the whole thing)
+  // leave nothing to send as its own bubble.
+  if (text.trim() && (!copy || copy.sendTextSeparately)) {
     lastResult = await sendInstagramMessage({
       instagramUserId,
       accessToken,
@@ -2233,6 +2302,7 @@ async function sendRuleOrStepMessage({
       title: copy.title,
       subtitle: copy.subtitle,
       imageUrl: cardImage,
+      defaultActionUrl,
       buttons,
     });
 
