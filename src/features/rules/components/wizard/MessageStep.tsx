@@ -94,8 +94,13 @@ export function MessageStep({
       update("dm_card_subtitle", "");
       update("dm_default_action_url", "");
       update("attachment_url", "");
-    } else if (!hasButtons) {
-      update("dm_buttons", [{ label: "", url: "" }]);
+    } else {
+      // Template cards carry their text in the subtitle, not a separate
+      // DM — clear it so a stale value can't get sent as a duplicate bubble.
+      update("dm_message", "");
+      if (!hasButtons) {
+        update("dm_buttons", [{ label: "", url: "" }]);
+      }
     }
     setSendMode(mode);
   }
@@ -250,95 +255,78 @@ export function MessageStep({
         </div>
 
         <div className="mt-4 flex flex-col gap-4 rounded-2xl border border-dashed border-black/12 p-4 dark:border-white/15">
-          <div className="flex flex-col">
-            <label
-              htmlFor="rule_dm_message"
-              className="mb-1.5 text-sm font-semibold"
-            >
-              {isTemplate ? (
-                <>
-                  Message before the card
-                  <span className="font-normal text-zinc-400"> (optional)</span>
-                </>
-              ) : (
-                <>
-                  DM content
-                  {hasButtons && (
-                    <span className="font-normal text-zinc-400">
-                      {" "}
-                      (optional)
-                    </span>
-                  )}
-                </>
-              )}
-            </label>
-
-            <div className="rounded-xl border border-black/10 transition-all duration-200 focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-500/10 dark:border-white/12">
-              <textarea
-                id="rule_dm_message"
-                ref={dmRef}
-                rows={6}
-                maxLength={DM_MAX_LENGTH}
-                value={values.dm_message}
-                onChange={(event) => update("dm_message", event.target.value)}
-                placeholder={
-                  isTemplate
-                    ? "Optional — sent as its own message just before the card"
-                    : "Hey there! Thanks for commenting 🙌 Here's the link I mentioned ⬇️"
-                }
-                className="w-full resize-y rounded-t-xl bg-transparent px-3.5 py-2.5 text-sm outline-none placeholder:text-zinc-400"
-              />
-              <div className="relative flex items-center justify-between px-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => setEmojiOpen((value) => !value)}
-                  aria-label="Insert emoji"
-                  aria-expanded={emojiOpen}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10"
-                >
-                  <EmojiIcon className="h-4.5 w-4.5" />
-                </button>
-                <span className="text-xs text-zinc-400">
-                  {values.dm_message.length}/{DM_MAX_LENGTH}
-                </span>
-
-                {emojiOpen && (
-                  <div className="animate-fade-in-up absolute bottom-10 left-0 z-20 grid w-56 grid-cols-8 gap-1 rounded-xl border border-black/6 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-zinc-900">
-                    {QUICK_EMOJI.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => insertEmoji(emoji)}
-                        className="rounded-md py-1 text-base transition-colors hover:bg-black/5 dark:hover:bg-white/10"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
+          {!isTemplate && (
+            <div className="flex flex-col">
+              <label
+                htmlFor="rule_dm_message"
+                className="mb-1.5 text-sm font-semibold"
+              >
+                DM content
+                {hasButtons && (
+                  <span className="font-normal text-zinc-400">
+                    {" "}
+                    (optional)
+                  </span>
                 )}
+              </label>
+
+              <div className="rounded-xl border border-black/10 transition-all duration-200 focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-500/10 dark:border-white/12">
+                <textarea
+                  id="rule_dm_message"
+                  ref={dmRef}
+                  rows={6}
+                  maxLength={DM_MAX_LENGTH}
+                  value={values.dm_message}
+                  onChange={(event) => update("dm_message", event.target.value)}
+                  placeholder="Hey there! Thanks for commenting 🙌 Here's the link I mentioned ⬇️"
+                  className="w-full resize-y rounded-t-xl bg-transparent px-3.5 py-2.5 text-sm outline-none placeholder:text-zinc-400"
+                />
+                <div className="relative flex items-center justify-between px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setEmojiOpen((value) => !value)}
+                    aria-label="Insert emoji"
+                    aria-expanded={emojiOpen}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10"
+                  >
+                    <EmojiIcon className="h-4.5 w-4.5" />
+                  </button>
+                  <span className="text-xs text-zinc-400">
+                    {values.dm_message.length}/{DM_MAX_LENGTH}
+                  </span>
+
+                  {emojiOpen && (
+                    <div className="animate-fade-in-up absolute bottom-10 left-0 z-20 grid w-56 grid-cols-8 gap-1 rounded-xl border border-black/6 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-zinc-900">
+                      {QUICK_EMOJI.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => insertEmoji(emoji)}
+                          className="rounded-md py-1 text-base transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {hasButtons && (
+                <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  Short enough and it rides on the card itself, as one bubble.
+                  Longer, and it&apos;s sent first, on its own.
+                </p>
+              )}
+
+              {HAS_URL_PATTERN.test(values.dm_message) && (
+                <p className="mt-1.5 text-xs text-zinc-500">
+                  Links are sent as plain text — Instagram turns them into a
+                  tappable link for the recipient.
+                </p>
+              )}
             </div>
-
-            {isTemplate && (
-              <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                Leave this blank to send only the card below.
-              </p>
-            )}
-
-            {!isTemplate && hasButtons && (
-              <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                Short enough and it rides on the card itself, as one bubble.
-                Longer, and it&apos;s sent first, on its own.
-              </p>
-            )}
-
-            {HAS_URL_PATTERN.test(values.dm_message) && (
-              <p className="mt-1.5 text-xs text-zinc-500">
-                Links are sent as plain text — Instagram turns them into a
-                tappable link for the recipient.
-              </p>
-            )}
-          </div>
+          )}
 
           {hasButtons && (
             <div className="flex flex-col">
@@ -407,24 +395,24 @@ export function MessageStep({
                 >
                   Card subtitle (optional)
                 </label>
-                <div className="relative">
-                  <input
+                <div className="rounded-xl border border-black/10 transition-all duration-200 focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-500/10 dark:border-white/12">
+                  <textarea
                     id="rule_card_subtitle"
+                    rows={3}
                     value={values.dm_card_subtitle}
                     onChange={(event) =>
                       update("dm_card_subtitle", event.target.value)
                     }
                     maxLength={CARD_SUBTITLE_MAX_LENGTH}
                     placeholder="Explore our catalog"
-                    className={`${fieldClass} pr-16`}
+                    className="w-full resize-y rounded-xl bg-transparent px-3.5 py-2.5 text-sm outline-none placeholder:text-zinc-400"
                   />
-                  <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-zinc-400">
+                  <span className="block px-3.5 pb-2 text-right text-xs text-zinc-400">
                     {values.dm_card_subtitle.length}/{CARD_SUBTITLE_MAX_LENGTH}
                   </span>
                 </div>
                 <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                  A caption line under the heading, e.g. &quot;Explore our
-                  catalog&quot;.
+                  Your message, shown as a caption line under the heading.
                 </p>
               </div>
 

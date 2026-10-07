@@ -327,7 +327,10 @@ function readRuleFields(
       keyword: effectiveKeywords[0] ?? null,
       instagram_media_id: effectiveInstagramMediaId,
       send_delay_seconds: sendDelaySeconds,
-      dm_message: dmMessage,
+      // A card subtitle means this is a template card — its text lives in
+      // the subtitle, not a separate DM, so drop any stale dm_message to
+      // avoid sending it as a duplicate bubble before the card.
+      dm_message: cardSubtitle ? "" : dmMessage,
       dm_buttons: buttons,
       dm_button_card_title: buttons.length > 0 ? cardTitle : null,
       dm_card_subtitle: buttons.length > 0 ? cardSubtitle || null : null,
