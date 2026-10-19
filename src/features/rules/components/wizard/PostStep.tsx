@@ -16,6 +16,7 @@ import type {
   RuleWizardAccountOption,
   TriggerType,
 } from "./shared";
+import { shortcodeFromPermalink } from "./shared";
 
 /** Tiles are a fixed height so the picker can show exactly two rows before it
  *  scrolls, instead of cutting the second row mid-image. */
@@ -57,6 +58,18 @@ const SCOPES: Record<
       hint: "Every comment on any of your Lives triggers this AutoDM — a Live can't be picked ahead of time.",
     },
   ],
+  post_share: [
+    {
+      value: "specific",
+      label: "Specific Post/Reel",
+      hint: "Only a share of the post you pick below triggers this AutoDM.",
+    },
+    {
+      value: "any",
+      label: "Any Post/Reel",
+      hint: "Sharing any post or reel of this account into your DMs triggers this AutoDM.",
+    },
+  ],
 };
 
 function mediaTypeIcon(mediaType: string) {
@@ -75,6 +88,8 @@ export function PostStep({
   onScopeChange,
   mediaId,
   onMediaIdChange,
+  shortcode,
+  onShortcodeChange,
   items,
   loading,
   error,
@@ -87,6 +102,9 @@ export function PostStep({
   onScopeChange: (scope: MediaScope) => void;
   mediaId: string;
   onMediaIdChange: (id: string) => void;
+  /** Only used by post_share — see shared.ts. */
+  shortcode: string;
+  onShortcodeChange: (shortcode: string) => void;
   items: InstagramMediaOption[];
   loading: boolean;
   error: string | null;
@@ -97,6 +115,33 @@ export function PostStep({
   const activeScope = scopes.find((item) => item.value === scope);
   const isStory = triggerType === "story_reply";
   const isLive = triggerType === "live_comment";
+  const isShare = triggerType === "post_share";
+
+  function isActiveItem(item: InstagramMediaOption) {
+    if (isShare) {
+      // A rule saved before the real media id was captured only has a
+      // shortcode — fall back to matching on that.
+      if (mediaId) return item.id === mediaId;
+      const itemShortcode = shortcodeFromPermalink(item.permalink);
+      return itemShortcode !== null && itemShortcode === shortcode;
+    }
+    return item.id === mediaId;
+  }
+
+  function selectItem(item: InstagramMediaOption) {
+    const active = isActiveItem(item);
+
+    if (isShare) {
+      // Store both: the real media id is what a share with a CDN-only url
+      // (no parseable permalink, e.g. an image post) gets matched on; the
+      // shortcode is the fallback for shares that only carry a permalink.
+      onMediaIdChange(active ? "" : item.id);
+      onShortcodeChange(active ? "" : (shortcodeFromPermalink(item.permalink) ?? ""));
+      return;
+    }
+
+    onMediaIdChange(active ? "" : item.id);
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -114,7 +159,11 @@ export function PostStep({
       {!isLive && (
         <fieldset>
           <legend className="text-sm font-semibold">
-            {isStory ? "The story reply is on…" : "The comment is on…"}
+            {isStory
+              ? "The story reply is on…"
+              : isShare
+                ? "The share is of…"
+                : "The comment is on…"}
           </legend>
 
           <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -166,9 +215,16 @@ export function PostStep({
 
           {manualEntry ? (
             <input
-              value={mediaId}
-              onChange={(event) => onMediaIdChange(event.target.value)}
-              placeholder="Instagram media ID"
+              value={isShare ? shortcode : mediaId}
+              onChange={(event) => {
+                if (isShare) {
+                  const value = event.target.value;
+                  onShortcodeChange(shortcodeFromPermalink(value) ?? value.trim());
+                  return;
+                }
+                onMediaIdChange(event.target.value);
+              }}
+              placeholder={isShare ? "Paste the post/reel link" : "Instagram media ID"}
               autoComplete="off"
               className={`${fieldClass} mt-3`}
             />
@@ -196,7 +252,7 @@ export function PostStep({
               className={`mt-3 max-h-[234px] overflow-y-auto sm:max-h-[266px] ${GRID_CLASS}`}
             >
               {items.map((item) => {
-                const active = item.id === mediaId;
+                const active = isActiveItem(item);
 
                 return (
                   <button
@@ -204,7 +260,7 @@ export function PostStep({
                     type="button"
                     aria-pressed={active}
                     title={item.caption?.trim() || "(no caption)"}
-                    onClick={() => onMediaIdChange(active ? "" : item.id)}
+                    onClick={() => selectItem(item)}
                     className={`group relative ${TILE_CLASS} overflow-hidden rounded-xl border transition-all duration-200 ${
                       active
                         ? "border-brand-500 ring-2 ring-brand-500/25"
@@ -255,7 +311,9 @@ export function PostStep({
             ? `Every story reply on ${account?.label ?? "this account"} is checked for your keyword — no story to pick.`
             : isLive
               ? `Every comment on any Live by ${account?.label ?? "this account"} is checked for your keyword — a Live doesn't exist to pick before it starts.`
-              : `Every comment on ${account?.label ?? "this account"} is checked for your keyword — no post to pick.`}
+              : isShare
+                ? `Any post or reel of ${account?.label ?? "this account"} shared into your DMs triggers this AutoDM — no post to pick.`
+                : `Every comment on ${account?.label ?? "this account"} is checked for your keyword — no post to pick.`}
         </p>
       )}
     </div>

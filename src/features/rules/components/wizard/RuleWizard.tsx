@@ -27,29 +27,43 @@ import {
   type TriggerType,
 } from "./shared";
 
-function getSteps(triggerType: TriggerType): WizardStepMeta[] {
+/** A shared post/reel carries no text, so there's no keyword to match — that
+ *  step is meaningless for post_share and is dropped from the wizard
+ *  entirely rather than shown empty. The post it was shared from can still
+ *  be picked (matched by shortcode — see shared.ts). */
+type StepKind = "trigger" | "account" | "post" | "keyword" | "message";
+
+function stepKindsFor(triggerType: TriggerType): StepKind[] {
+  if (triggerType === "post_share") return ["trigger", "account", "post", "message"];
+  return ["trigger", "account", "post", "keyword", "message"];
+}
+
+function getSteps(triggerType: TriggerType): (WizardStepMeta & { kind: StepKind })[] {
   const isStory = triggerType === "story_reply";
   const isLive = triggerType === "live_comment";
+  const isShare = triggerType === "post_share";
 
-  return [
-    {
+  const metaByKind: Record<StepKind, WizardStepMeta> = {
+    trigger: {
       title: "Trigger",
       description: "Choose what starts this AutoDM.",
     },
-    {
+    account: {
       title: "Account & name",
       description:
         "Pick the Instagram account this AutoDM runs on and give it a name you'll recognize.",
     },
-    {
+    post: {
       title: isStory ? "Trigger story" : isLive ? "Trigger live" : "Trigger post",
       description: isStory
         ? "Choose which story the reply has to be on."
         : isLive
           ? "Every comment on any of your Lives is checked — a Live can't be picked ahead of time."
-          : "Choose which post or reel the comment has to be on.",
+          : isShare
+            ? "Choose which post or reel has to be shared into the DM."
+            : "Choose which post or reel the comment has to be on.",
     },
-    {
+    keyword: {
       title: isStory ? "Reply trigger" : "Comment trigger",
       description: isStory
         ? "Decide which story replies start this automation."
@@ -57,11 +71,13 @@ function getSteps(triggerType: TriggerType): WizardStepMeta[] {
           ? "Decide which Live comments start this automation, and whether to reply publicly."
           : "Decide which comments start this automation, and whether to reply publicly.",
     },
-    {
+    message: {
       title: "DM message",
       description: "Write the DM that gets sent, and how it should be delivered.",
     },
-  ];
+  };
+
+  return stepKindsFor(triggerType).map((kind) => ({ ...metaByKind[kind], kind }));
 }
 
 export interface RuleWizardInitialValues {
@@ -72,6 +88,7 @@ export interface RuleWizardInitialValues {
   keywords: string[] | null;
   excluded_keywords: string[] | null;
   instagram_media_id: string | null;
+  instagram_media_shortcode: string | null;
   dm_message: string;
   require_follow: boolean;
   follow_prompt_message: string | null;
@@ -128,13 +145,19 @@ export function RuleWizard({
     name: initialValues?.name ?? "",
     trigger_type:
       (initialValues?.trigger_type as TriggerType) ?? "comment_keyword",
-    // An existing rule without a media id is an account-wide one.
+    // An existing rule without a media id (or, for post_share, a shortcode)
+    // is an account-wide one.
     media_scope: initialValues
-      ? initialValues.instagram_media_id
-        ? "specific"
-        : "any"
+      ? initialValues.trigger_type === "post_share"
+        ? initialValues.instagram_media_shortcode
+          ? "specific"
+          : "any"
+        : initialValues.instagram_media_id
+          ? "specific"
+          : "any"
       : "specific",
     instagram_media_id: initialValues?.instagram_media_id ?? "",
+    instagram_media_shortcode: initialValues?.instagram_media_shortcode ?? "",
     keyword_match: (initialValues?.keyword_match as KeywordMatch) ?? "specific",
     keywords: initialValues?.keywords ?? [],
     excluded_keywords: initialValues?.excluded_keywords ?? [],
@@ -191,20 +214,27 @@ export function RuleWizard({
       ...current,
       instagram_account_id: id,
       instagram_media_id: "",
+      instagram_media_shortcode: "",
     }));
   }
 
   // A post id and a story id are different spaces, and public comment
-  // replies don't apply to a story-reply DM thread. A Live's media id
-  // doesn't exist until the broadcast starts, so it can't be picked ahead
-  // of time — live_comment rules are always account-wide.
+  // replies don't apply to a story-reply or post-share DM thread. A Live's
+  // media id doesn't exist until the broadcast starts, so it can't be picked
+  // ahead of time — live_comment rules are always account-wide. A shared
+  // post carries no text, so there's no keyword to match either.
   function selectTriggerType(triggerType: TriggerType) {
     setValues((current) => ({
       ...current,
       trigger_type: triggerType,
       instagram_media_id: "",
+      instagram_media_shortcode: "",
       media_scope: triggerType === "live_comment" ? "any" : current.media_scope,
-      send_public_reply: triggerType === "story_reply" ? false : current.send_public_reply,
+      keyword_match: triggerType === "post_share" ? "any" : current.keyword_match,
+      send_public_reply:
+        triggerType === "story_reply" || triggerType === "post_share"
+          ? false
+          : current.send_public_reply,
     }));
   }
 
@@ -212,7 +242,10 @@ export function RuleWizard({
     setValues((current) => ({
       ...current,
       media_scope: scope,
-      instagram_media_id: scope === "specific" ? current.instagram_media_id : "",
+      instagram_media_id:
+        scope === "specific" ? current.instagram_media_id : "",
+      instagram_media_shortcode:
+        scope === "specific" ? current.instagram_media_shortcode : "",
     }));
   }
 
@@ -237,24 +270,32 @@ export function RuleWizard({
     values.send_delay_unit
   );
 
-  const stepValid = [
-    true,
-    Boolean(values.instagram_account_id) && values.name.trim().length > 0,
-    values.media_scope !== "specific" ||
-      values.instagram_media_id.trim().length > 0,
-    (values.keyword_match === "any" || values.keywords.length > 0) &&
-      (!values.send_public_reply || publicReplies.length > 0),
+  const messageStepValid =
     // With buttons, the card can carry the whole message — the separate DM
     // text becomes optional extra copy.
     (values.dm_message.trim().length > 0 || values.dm_buttons.length > 0) &&
-      (!values.require_follow || values.follow_prompt_message.trim().length > 0) &&
-      (!values.collect_email || values.email_prompt_message.trim().length > 0) &&
-      delaySeconds > 0 &&
-      buttonsValid &&
-      followupsValid,
-  ];
+    (!values.require_follow || values.follow_prompt_message.trim().length > 0) &&
+    (!values.collect_email || values.email_prompt_message.trim().length > 0) &&
+    delaySeconds > 0 &&
+    buttonsValid &&
+    followupsValid;
+
+  const stepValidByKind: Record<StepKind, boolean> = {
+    trigger: true,
+    account: Boolean(values.instagram_account_id) && values.name.trim().length > 0,
+    post:
+      values.media_scope !== "specific" ||
+      (values.trigger_type === "post_share"
+        ? values.instagram_media_shortcode.trim().length > 0
+        : values.instagram_media_id.trim().length > 0),
+    keyword:
+      (values.keyword_match === "any" || values.keywords.length > 0) &&
+      (!values.send_public_reply || publicReplies.length > 0),
+    message: messageStepValid,
+  };
 
   const steps = getSteps(values.trigger_type);
+  const stepValid = steps.map((meta) => stepValidByKind[meta.kind]);
   const isLastStep = step === steps.length - 1;
 
   return (
@@ -282,6 +323,15 @@ export function RuleWizard({
         type="hidden"
         name="instagram_media_id"
         value={values.media_scope === "specific" ? values.instagram_media_id : ""}
+      />
+      <input
+        type="hidden"
+        name="instagram_media_shortcode"
+        value={
+          values.media_scope === "specific"
+            ? values.instagram_media_shortcode
+            : ""
+        }
       />
       <input type="hidden" name="keyword_match" value={values.keyword_match} />
       {values.keyword_match === "specific" &&
@@ -407,11 +457,11 @@ export function RuleWizard({
         onCancel={onCancel}
         error={state && "error" in state ? state.error : undefined}
       >
-        {step === 0 && (
+        {steps[step]?.kind === "trigger" && (
           <TriggerStep value={values.trigger_type} onChange={selectTriggerType} />
         )}
 
-        {step === 1 && (
+        {steps[step]?.kind === "account" && (
           <AccountStep
             accounts={accounts}
             selectedAccountId={values.instagram_account_id}
@@ -421,7 +471,7 @@ export function RuleWizard({
           />
         )}
 
-        {step === 2 && (
+        {steps[step]?.kind === "post" && (
           <PostStep
             account={account}
             triggerType={values.trigger_type}
@@ -429,6 +479,10 @@ export function RuleWizard({
             onScopeChange={selectScope}
             mediaId={values.instagram_media_id}
             onMediaIdChange={(id) => update("instagram_media_id", id)}
+            shortcode={values.instagram_media_shortcode}
+            onShortcodeChange={(shortcode) =>
+              update("instagram_media_shortcode", shortcode)
+            }
             items={media.items}
             loading={media.loading}
             error={media.error}
@@ -437,9 +491,13 @@ export function RuleWizard({
           />
         )}
 
-        {step === 3 && <KeywordStep values={values} update={update} />}
+        {steps[step]?.kind === "keyword" && (
+          <KeywordStep values={values} update={update} />
+        )}
 
-        {step === 4 && <MessageStep values={values} update={update} />}
+        {steps[step]?.kind === "message" && (
+          <MessageStep values={values} update={update} />
+        )}
       </WizardShell>
     </form>
   );

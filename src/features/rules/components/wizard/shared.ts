@@ -117,6 +117,15 @@ export interface RuleWizardAccountOption {
 
 export type { InstagramMediaOption } from "@/lib/hooks/useInstagramMedia";
 
+/** A DM "share" attachment carries the post/reel's permalink, not its Graph
+ *  media id, so a post_share rule is scoped by matching shortcodes instead
+ *  (e.g. https://www.instagram.com/reel/Cxyz123/ -> "Cxyz123"). */
+export function shortcodeFromPermalink(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const match = url.match(/\/(?:p|reel|tv)\/([^/?#]+)/);
+  return match ? match[1] : null;
+}
+
 /** "specific" targets one post, "any" every post of the account. */
 export type MediaScope = "specific" | "any";
 
@@ -124,8 +133,13 @@ export type MediaScope = "specific" | "any";
 export type KeywordMatch = "specific" | "any";
 
 /** "comment_keyword" matches comments on a post/reel; "story_reply" matches
- *  a DM reply to a story; "live_comment" matches a comment on a Live. */
-export type TriggerType = "comment_keyword" | "story_reply" | "live_comment";
+ *  a DM reply to a story; "live_comment" matches a comment on a Live;
+ *  "post_share" matches someone sharing a post/reel into the DM. */
+export type TriggerType =
+  | "comment_keyword"
+  | "story_reply"
+  | "live_comment"
+  | "post_share";
 
 export interface RuleWizardValues {
   instagram_account_id: string;
@@ -133,6 +147,9 @@ export interface RuleWizardValues {
   trigger_type: TriggerType;
   media_scope: MediaScope;
   instagram_media_id: string;
+  /** Only used by post_share — the shortcode of the picked post/reel, since
+   *  a shared DM carries a permalink, not a Graph media id. */
+  instagram_media_shortcode: string;
   keyword_match: KeywordMatch;
   keywords: string[];
   excluded_keywords: string[];

@@ -65,6 +65,15 @@ interface InstagramWebhookPayload {
             url?: string;
           };
         };
+        // Present when the user shared one of the business account's own
+        // posts/reels into the DM thread. No `text` accompanies it. The
+        // payload's real media id arrives under a type-specific key (e.g.
+        // ig_post_media_id, ig_reel_media_id) rather than a fixed field name
+        // — see extractSharedMediaId() below.
+        attachments?: Array<{
+          type?: string;
+          payload?: { url?: string; [key: string]: unknown };
+        }>;
       };
     }>;
   }>;
@@ -90,6 +99,10 @@ interface AutomationRule {
   excluded_keywords: string[] | null;
   keyword: string | null;
   instagram_media_id: string | null;
+  // Only set on a post_share rule scoped to one post — see
+  // extractShortcode() below for why a share is matched by shortcode
+  // rather than instagram_media_id.
+  instagram_media_shortcode: string | null;
   send_delay_seconds: number | null;
   dm_message: string;
   dm_buttons: RuleButton[] | null;
@@ -1387,15 +1400,26 @@ async function handleMessagingEvent(
   const text = event.message?.text?.trim();
   const mid = event.message?.mid;
   const storyId = event.message?.reply_to?.story?.id;
+  // "share" is the legacy post-share attachment type; Meta is rolling out
+  // "ig_post" (posts) and "ig_reel" (reels) as its replacements, so all
+  // three are checked until "share" is fully retired.
+  const shareAttachment = event.message?.attachments?.find(
+    (attachment) =>
+      attachment.type === "share" ||
+      attachment.type === "ig_post" ||
+      attachment.type === "ig_reel"
+  );
 
-  if (!senderId || !text) return;
+  if (!senderId) return;
 
   const instagramAccount = await resolveInstagramAccount(instagramAccountId);
   if (!instagramAccount || !instagramAccount.is_active) return;
 
+  if (!text && !shareAttachment) return;
+
   // A story reply is its own trigger, matched against story_reply rules
   // rather than an in-progress dm_flow session or a pending email ask.
-  if (storyId && mid) {
+  if (storyId && mid && text) {
     await handleStoryReplyEvent({
       instagramAccount,
       senderId,
@@ -1405,6 +1429,22 @@ async function handleMessagingEvent(
     });
     return;
   }
+
+  // Sharing one of the business account's own posts/reels into the DM is
+  // its own trigger too, matched against post_share rules — there's no text
+  // to feed the dm_flow/email-prompt logic below.
+  if (shareAttachment && mid) {
+    await handlePostShareEvent({
+      instagramAccount,
+      senderId,
+      mid,
+      sharedUrl: shareAttachment.payload?.url ?? null,
+      sharedMediaId: extractSharedMediaId(shareAttachment.payload),
+    });
+    return;
+  }
+
+  if (!text) return;
 
   // An outstanding email ask owns the next reply from that sender.
   const emailHandled = await handlePendingEmailPrompt({
@@ -1881,6 +1921,354 @@ async function handleStoryReplyEvent({
       .eq("inbound_message_id", mid);
 
     console.error("Story-reply DM failed:", mid, result.error);
+  }
+}
+
+/**
+ * ============================================
+ * HANDLE POST/REEL SHARE
+ * A DM carrying a `share`/`ig_post`/`ig_reel` attachment — the user shared
+ * one of the business account's own posts/reels into the thread. Matched
+ * against post_share automation_rules (account-wide, or scoped to one
+ * post/reel — see extractSharedMediaId()/extractShortcode()), and sent as an
+ * ordinary thread message since there's no comment to privately reply to.
+ * Deduped on the inbound mid, same as story_reply.
+ * ============================================
+ */
+
+/** An ig_post/ig_reel attachment's real Graph media id arrives under a
+ *  type-specific key (observed: ig_post_media_id; by analogy, likely
+ *  ig_reel_media_id or similar for reels) rather than a fixed field name, and
+ *  the accompanying `url` is often an opaque CDN redirect with no parseable
+ *  permalink — so the id is checked first, under every key seen or
+ *  plausible, before falling back to the permalink shortcode. */
+function extractSharedMediaId(payload: Record<string, unknown> | undefined): string | null {
+  if (!payload) return null;
+
+  for (const key of [
+    "ig_post_media_id",
+    "ig_reel_media_id",
+    "media_id",
+    "reel_video_id",
+    "video_id",
+    "id",
+  ]) {
+    const value = payload[key];
+    if (typeof value === "string" && value) return value;
+  }
+
+  return null;
+}
+
+/** Pulls the shortcode out of a post/reel permalink, e.g.
+ *  https://www.instagram.com/reel/Cxyz123/ -> "Cxyz123", used as a fallback
+ *  when the attachment carries no real media id (e.g. the legacy `share`
+ *  type, or a CDN url with no id field at all). */
+function extractShortcode(url: string | null): string | null {
+  if (!url) return null;
+  const match = url.match(/\/(?:p|reel|tv)\/([^/?#]+)/);
+  return match ? match[1] : null;
+}
+
+async function handlePostShareEvent({
+  instagramAccount,
+  senderId,
+  mid,
+  sharedUrl,
+  sharedMediaId,
+}: {
+  instagramAccount: { id: string; instagram_user_id: string; username: string | null; access_token: string };
+  senderId: string;
+  mid: string;
+  sharedUrl: string | null;
+  sharedMediaId: string | null;
+}) {
+  const { data: existingExecution } = await supabaseAdmin
+    .from("automation_executions")
+    .select("id")
+    .eq("inbound_message_id", mid)
+    .maybeSingle();
+
+  if (existingExecution) {
+    console.log("Post/reel share already processed:", mid);
+    return;
+  }
+
+  const { data: rules, error: rulesError } = await supabaseAdmin
+    .from("automation_rules")
+    .select(
+      "id, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, instagram_media_shortcode, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, dm_card_subtitle, dm_default_action_url, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type"
+    )
+    .eq("instagram_account_id", instagramAccount.id)
+    .eq("trigger_type", "post_share")
+    .eq("is_active", true);
+
+  if (rulesError) {
+    console.error("Failed to load post_share automation_rules:", rulesError.message);
+    return;
+  }
+
+  const sharedShortcode = extractShortcode(sharedUrl);
+
+  // A rule scoped to one post/reel matches by real media id when the
+  // attachment carried one (ig_post/ig_reel), or by permalink shortcode
+  // otherwise (legacy share type, or a reel whose url is a real permalink).
+  // A rule with neither set is account-wide.
+  const matchedRule = ((rules ?? []) as AutomationRule[])
+    .filter((rule) => {
+      const isScoped =
+        rule.instagram_media_id !== null || rule.instagram_media_shortcode !== null;
+      if (!isScoped) return true;
+
+      return (
+        (sharedMediaId !== null && rule.instagram_media_id === sharedMediaId) ||
+        (sharedShortcode !== null && rule.instagram_media_shortcode === sharedShortcode)
+      );
+    })
+    .filter((rule) => commentMatchesRule(rule, ""))
+    .sort((a, b) => {
+      const aScoped = a.instagram_media_id !== null || a.instagram_media_shortcode !== null;
+      const bScoped = b.instagram_media_id !== null || b.instagram_media_shortcode !== null;
+      return (aScoped ? 0 : 1) - (bScoped ? 0 : 1);
+    })[0];
+
+  if (!matchedRule) {
+    console.log("No post-share automation matched for account:", instagramAccount.id);
+    return;
+  }
+
+  console.log("Post-share automation matched:", matchedRule.id);
+
+  let outgoingMessage = matchedRule.dm_message;
+  let isFollowPrompt = false;
+
+  if (matchedRule.require_follow) {
+    const isFollowing = await checkUserFollowsBusiness(
+      senderId,
+      instagramAccount.access_token
+    );
+
+    if (!isFollowing) {
+      const { data: existingPrompt } = await supabaseAdmin
+        .from("automation_follow_prompts")
+        .select("id")
+        .eq("automation_rule_id", matchedRule.id)
+        .eq("commenter_instagram_id", senderId)
+        .maybeSingle();
+
+      if (existingPrompt) {
+        await supabaseAdmin.from("automation_executions").insert({
+          automation_rule_id: matchedRule.id,
+          instagram_account_id: instagramAccount.id,
+          inbound_message_id: mid,
+          commenter_instagram_id: senderId,
+          instagram_media_id: null,
+          comment_text: sharedUrl,
+          status: "skipped_already_prompted",
+        });
+        console.log("Already prompted to follow, skipping post share:", mid);
+        return;
+      }
+
+      const profileLink = `${INSTAGRAM_AUTHORIZE_BASE_URL}/_u/${
+        instagramAccount.username ?? instagramAccount.instagram_user_id
+      }/`;
+      outgoingMessage = (matchedRule.follow_prompt_message ?? "").replaceAll(
+        "{profile_link}",
+        profileLink
+      );
+      isFollowPrompt = true;
+    } else {
+      await supabaseAdmin
+        .from("automation_follow_prompts")
+        .update({ followed_at: new Date().toISOString() })
+        .eq("automation_rule_id", matchedRule.id)
+        .eq("commenter_instagram_id", senderId)
+        .is("followed_at", null);
+    }
+  }
+
+  let isEmailPrompt = false;
+
+  if (matchedRule.collect_email && !isFollowPrompt) {
+    const { data: lead } = await supabaseAdmin
+      .from("automation_rule_leads")
+      .select("id")
+      .eq("automation_rule_id", matchedRule.id)
+      .eq("ig_sender_id", senderId)
+      .maybeSingle();
+
+    if (!lead) {
+      const { data: existingPrompt } = await supabaseAdmin
+        .from("automation_email_prompts")
+        .select("id")
+        .eq("automation_rule_id", matchedRule.id)
+        .eq("ig_sender_id", senderId)
+        .maybeSingle();
+
+      if (existingPrompt) {
+        await supabaseAdmin.from("automation_executions").insert({
+          automation_rule_id: matchedRule.id,
+          instagram_account_id: instagramAccount.id,
+          inbound_message_id: mid,
+          commenter_instagram_id: senderId,
+          instagram_media_id: null,
+          comment_text: sharedUrl,
+          status: "skipped_already_prompted",
+        });
+        console.log("Already asked for an email, skipping post share:", mid);
+        return;
+      }
+
+      outgoingMessage = matchedRule.email_prompt_message ?? "";
+      isEmailPrompt = true;
+    }
+  }
+
+  const { error: executionInsertError } = await supabaseAdmin
+    .from("automation_executions")
+    .insert({
+      automation_rule_id: matchedRule.id,
+      instagram_account_id: instagramAccount.id,
+      inbound_message_id: mid,
+      commenter_instagram_id: senderId,
+      instagram_media_id: null,
+      comment_text: sharedUrl,
+      status: "processing",
+      dm_message: outgoingMessage,
+    });
+
+  if (executionInsertError) {
+    if (executionInsertError.code === "23505") {
+      console.log("Duplicate post-share execution detected:", mid);
+      return;
+    }
+
+    console.error("Failed to create post-share execution:", executionInsertError.message);
+    return;
+  }
+
+  const isPrompt = isFollowPrompt || isEmailPrompt;
+  const buttons = isPrompt ? [] : (matchedRule.dm_buttons ?? []);
+  const delaySeconds = isPrompt ? 0 : (matchedRule.send_delay_seconds ?? 0);
+
+  if (delaySeconds > LIVE_SEND_MAX_DELAY_SECONDS) {
+    const sendAt = Date.now() + delaySeconds * 1000;
+
+    const { error: scheduleError } = await supabaseAdmin
+      .from("scheduled_dms")
+      .insert(
+        scheduledMessagePayloads({
+          text: outgoingMessage,
+          buttons,
+          cardTitle: matchedRule.dm_button_card_title,
+          cardSubtitle: isPrompt ? null : matchedRule.dm_card_subtitle,
+          defaultActionUrl: isPrompt ? null : matchedRule.dm_default_action_url,
+          attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
+          attachmentType: isPrompt ? null : matchedRule.attachment_type,
+        }).map((payload, index) => ({
+          instagram_account_id: instagramAccount.id,
+          automation_rule_id: matchedRule.id,
+          recipient_ig_id: senderId,
+          message: typeof payload.text === "string" ? payload.text : "",
+          message_payload: payload,
+          // One second apart so the sweep keeps them in order.
+          send_after: new Date(sendAt + index * 1000).toISOString(),
+        }))
+      );
+
+    await supabaseAdmin
+      .from("automation_executions")
+      .update({
+        status: scheduleError ? "failed" : "scheduled",
+        error_message: scheduleError?.message ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("inbound_message_id", mid);
+
+    if (scheduleError) {
+      console.error("Failed to schedule delayed post-share DM:", mid, scheduleError.message);
+      return;
+    }
+
+    await scheduleFollowups({
+      ruleId: matchedRule.id,
+      instagramAccountId: instagramAccount.id,
+      recipientIgId: senderId,
+      baseDelaySeconds: delaySeconds,
+    });
+
+    console.log("Post-share DM scheduled:", mid);
+    return;
+  }
+
+  if (delaySeconds > 0) {
+    await sleep(delaySeconds * 1000);
+  }
+
+  const result = await sendRuleOrStepMessage({
+    instagramUserId: instagramAccount.instagram_user_id,
+    accessToken: instagramAccount.access_token,
+    recipient: { id: senderId },
+    text: outgoingMessage,
+    buttons,
+    cardTitle: matchedRule.dm_button_card_title,
+    cardSubtitle: isPrompt ? null : matchedRule.dm_card_subtitle,
+    defaultActionUrl: isPrompt ? null : matchedRule.dm_default_action_url,
+    attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
+    attachmentType: isPrompt ? null : matchedRule.attachment_type,
+  });
+
+  if (result.success) {
+    await supabaseAdmin
+      .from("automation_executions")
+      .update({
+        status: isFollowPrompt
+          ? "follow_prompt_sent"
+          : isEmailPrompt
+            ? "email_prompt_sent"
+            : "sent",
+        instagram_message_id: result.messageId ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("inbound_message_id", mid);
+
+    if (isFollowPrompt) {
+      await supabaseAdmin.from("automation_follow_prompts").insert({
+        automation_rule_id: matchedRule.id,
+        commenter_instagram_id: senderId,
+      });
+    }
+
+    if (isEmailPrompt) {
+      await supabaseAdmin.from("automation_email_prompts").insert({
+        automation_rule_id: matchedRule.id,
+        instagram_account_id: instagramAccount.id,
+        ig_sender_id: senderId,
+      });
+    }
+
+    if (!isPrompt) {
+      await scheduleFollowups({
+        ruleId: matchedRule.id,
+        instagramAccountId: instagramAccount.id,
+        recipientIgId: senderId,
+        baseDelaySeconds: 0,
+      });
+    }
+
+    console.log("Post-share DM sent:", mid);
+  } else {
+    await supabaseAdmin
+      .from("automation_executions")
+      .update({
+        status: "failed",
+        error_message: result.error,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("inbound_message_id", mid);
+
+    console.error("Post-share DM failed:", mid, result.error);
   }
 }
 

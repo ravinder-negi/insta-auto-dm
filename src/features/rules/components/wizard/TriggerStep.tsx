@@ -4,6 +4,7 @@ import {
   BoltIcon,
   CameraIcon,
   CheckIcon,
+  ShareIcon,
   VideoCameraIcon,
 } from "@/components/icons";
 import type { TriggerType } from "./shared";
@@ -28,6 +29,13 @@ const TRIGGERS: {
     tone: "bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300",
     title: "Replies to your Story",
     description: "Reply with a DM whenever someone replies to your story.",
+  },
+  {
+    value: "post_share",
+    icon: ShareIcon,
+    tone: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300",
+    title: "Shares your Post or Reel",
+    description: "Reply with a DM whenever someone shares your post or reel to you.",
   },
   {
     value: "live_comment",

@@ -37,6 +37,7 @@ export interface RuleTableRow {
   keywordMatch: "specific" | "any";
   keywords: string[];
   instagram_media_id: string | null;
+  instagram_media_shortcode: string | null;
   require_follow: boolean;
   is_active: boolean;
   created_at: string;
@@ -172,6 +173,11 @@ export function RulesTable({
                         Story reply
                       </span>
                     )}
+                    {rule.triggerType === "post_share" && (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300">
+                        Post/Reel share
+                      </span>
+                    )}
                     {rule.require_follow && (
                       <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
                         Follow-gated
@@ -218,9 +224,13 @@ export function RulesTable({
             <p className="mt-3 text-xs text-zinc-400">
               {rule.instagram_media_id
                 ? `Target: ${rule.instagram_media_id}`
-                : rule.triggerType === "story_reply"
-                  ? "Target: Any story"
-                  : "Target: All posts"}
+                : rule.instagram_media_shortcode
+                  ? `Target: ${rule.instagram_media_shortcode}`
+                  : rule.triggerType === "story_reply"
+                    ? "Target: Any story"
+                    : rule.triggerType === "post_share"
+                      ? "Target: Any post/reel"
+                      : "Target: All posts"}
               {" · "}
               {formatDate(rule.created_at)} {formatTime(rule.created_at)}
             </p>
@@ -321,6 +331,14 @@ export function RulesTable({
                           Story reply
                         </span>
                       )}
+                      {rule.triggerType === "post_share" && (
+                        <span
+                          title="Triggers when your post/reel is shared into a DM"
+                          className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300"
+                        >
+                          Post/Reel share
+                        </span>
+                      )}
                       {rule.require_follow && (
                         <span
                           title="Requires follow before sending the DM"
@@ -369,8 +387,16 @@ export function RulesTable({
                       <span className="font-mono text-xs">
                         {rule.instagram_media_id}
                       </span>
+                    ) : rule.instagram_media_shortcode ? (
+                      <span className="font-mono text-xs">
+                        {rule.instagram_media_shortcode}
+                      </span>
+                    ) : rule.triggerType === "story_reply" ? (
+                      "Any story"
+                    ) : rule.triggerType === "post_share" ? (
+                      "Any post/reel"
                     ) : (
-                      rule.triggerType === "story_reply" ? "Any story" : "All posts"
+                      "All posts"
                     )}
                   </td>
 

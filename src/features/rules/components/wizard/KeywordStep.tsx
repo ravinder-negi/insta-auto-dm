@@ -66,6 +66,16 @@ const COPY = {
     excludeHint:
       "An excluded keyword anywhere in the comment stops this AutoDM, even when a trigger keyword also matches.",
   },
+  post_share: {
+    legend: "What triggers this automation?",
+    anyOption: "Any share",
+    anyNotice:
+      "Sharing any post or reel of this account into a DM triggers this AutoDM — a shared post carries no text, so there's no keyword to match.",
+    includeLabel: "Should include any of these:",
+    includePlaceholder: "Type a keyword (min. 1 character)",
+    includeHint: <></>,
+    excludeHint: "",
+  },
 } as const;
 
 export function KeywordStep({
@@ -82,6 +92,7 @@ export function KeywordStep({
   const copy = COPY[values.trigger_type];
   const isStory = values.trigger_type === "story_reply";
   const isLive = values.trigger_type === "live_comment";
+  const isShare = values.trigger_type === "post_share";
 
   const matches: { value: KeywordMatch; label: string }[] = [
     { value: "specific", label: "Specific keyword" },
@@ -99,33 +110,40 @@ export function KeywordStep({
 
   return (
     <div className="flex flex-col gap-6">
-      <fieldset>
-        <legend className="text-sm font-semibold">{copy.legend}</legend>
+      {!isShare && (
+        <fieldset>
+          <legend className="text-sm font-semibold">{copy.legend}</legend>
 
-        <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-          {matches.map((option) => {
-            const active = option.value === values.keyword_match;
+          <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {matches.map((option) => {
+              const active = option.value === values.keyword_match;
 
-            return (
-              <button
-                key={option.value}
-                type="button"
-                aria-pressed={active}
-                onClick={() => update("keyword_match", option.value)}
-                className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${
-                  active
-                    ? "border-brand-500 bg-brand-50/70 text-brand-700 ring-2 ring-brand-500/15 dark:border-brand-400/70 dark:bg-brand-500/10 dark:text-brand-300"
-                    : "border-black/8 bg-white hover:border-brand-300 hover:bg-brand-50/40 dark:border-white/10 dark:bg-white/5 dark:hover:border-brand-400/40 dark:hover:bg-white/10"
-                }`}
-              >
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-      </fieldset>
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => update("keyword_match", option.value)}
+                  className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                    active
+                      ? "border-brand-500 bg-brand-50/70 text-brand-700 ring-2 ring-brand-500/15 dark:border-brand-400/70 dark:bg-brand-500/10 dark:text-brand-300"
+                      : "border-black/8 bg-white hover:border-brand-300 hover:bg-brand-50/40 dark:border-white/10 dark:bg-white/5 dark:hover:border-brand-400/40 dark:hover:bg-white/10"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
 
-      {values.keyword_match === "specific" ? (
+      {isShare ? (
+        <p className="flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <InfoIcon className="mt-0.5 h-4 w-4 shrink-0" />
+          {copy.anyNotice}
+        </p>
+      ) : values.keyword_match === "specific" ? (
         <div className="flex flex-col gap-5">
           <ChipInput
             label={copy.includeLabel}
@@ -161,7 +179,7 @@ export function KeywordStep({
         </p>
       )}
 
-      {!isStory && (
+      {!isStory && !isShare && (
         <div className="rounded-2xl border border-black/8 bg-zinc-50 p-4 dark:border-white/10 dark:bg-white/5">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-semibold">

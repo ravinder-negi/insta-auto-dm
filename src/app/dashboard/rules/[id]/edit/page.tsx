@@ -19,7 +19,7 @@ export default async function EditRulePage(
     supabase
       .from("automation_rules")
       .select(
-        "id, instagram_account_id, name, trigger_type, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, dm_card_subtitle, dm_default_action_url, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type, automation_rule_followups(step_order, delay_minutes, message)"
+        "id, instagram_account_id, name, trigger_type, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, instagram_media_shortcode, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, dm_card_subtitle, dm_default_action_url, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type, automation_rule_followups(step_order, delay_minutes, message)"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -78,6 +78,7 @@ export default async function EditRulePage(
           keywords,
           excluded_keywords: rule.excluded_keywords ?? [],
           instagram_media_id: rule.instagram_media_id,
+          instagram_media_shortcode: rule.instagram_media_shortcode,
           dm_message: rule.dm_message,
           require_follow: rule.require_follow,
           follow_prompt_message: rule.follow_prompt_message,

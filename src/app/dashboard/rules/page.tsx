@@ -26,6 +26,7 @@ type RuleQueryRow = Pick<
   | "keywords"
   | "keyword"
   | "instagram_media_id"
+  | "instagram_media_shortcode"
   | "require_follow"
   | "is_active"
   | "created_at"
@@ -44,7 +45,7 @@ export default async function RulesPage() {
     supabase
       .from("automation_rules")
       .select(
-        "id, name, trigger_type, keyword_match, keywords, keyword, instagram_media_id, require_follow, is_active, created_at, instagram_account_id, instagram_accounts(username, instagram_user_id, is_active)"
+        "id, name, trigger_type, keyword_match, keywords, keyword, instagram_media_id, instagram_media_shortcode, require_follow, is_active, created_at, instagram_account_id, instagram_accounts(username, instagram_user_id, is_active)"
       )
       .order("created_at", { ascending: false }),
     supabase
@@ -66,6 +67,7 @@ export default async function RulesPage() {
           ? [rule.keyword]
           : [],
       instagram_media_id: rule.instagram_media_id,
+      instagram_media_shortcode: rule.instagram_media_shortcode,
       require_follow: rule.require_follow,
       is_active: rule.is_active,
       created_at: rule.created_at,

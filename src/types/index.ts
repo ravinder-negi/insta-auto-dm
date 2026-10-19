@@ -40,6 +40,10 @@ export interface AutomationRule {
   /** Legacy single-keyword column, kept in sync with keywords[0]. */
   keyword: string | null;
   instagram_media_id: string | null;
+  /** Only set for a post_share rule scoped to one post — see
+   *  components/wizard/shared.ts for why a share is matched by shortcode
+   *  rather than instagram_media_id. */
+  instagram_media_shortcode: string | null;
   send_delay_seconds: number;
   dm_message: string;
   dm_buttons: RuleButton[];
