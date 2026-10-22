@@ -94,26 +94,50 @@ export default async function Home() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 border-t border-zinc-200/70 py-8 sm:grid-cols-3 dark:border-zinc-800">
-          {STATS.map((s, i) => (
-            <div
-              key={s.title}
-              style={{ animationDelay: `${420 + i * 100}ms` }}
-              className="animate-fade-in-up flex items-center justify-center gap-3 text-center sm:justify-start sm:text-left"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
-                <s.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                  {s.title}
-                </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {s.desc}
-                </p>
-              </div>
+        <div className="animate-fade-in-up border-t border-zinc-200/70 py-8 [animation-delay:420ms] dark:border-zinc-800">
+          <div className="overflow-hidden sm:hidden">
+            <div className="animate-marquee flex w-max gap-8">
+              {[...STATS, ...STATS].map((s, i) => (
+                <div
+                  key={`${s.title}-${i}`}
+                  className="flex shrink-0 items-center gap-3"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
+                    <s.icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold whitespace-nowrap text-zinc-900 dark:text-zinc-50">
+                      {s.title}
+                    </p>
+                    <p className="text-xs whitespace-nowrap text-zinc-500 dark:text-zinc-400">
+                      {s.desc}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+
+          <div className="hidden gap-6 sm:grid sm:grid-cols-3">
+            {STATS.map((s) => (
+              <div
+                key={s.title}
+                className="flex items-center gap-3 text-left"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
+                  <s.icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                    {s.title}
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {s.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </main>
 

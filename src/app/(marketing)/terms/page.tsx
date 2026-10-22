@@ -22,10 +22,9 @@ export default function TermsOfServicePage() {
         <p>
           Auto DM lets you connect an Instagram professional account and
           configure automations that reply to comments, respond to story
-          replies and mentions, send direct messages, and capture leads
-          through links and lead magnets. The Service relies on Meta&apos;s
-          Instagram Graph API and Messenger Platform and is subject to
-          Meta&apos;s availability, rate limits, and policies.
+          replies, send direct messages, and capture leads through links and
+          lead magnets. The Service relies on Meta&apos;s APIs and is subject
+          to Meta&apos;s availability, rate limits, and policies.
         </p>
       </LegalSection>
 
@@ -69,17 +68,7 @@ export default function TermsOfServicePage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="5. Subscriptions and billing">
-        <p>
-          Paid plans, where offered, are billed in advance on a recurring
-          basis. Fees are non-refundable except where required by law. You
-          may cancel at any time, and cancellation takes effect at the end of
-          the current billing period. We may change pricing with at least 30
-          days&apos; notice before it applies to your account.
-        </p>
-      </LegalSection>
-
-      <LegalSection heading="6. Third-party platforms">
+      <LegalSection heading="5. Third-party platforms">
         <p>
           The Service depends on Instagram and Facebook APIs operated by Meta
           Platforms, Inc., which Auto DM does not control. Meta may change,
@@ -89,7 +78,7 @@ export default function TermsOfServicePage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="7. Disclaimers">
+      <LegalSection heading="6. Disclaimers">
         <p>
           The Service is provided &quot;as is&quot; and &quot;as available&quot;
           without warranties of any kind, express or implied, including
@@ -99,7 +88,7 @@ export default function TermsOfServicePage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="8. Limitation of liability">
+      <LegalSection heading="7. Limitation of liability">
         <p>
           To the maximum extent permitted by law, Auto DM and its affiliates
           will not be liable for any indirect, incidental, special,
@@ -110,7 +99,7 @@ export default function TermsOfServicePage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="9. Termination">
+      <LegalSection heading="8. Termination">
         <p>
           You may stop using the Service and delete your account at any time.
           We may suspend or terminate your access if you breach these Terms
@@ -120,7 +109,7 @@ export default function TermsOfServicePage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="10. Changes to these terms">
+      <LegalSection heading="9. Changes to these terms">
         <p>
           We may update these Terms from time to time. If we make material
           changes, we will notify you by email or an in-app notice before
@@ -129,7 +118,7 @@ export default function TermsOfServicePage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="11. Governing law">
+      <LegalSection heading="10. Governing law">
         <p>
           These Terms are governed by the laws of India, without regard to
           conflict-of-law principles, unless otherwise required by applicable
@@ -137,7 +126,7 @@ export default function TermsOfServicePage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="12. Contact us">
+      <LegalSection heading="11. Contact us">
         <p>
           Questions about these Terms can be sent to us through our{" "}
           <Link

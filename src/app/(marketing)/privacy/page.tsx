@@ -26,20 +26,19 @@ export default function PrivacyPolicyPage() {
         </p>
         <p>
           <strong>Instagram &amp; Facebook data.</strong> When you connect your
-          Instagram professional account via Meta&apos;s Login and Graph API, we
-          receive and store the access tokens, your Instagram business account
-          ID, username, and profile picture needed to operate the service. To
-          run the automations you configure, we also process:
+          Instagram professional account through Meta, we receive and store
+          your Instagram account ID, username, and the authorization needed
+          to send replies and messages on your behalf. To run the
+          automations you configure, we also process:
         </p>
         <ul className="list-disc space-y-1 pl-5">
           <li>
             Comments on your posts and reels, and the commenter&apos;s
-            Instagram‑scoped user ID, so we can detect trigger keywords and
-            send a reply or DM.
+            Instagram identifier, so we can detect trigger keywords and send
+            a reply or DM.
           </li>
           <li>
-            Story replies and mentions sent to your account, for story‑reply
-            automations.
+            Story replies sent to your account, for story‑reply automations.
           </li>
           <li>
             Direct message conversations your account sends or receives
@@ -48,8 +47,9 @@ export default function PrivacyPolicyPage() {
             back to you in your dashboard.
           </li>
           <li>
-            Basic engagement metrics (likes, reach, follower counts) used to
-            power the analytics shown in your dashboard.
+            Page views and link clicks on your public Auto DM profile,
+            including where the visit came from, used to power the analytics
+            shown in your dashboard.
           </li>
         </ul>
         <p>
@@ -85,14 +85,13 @@ export default function PrivacyPolicyPage() {
         <p>We share data only in the following cases:</p>
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            <strong>Meta Platforms, Inc.</strong> — data flows to and from the
-            Instagram Graph API and Messenger Platform as required to deliver
-            automated replies and DMs.
+            <strong>Meta Platforms, Inc.</strong> — data flows to and from
+            Meta as required to deliver automated replies and DMs.
           </li>
           <li>
-            <strong>Infrastructure providers</strong> (hosting, database, and
-            email delivery) who process data on our behalf under contract, and
-            only to the extent needed to run the service.
+            <strong>Service providers</strong> (hosting and communications)
+            who process data on our behalf under contract, and only to the
+            extent needed to run the service.
           </li>
           <li>
             <strong>Legal reasons</strong> — if required by law, subpoena, or
@@ -110,38 +109,48 @@ export default function PrivacyPolicyPage() {
       <LegalSection heading="4. Data retention">
         <p>
           We retain account data for as long as your account is active.
-          Conversation and comment data processed through automations is
-          retained so you can review history and analytics, and is deleted
-          within 90 days of account deletion or disconnecting your Instagram
-          account, whichever is sooner. You can request earlier deletion at
-          any time (Section 7).
+          Disconnecting an Instagram account immediately removes that
+          connection and any automations set up for it. Historical records of
+          comments and DMs already processed through those automations — used
+          for your analytics and activity history — are retained with your
+          Auto DM account until you request deletion (Section 7).
         </p>
       </LegalSection>
 
       <LegalSection heading="5. Data security">
         <p>
-          Access tokens and credentials are encrypted at rest. We use
-          industry-standard transport encryption (TLS) for data in transit and
-          restrict internal access to data on a need-to-know basis. No method
-          of transmission or storage is 100% secure, and we cannot guarantee
+          Your connection credentials are encrypted at rest. We use
+          industry-standard encryption for data in transit and restrict
+          internal access to data on a need-to-know basis. No method of
+          transmission or storage is 100% secure, and we cannot guarantee
           absolute security.
         </p>
       </LegalSection>
 
       <LegalSection heading="6. Cookies">
         <p>
-          We use essential cookies to keep you signed in and remember your
-          theme preference. We do not use third-party advertising cookies. You
-          can control cookies through your browser settings, though disabling
-          essential cookies may prevent you from logging in.
+          We use essential cookies and similar technologies to keep you
+          signed in and remember your preferences. We do not use third-party
+          advertising cookies. You can control cookies through your browser
+          settings, though disabling essential cookies may prevent you from
+          logging in.
         </p>
       </LegalSection>
 
       <LegalSection heading="7. Your rights and choices">
         <ul className="list-disc space-y-1 pl-5">
           <li>Access, correct, or export the data we hold about you from your dashboard.</li>
-          <li>Disconnect your Instagram account at any time, which revokes our API access immediately.</li>
-          <li>Request deletion of your account and associated data by contacting us below.</li>
+          <li>Disconnect your Instagram account at any time, which immediately stops our access to it.</li>
+          <li>
+            Request deletion of your account and associated data — see our{" "}
+            <Link
+              href="/data-deletion"
+              className="font-medium text-zinc-900 underline hover:no-underline dark:text-zinc-50"
+            >
+              data deletion instructions
+            </Link>
+            .
+          </li>
           <li>
             If you are in the EEA, UK, or similar jurisdictions, you may have
             additional rights under applicable data protection law, including

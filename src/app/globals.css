@@ -307,9 +307,30 @@ input[type="reset"]:disabled {
   }
 }
 
+@keyframes badge-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.88;
+    transform: scale(1.04);
+  }
+}
+
 @keyframes dash-flow {
   to {
     stroke-dashoffset: -24;
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }
 
@@ -334,9 +355,17 @@ input[type="reset"]:disabled {
   animation: pulse-soft 4s ease-in-out infinite;
 }
 
+.animate-badge-pulse {
+  animation: badge-pulse 2.4s ease-in-out infinite;
+}
+
 .animate-dash-flow {
   stroke-dasharray: 4 8;
   animation: dash-flow 3s linear infinite;
+}
+
+.animate-marquee {
+  animation: marquee 14s linear infinite;
 }
 
 @keyframes loading-bar {
@@ -364,8 +393,10 @@ input[type="reset"]:disabled {
   .animate-float,
   .animate-float-delayed,
   .animate-pulse-soft,
+  .animate-badge-pulse,
   .animate-dash-flow,
-  .animate-gradient-shift {
+  .animate-gradient-shift,
+  .animate-marquee {
     animation: none;
   }
 }

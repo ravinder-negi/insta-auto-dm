@@ -1,3 +1,6 @@
+"use client";
+
+import { useRef, useState } from "react";
 import {
   BoltIcon,
   ChartIcon,
@@ -34,10 +37,32 @@ const REASONS = [
 ];
 
 export function LandingWhyChoose() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+  const slideCount = REASONS.length;
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    const ratio = maxScroll > 0 ? el.scrollLeft / maxScroll : 0;
+    setActive(Math.round(ratio * (slideCount - 1)));
+  };
+
+  const goTo = (index: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    el.scrollTo({
+      left: (index / (slideCount - 1)) * maxScroll,
+      behavior: "smooth",
+    });
+  };
+
   return (
     <section
       id="why-choose"
-      className="w-full bg-brand-50/60 px-6 py-16 sm:px-10 lg:px-25 dark:bg-zinc-900/40"
+      className="w-full scroll-mt-8 bg-brand-50/60 px-6 py-16 sm:px-10 lg:px-25 dark:bg-zinc-900/40"
     >
       <Reveal>
         <span className="text-xs font-semibold tracking-widest text-brand-600 uppercase dark:text-brand-400">
@@ -48,12 +73,16 @@ export function LandingWhyChoose() {
         </h2>
       </Reveal>
 
-      <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="no-scrollbar mt-8 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-1 sm:grid sm:snap-none sm:grid-cols-2 sm:overflow-visible lg:grid-cols-4"
+      >
         {REASONS.map((r, i) => (
           <Reveal
             key={r.title}
             delay={i * 100}
-            className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+            className="w-[82%] shrink-0 snap-center rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm sm:w-auto dark:border-zinc-800 dark:bg-zinc-900"
           >
             <div
               className={`flex h-10 w-10 items-center justify-center rounded-xl ${r.tint}`}
@@ -67,6 +96,22 @@ export function LandingWhyChoose() {
               {r.desc}
             </p>
           </Reveal>
+        ))}
+      </div>
+
+      <div className="mt-5 flex justify-center gap-2 sm:hidden">
+        {REASONS.map((r, i) => (
+          <button
+            key={r.title}
+            type="button"
+            onClick={() => goTo(i)}
+            aria-label={`Go to slide ${i + 1}`}
+            className={`h-1.5 rounded-full transition-all ${
+              active === i
+                ? "w-6 bg-brand-600 dark:bg-brand-400"
+                : "w-1.5 bg-zinc-300 dark:bg-zinc-700"
+            }`}
+          />
         ))}
       </div>
     </section>

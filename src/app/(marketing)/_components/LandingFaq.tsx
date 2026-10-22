@@ -27,7 +27,10 @@ export function LandingFaq() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section id="faq" className="w-full px-6 py-16 sm:px-10 lg:px-25">
+    <section
+      id="faq"
+      className="w-full scroll-mt-8 px-6 py-16 sm:px-10 lg:px-25"
+    >
       <div className="grid gap-8 lg:grid-cols-[minmax(0,300px)_1fr] lg:gap-14">
         <Reveal>
           <span className="text-xs font-semibold tracking-widest text-brand-600 uppercase dark:text-brand-400">

@@ -29,6 +29,9 @@ export function LandingFooter() {
           <Link href="/contact" className="hover:text-zinc-900 dark:hover:text-zinc-50">
             Contact
           </Link>
+          <Link href="/data-deletion" className="hover:text-zinc-900 dark:hover:text-zinc-50">
+            Data Deletion
+          </Link>
         </div>
 
         <p className="text-xs text-zinc-400 dark:text-zinc-500">

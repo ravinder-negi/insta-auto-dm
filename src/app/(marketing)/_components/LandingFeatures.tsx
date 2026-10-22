@@ -1,3 +1,6 @@
+"use client";
+
+import { useRef, useState } from "react";
 import {
   ChatIcon,
   MailIcon,
@@ -6,9 +9,35 @@ import {
 } from "@/components/icons";
 import { Reveal } from "./Reveal";
 
+const SLIDE_COUNT = 3;
+
 export function LandingFeatures() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    const ratio = maxScroll > 0 ? el.scrollLeft / maxScroll : 0;
+    setActive(Math.round(ratio * (SLIDE_COUNT - 1)));
+  };
+
+  const goTo = (index: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    el.scrollTo({
+      left: (index / (SLIDE_COUNT - 1)) * maxScroll,
+      behavior: "smooth",
+    });
+  };
+
   return (
-    <section id="features" className="w-full px-6 py-16 sm:px-10 lg:px-25">
+    <section
+      id="features"
+      className="w-full scroll-mt-8 px-6 py-16 sm:px-10 lg:px-25"
+    >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <span className="text-xs font-semibold tracking-widest text-brand-600 uppercase dark:text-brand-400">
@@ -25,8 +54,12 @@ export function LandingFeatures() {
         </p>
       </div>
 
-      <div className="mt-8 grid gap-5 md:grid-cols-3">
-        <Reveal className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="no-scrollbar mt-8 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-1 md:grid md:snap-none md:grid-cols-3 md:overflow-visible"
+      >
+        <Reveal className="w-[82%] shrink-0 snap-center rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm md:w-auto dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
             <ChatIcon className="h-5 w-5" />
           </div>
@@ -49,7 +82,7 @@ export function LandingFeatures() {
 
         <Reveal
           delay={100}
-          className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+          className="w-[82%] shrink-0 snap-center rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm md:w-auto dark:border-zinc-800 dark:bg-zinc-900"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
             <SendIcon className="h-5 w-5" />
@@ -73,7 +106,7 @@ export function LandingFeatures() {
 
         <Reveal
           delay={200}
-          className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+          className="w-[82%] shrink-0 snap-center rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm md:w-auto dark:border-zinc-800 dark:bg-zinc-900"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
             <UsersIcon className="h-5 w-5" />
@@ -98,6 +131,22 @@ export function LandingFeatures() {
             </span>
           </div>
         </Reveal>
+      </div>
+
+      <div className="mt-5 flex justify-center gap-2 md:hidden">
+        {Array.from({ length: SLIDE_COUNT }).map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => goTo(i)}
+            aria-label={`Go to slide ${i + 1}`}
+            className={`h-1.5 rounded-full transition-all ${
+              active === i
+                ? "w-6 bg-brand-600 dark:bg-brand-400"
+                : "w-1.5 bg-zinc-300 dark:bg-zinc-700"
+            }`}
+          />
+        ))}
       </div>
     </section>
   );
