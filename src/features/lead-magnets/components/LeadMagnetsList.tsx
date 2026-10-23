@@ -10,7 +10,15 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/Toast";
 import { SearchField } from "@/components/ui/controls";
 import { primaryButtonClass } from "@/components/ui/styles";
-import { DocumentIcon, GripIcon, PencilIcon, PlusIcon, TrashIcon } from "@/components/icons";
+import {
+  DocumentIcon,
+  GridIcon,
+  GripIcon,
+  ListIcon,
+  PencilIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@/components/icons";
 import {
   deleteLeadMagnet,
   moveLeadMagnet,
@@ -32,6 +40,10 @@ function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
 }
 
+type ViewMode = "card" | "list";
+
+const VIEW_STORAGE_KEY = "lead-magnets-view";
+
 export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] }) {
   const toast = useToast();
   const router = useRouter();
@@ -45,6 +57,26 @@ export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [pendingReorders, setPendingReorders] = useState(0);
   const reorderQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const [view, setView] = useState<ViewMode>("list");
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(VIEW_STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- synced from browser storage, unavailable during SSR
+      if (stored === "card" || stored === "list") setView(stored);
+    } catch {
+      // ignore unavailable storage
+    }
+  }, []);
+
+  function handleViewChange(next: ViewMode) {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+      // ignore unavailable storage
+    }
+  }
 
   const order = useMemo(() => {
     if (!localOrder) return leadMagnets;
@@ -137,12 +169,114 @@ export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] 
           onChange={setSearch}
           placeholder="Search lead magnets..."
         />
+        <div className="flex items-center gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-white/8">
+          <button
+            type="button"
+            aria-label="List view"
+            aria-pressed={view === "list"}
+            onClick={() => handleViewChange("list")}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+              view === "list"
+                ? "bg-white text-brand-600 shadow-sm dark:bg-zinc-800 dark:text-brand-300"
+                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            <ListIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Card view"
+            aria-pressed={view === "card"}
+            onClick={() => handleViewChange("card")}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+              view === "card"
+                ? "bg-white text-brand-600 shadow-sm dark:bg-zinc-800 dark:text-brand-300"
+                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            <GridIcon className="h-4 w-4" />
+          </button>
+        </div>
         <NewLeadMagnetButton className={primaryButtonClass}>
           <PlusIcon className="h-4 w-4" />
           Add lead magnet
         </NewLeadMagnetButton>
       </div>
 
+      {view === "card" ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((magnet) => (
+            <div
+              key={magnet.id}
+              className="flex flex-col gap-3 rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
+                    <DocumentIcon className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{magnet.title}</p>
+                    <p className="truncate text-xs text-zinc-500">
+                      {magnet.file_name ?? "File"}
+                    </p>
+                  </div>
+                </div>
+                <StatusBadge status={magnet.is_active ? "active" : "inactive"} />
+              </div>
+
+              <Link
+                href={`/dashboard/lead-magnets/${magnet.id}/leads`}
+                className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+              >
+                {magnet.leadCount} {magnet.leadCount === 1 ? "lead" : "leads"}
+              </Link>
+
+              <div className="mt-auto flex items-center justify-between border-t border-black/6 pt-3 dark:border-white/8">
+                <form action={() => handleToggle(magnet.id, magnet.title, !magnet.is_active)}>
+                  <ToggleSwitchButton isActive={magnet.is_active} />
+                </form>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    title="Edit lead magnet"
+                    aria-label={`Edit ${magnet.title}`}
+                    onClick={() => setEditMagnetId(magnet.id)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </button>
+
+                  <ConfirmAction
+                    action={() => handleDelete(magnet.id, magnet.title)}
+                    title="Delete this lead magnet?"
+                    description={`"${magnet.title}" and its captured leads will be removed.`}
+                    confirmLabel="Delete"
+                    trigger={
+                      <button
+                        type="button"
+                        title="Delete lead magnet"
+                        aria-label={`Delete ${magnet.title}`}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    }
+                  />
+
+                  <RowMenu
+                    items={[
+                      { label: "Move up", onSelect: () => handleMove(magnet.id, "up") },
+                      { label: "Move down", onSelect: () => handleMove(magnet.id, "down") },
+                    ]}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
       <ul className="flex flex-col gap-2.5">
         {filtered.map((magnet) => (
           <li
@@ -227,6 +361,7 @@ export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] 
           </li>
         ))}
       </ul>
+      )}
 
       {editMagnetId && (
         <LeadMagnetFormModal

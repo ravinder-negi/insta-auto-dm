@@ -12,7 +12,9 @@ import { formatDate, formatTime } from "@/lib/utils/format";
 import {
   BoltIcon,
   CopyIcon,
+  GridIcon,
   InstagramIcon,
+  ListIcon,
   MailIcon,
   PencilIcon,
   PlusIcon,
@@ -25,6 +27,11 @@ import { useToast } from "@/components/ui/Toast";
 import { deleteRule, duplicateRule, toggleRuleActive } from "@/features/rules/actions";
 import { NewRuleButton } from "./NewRuleButton";
 import { RuleFormModal } from "./RuleFormModal";
+
+const KEYWORD_PREVIEW_LIMIT = 3;
+
+const HEAD_CLASS =
+  "px-5 py-3 text-left text-[11px] font-semibold tracking-[0.08em] text-zinc-400 uppercase";
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
@@ -51,8 +58,133 @@ export interface AccountFilterOption {
   handle: string;
 }
 
-const HEAD_CLASS =
-  "px-5 py-3 text-left text-[11px] font-semibold tracking-[0.08em] text-zinc-400 uppercase";
+type ViewMode = "card" | "list";
+
+const VIEW_STORAGE_KEY = "rules-view";
+
+function TriggerBadges({ rule }: { rule: RuleTableRow }) {
+  if (rule.triggerType !== "story_reply" && rule.triggerType !== "post_share" && !rule.require_follow) {
+    return null;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {rule.triggerType === "story_reply" && (
+        <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
+          Story reply
+        </span>
+      )}
+      {rule.triggerType === "post_share" && (
+        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300">
+          Post/Reel share
+        </span>
+      )}
+      {rule.require_follow && (
+        <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
+          Follow-gated
+        </span>
+      )}
+    </div>
+  );
+}
+
+function KeywordChips({ rule }: { rule: RuleTableRow }) {
+  if (rule.keywordMatch === "any") {
+    return (
+      <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-white/8 dark:text-zinc-300">
+        Any comment
+      </span>
+    );
+  }
+  const shown = rule.keywords.slice(0, KEYWORD_PREVIEW_LIMIT);
+  const hidden = rule.keywords.length - shown.length;
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {shown.map((keyword) => (
+        <span
+          key={keyword}
+          className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-700 dark:bg-white/8 dark:text-zinc-300"
+        >
+          {keyword}
+        </span>
+      ))}
+      {hidden > 0 && (
+        <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-500 dark:bg-white/8 dark:text-zinc-400">
+          +{hidden}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function targetLabel(rule: RuleTableRow) {
+  if (rule.instagram_media_id) return rule.instagram_media_id;
+  if (rule.instagram_media_shortcode) return rule.instagram_media_shortcode;
+  if (rule.triggerType === "story_reply") return "Any story";
+  if (rule.triggerType === "post_share") return "Any post/reel";
+  return "All posts";
+}
+
+function RuleActions({
+  rule,
+  onToggle,
+  onEdit,
+  onDuplicate,
+  onDelete,
+}: {
+  rule: RuleTableRow;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <form action={onToggle}>
+        <ToggleSwitchButton isActive={rule.is_active} />
+      </form>
+
+      <Link
+        href={`/dashboard/rules/${rule.id}/leads`}
+        title="View collected emails"
+        aria-label={`View emails collected by ${rule.name}`}
+        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+      >
+        <MailIcon className="h-4 w-4" />
+      </Link>
+
+      <button
+        type="button"
+        title="Edit AutoDM"
+        aria-label={`Edit ${rule.name}`}
+        onClick={onEdit}
+        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+      >
+        <PencilIcon className="h-4 w-4" />
+      </button>
+
+      <form action={onDuplicate}>
+        <DuplicateRuleButton ruleName={rule.name} />
+      </form>
+
+      <ConfirmAction
+        action={async () => onDelete()}
+        title="Delete this AutoDM?"
+        description={`“${rule.name}” will stop replying to comments. This can't be undone.`}
+        confirmLabel="Delete AutoDM"
+        trigger={
+          <button
+            type="button"
+            title="Delete AutoDM"
+            aria-label={`Delete ${rule.name}`}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        }
+      />
+    </div>
+  );
+}
 
 export function RulesTable({
   rules,
@@ -64,6 +196,7 @@ export function RulesTable({
   const [query, setQuery] = useState("");
   const [accountId, setAccountId] = useState("all");
   const [editRuleId, setEditRuleId] = useState<string | null>(null);
+  const [view, setView] = useState<ViewMode>("list");
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -80,6 +213,25 @@ export function RulesTable({
     router.replace(pathname);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(VIEW_STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- synced from browser storage, unavailable during SSR
+      if (stored === "card" || stored === "list") setView(stored);
+    } catch {
+      // ignore unavailable storage
+    }
+  }, []);
+
+  function handleViewChange(next: ViewMode) {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+      // ignore unavailable storage
+    }
+  }
 
   async function handleToggle(id: string, name: string, nextActive: boolean) {
     try {
@@ -142,349 +294,219 @@ export function RulesTable({
             </option>
           ))}
         </SelectField>
+        <div className="flex items-center gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-white/8">
+          <button
+            type="button"
+            aria-label="List view"
+            aria-pressed={view === "list"}
+            onClick={() => handleViewChange("list")}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+              view === "list"
+                ? "bg-white text-brand-600 shadow-sm dark:bg-zinc-800 dark:text-brand-300"
+                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            <ListIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Card view"
+            aria-pressed={view === "card"}
+            onClick={() => handleViewChange("card")}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+              view === "card"
+                ? "bg-white text-brand-600 shadow-sm dark:bg-zinc-800 dark:text-brand-300"
+                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            <GridIcon className="h-4 w-4" />
+          </button>
+        </div>
         <NewRuleButton className={primaryButtonClass}>
           <PlusIcon className="h-4 w-4" />
           New rule
         </NewRuleButton>
       </div>
 
-      <div className="flex flex-col gap-3 sm:hidden">
-        {visible.map((rule) => (
-          <div
-            key={rule.id}
-            className="rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                    rule.is_active
-                      ? "bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
-                      : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800"
-                  }`}
-                >
-                  <BoltIcon className="h-4 w-4" />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate font-semibold">{rule.name}</p>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {rule.triggerType === "story_reply" && (
-                      <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
-                        Story reply
-                      </span>
-                    )}
-                    {rule.triggerType === "post_share" && (
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300">
-                        Post/Reel share
-                      </span>
-                    )}
-                    {rule.require_follow && (
-                      <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
-                        Follow-gated
-                      </span>
-                    )}
+      {visible.length === 0 ? (
+        <p className="flex items-center justify-center gap-2 rounded-2xl border border-black/6 px-5 py-14 text-sm text-zinc-500 dark:border-white/8">
+          <SearchIcon className="h-4 w-4" />
+          No rules match the current filters.
+        </p>
+      ) : view === "card" ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {visible.map((rule) => (
+            <div
+              key={rule.id}
+              className="flex flex-col gap-4 rounded-2xl border border-black/6 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                      rule.is_active
+                        ? "bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
+                        : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800"
+                    }`}
+                  >
+                    <BoltIcon className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{rule.name}</p>
+                    <div className="mt-1">
+                      <KeywordChips rule={rule} />
+                    </div>
                   </div>
                 </div>
+                <StatusBadge
+                  status={
+                    !rule.accountActive
+                      ? "failed"
+                      : rule.is_active
+                        ? "active"
+                        : "paused"
+                  }
+                />
               </div>
-              <StatusBadge
-                status={
-                  !rule.accountActive
-                    ? "failed"
-                    : rule.is_active
-                      ? "active"
-                      : "paused"
-                }
-              />
-            </div>
 
-            <div className="mt-3 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
-              <Avatar name={rule.accountHandle} size="sm" muted={!rule.accountActive} />
-              <span>@{rule.accountHandle}</span>
-            </div>
+              <TriggerBadges rule={rule} />
 
-            <div className="mt-3">
-              {rule.keywordMatch === "any" ? (
-                <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-white/8 dark:text-zinc-300">
-                  Any comment
-                </span>
-              ) : (
-                <div className="flex flex-wrap gap-1">
-                  {rule.keywords.map((keyword) => (
-                    <span
-                      key={keyword}
-                      className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-700 dark:bg-white/8 dark:text-zinc-300"
-                    >
-                      {keyword}
-                    </span>
-                  ))}
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="shrink-0 text-zinc-400">Account</span>
+                  <span className="truncate text-zinc-600 dark:text-zinc-300">
+                    @{rule.accountHandle}
+                  </span>
                 </div>
-              )}
-            </div>
-
-            <p className="mt-3 text-xs text-zinc-400">
-              {rule.instagram_media_id
-                ? `Target: ${rule.instagram_media_id}`
-                : rule.instagram_media_shortcode
-                  ? `Target: ${rule.instagram_media_shortcode}`
-                  : rule.triggerType === "story_reply"
-                    ? "Target: Any story"
-                    : rule.triggerType === "post_share"
-                      ? "Target: Any post/reel"
-                      : "Target: All posts"}
-              {" · "}
-              {formatDate(rule.created_at)} {formatTime(rule.created_at)}
-            </p>
-
-            <div className="mt-3 flex items-center gap-1 border-t border-black/6 pt-3 dark:border-white/8">
-              <form action={() => handleToggle(rule.id, rule.name, !rule.is_active)}>
-                <ToggleSwitchButton isActive={rule.is_active} />
-              </form>
-
-              <Link
-                href={`/dashboard/rules/${rule.id}/leads`}
-                title="View collected emails"
-                aria-label={`View emails collected by ${rule.name}`}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-              >
-                <MailIcon className="h-4 w-4" />
-              </Link>
-
-              <button
-                type="button"
-                title="Edit AutoDM"
-                aria-label={`Edit ${rule.name}`}
-                onClick={() => setEditRuleId(rule.id)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-              >
-                <PencilIcon className="h-4 w-4" />
-              </button>
-
-              <form action={() => handleDuplicate(rule.id, rule.name)}>
-                <DuplicateRuleButton ruleName={rule.name} />
-              </form>
-
-              <ConfirmAction
-                action={() => handleDelete(rule.id, rule.name)}
-                title="Delete this AutoDM?"
-                description={`“${rule.name}” will stop replying to comments. This can't be undone.`}
-                confirmLabel="Delete AutoDM"
-                trigger={
-                  <button
-                    type="button"
-                    title="Delete AutoDM"
-                    aria-label={`Delete ${rule.name}`}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
+                <div className="flex items-center justify-between gap-3">
+                  <span className="shrink-0 text-zinc-400">Target</span>
+                  <span
+                    className="truncate font-mono text-xs text-zinc-500"
+                    title={targetLabel(rule)}
                   >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                }
-              />
+                    {targetLabel(rule)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="shrink-0 text-zinc-400">Created</span>
+                  <span className="text-zinc-600 dark:text-zinc-300">
+                    {formatDate(rule.created_at)}, {formatTime(rule.created_at)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-auto border-t border-black/6 pt-4 dark:border-white/8">
+                <RuleActions
+                  rule={rule}
+                  onToggle={() => handleToggle(rule.id, rule.name, !rule.is_active)}
+                  onEdit={() => setEditRuleId(rule.id)}
+                  onDuplicate={() => handleDuplicate(rule.id, rule.name)}
+                  onDelete={() => handleDelete(rule.id, rule.name)}
+                />
+              </div>
             </div>
-          </div>
-        ))}
-
-        {visible.length === 0 && (
-          <p className="flex items-center justify-center gap-2 rounded-2xl border border-black/6 px-5 py-14 text-sm text-zinc-500 dark:border-white/8">
-            <SearchIcon className="h-4 w-4" />
-            No rules match the current filters.
-          </p>
-        )}
-      </div>
-
-      <div className="hidden overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] sm:block dark:border-white/8 dark:bg-white/4">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-sm">
-            <thead className="border-b border-black/6 bg-zinc-50/70 dark:border-white/8 dark:bg-white/3">
-              <tr>
-                <th className={HEAD_CLASS}>AutoDM name</th>
-                <th className={HEAD_CLASS}>Keyword</th>
-                <th className={HEAD_CLASS}>Account</th>
-                <th className={HEAD_CLASS}>Target</th>
-                <th className={HEAD_CLASS}>Status</th>
-                <th className={HEAD_CLASS}>Created at</th>
-                <th className={HEAD_CLASS}>Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-black/6 dark:divide-white/8">
-              {visible.map((rule) => (
-                <tr
-                  key={rule.id}
-                  className="transition-colors hover:bg-zinc-50/80 dark:hover:bg-white/3"
-                >
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                          rule.is_active
-                            ? "bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
-                            : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800"
-                        }`}
-                      >
-                        <BoltIcon className="h-4 w-4" />
-                      </span>
-                      <span className="font-semibold">{rule.name}</span>
-                      {rule.triggerType === "story_reply" && (
-                        <span
-                          title="Triggers on a reply to a story"
-                          className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:bg-violet-500/15 dark:text-violet-300"
-                        >
-                          Story reply
-                        </span>
-                      )}
-                      {rule.triggerType === "post_share" && (
-                        <span
-                          title="Triggers when your post/reel is shared into a DM"
-                          className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300"
-                        >
-                          Post/Reel share
-                        </span>
-                      )}
-                      {rule.require_follow && (
-                        <span
-                          title="Requires follow before sending the DM"
-                          className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
-                        >
-                          Follow-gated
-                        </span>
-                      )}
-                    </div>
-                  </td>
-
-                  <td className="px-5 py-4">
-                    {rule.keywordMatch === "any" ? (
-                      <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-white/8 dark:text-zinc-300">
-                        Any comment
-                      </span>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {rule.keywords.map((keyword) => (
-                          <span
-                            key={keyword}
-                            className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-700 dark:bg-white/8 dark:text-zinc-300"
-                          >
-                            {keyword}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-2">
-                      <Avatar
-                        name={rule.accountHandle}
-                        size="sm"
-                        muted={!rule.accountActive}
-                      />
-                      <span className="text-zinc-600 dark:text-zinc-300">
-                        @{rule.accountHandle}
-                      </span>
-                    </div>
-                  </td>
-
-                  <td className="px-5 py-4 text-zinc-500">
-                    {rule.instagram_media_id ? (
-                      <span className="font-mono text-xs">
-                        {rule.instagram_media_id}
-                      </span>
-                    ) : rule.instagram_media_shortcode ? (
-                      <span className="font-mono text-xs">
-                        {rule.instagram_media_shortcode}
-                      </span>
-                    ) : rule.triggerType === "story_reply" ? (
-                      "Any story"
-                    ) : rule.triggerType === "post_share" ? (
-                      "Any post/reel"
-                    ) : (
-                      "All posts"
-                    )}
-                  </td>
-
-                  <td className="px-5 py-4">
-                    <StatusBadge
-                      status={
-                        !rule.accountActive
-                          ? "failed"
-                          : rule.is_active
-                            ? "active"
-                            : "paused"
-                      }
-                    />
-                  </td>
-
-                  <td className="px-5 py-4 whitespace-nowrap">
-                    <p className="text-zinc-600 dark:text-zinc-300">
-                      {formatDate(rule.created_at)}
-                    </p>
-                    <p className="text-xs text-zinc-400">
-                      {formatTime(rule.created_at)}
-                    </p>
-                  </td>
-
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-1">
-                      <form
-                        action={() =>
-                          handleToggle(rule.id, rule.name, !rule.is_active)
-                        }
-                      >
-                        <ToggleSwitchButton isActive={rule.is_active} />
-                      </form>
-
-                      <Link
-                        href={`/dashboard/rules/${rule.id}/leads`}
-                        title="View collected emails"
-                        aria-label={`View emails collected by ${rule.name}`}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-                      >
-                        <MailIcon className="h-4 w-4" />
-                      </Link>
-
-                      <button
-                        type="button"
-                        title="Edit AutoDM"
-                        aria-label={`Edit ${rule.name}`}
-                        onClick={() => setEditRuleId(rule.id)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-
-                      <form action={() => handleDuplicate(rule.id, rule.name)}>
-                        <DuplicateRuleButton ruleName={rule.name} />
-                      </form>
-
-                      <ConfirmAction
-                        action={() => handleDelete(rule.id, rule.name)}
-                        title="Delete this AutoDM?"
-                        description={`“${rule.name}” will stop replying to comments. This can't be undone.`}
-                        confirmLabel="Delete AutoDM"
-                        trigger={
-                          <button
-                            type="button"
-                            title="Delete AutoDM"
-                            aria-label={`Delete ${rule.name}`}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        }
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          ))}
         </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[960px] text-sm">
+              <thead className="border-b border-black/6 bg-zinc-50/70 dark:border-white/8 dark:bg-white/3">
+                <tr>
+                  <th className={HEAD_CLASS}>AutoDM name</th>
+                  <th className={HEAD_CLASS}>Keyword</th>
+                  <th className={HEAD_CLASS}>Account</th>
+                  <th className={HEAD_CLASS}>Target</th>
+                  <th className={HEAD_CLASS}>Status</th>
+                  <th className={HEAD_CLASS}>Created at</th>
+                  <th className={HEAD_CLASS}>Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/6 dark:divide-white/8">
+                {visible.map((rule) => (
+                  <tr
+                    key={rule.id}
+                    className="transition-colors hover:bg-zinc-50/80 dark:hover:bg-white/3"
+                  >
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                            rule.is_active
+                              ? "bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
+                              : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800"
+                          }`}
+                        >
+                          <BoltIcon className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold">{rule.name}</p>
+                          <TriggerBadges rule={rule} />
+                        </div>
+                      </div>
+                    </td>
 
-        {visible.length === 0 && (
-          <p className="flex items-center justify-center gap-2 px-5 py-14 text-sm text-zinc-500">
-            <SearchIcon className="h-4 w-4" />
-            No rules match the current filters.
-          </p>
-        )}
-      </div>
+                    <td className="px-5 py-4">
+                      <KeywordChips rule={rule} />
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <Avatar
+                          name={rule.accountHandle}
+                          size="sm"
+                          muted={!rule.accountActive}
+                        />
+                        <span className="text-zinc-600 dark:text-zinc-300">
+                          @{rule.accountHandle}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td
+                      className="px-5 py-4 font-mono text-xs text-zinc-500"
+                      title={targetLabel(rule)}
+                    >
+                      {targetLabel(rule)}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <StatusBadge
+                        status={
+                          !rule.accountActive
+                            ? "failed"
+                            : rule.is_active
+                              ? "active"
+                              : "paused"
+                        }
+                      />
+                    </td>
+
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <p className="text-zinc-600 dark:text-zinc-300">
+                        {formatDate(rule.created_at)}
+                      </p>
+                      <p className="text-xs text-zinc-400">
+                        {formatTime(rule.created_at)}
+                      </p>
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <RuleActions
+                        rule={rule}
+                        onToggle={() => handleToggle(rule.id, rule.name, !rule.is_active)}
+                        onEdit={() => setEditRuleId(rule.id)}
+                        onDuplicate={() => handleDuplicate(rule.id, rule.name)}
+                        onDelete={() => handleDelete(rule.id, rule.name)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {editRuleId && (
         <RuleFormModal

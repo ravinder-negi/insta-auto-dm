@@ -10,7 +10,9 @@ import { useToast } from "@/components/ui/Toast";
 import { SearchField, SelectField } from "@/components/ui/controls";
 import { primaryButtonClass } from "@/components/ui/styles";
 import {
+  GridIcon,
   GripIcon,
+  ListIcon,
   PencilIcon,
   PlusIcon,
   ShoppingBagIcon,
@@ -37,6 +39,10 @@ function formatPrice(price: number | null, currency: string) {
   return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(price);
 }
 
+type ViewMode = "card" | "list";
+
+const VIEW_STORAGE_KEY = "products-view";
+
 export function ProductsList({ products }: { products: Product[] }) {
   const toast = useToast();
   const router = useRouter();
@@ -51,6 +57,26 @@ export function ProductsList({ products }: { products: Product[] }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [pendingReorders, setPendingReorders] = useState(0);
   const reorderQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const [view, setView] = useState<ViewMode>("list");
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(VIEW_STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- synced from browser storage, unavailable during SSR
+      if (stored === "card" || stored === "list") setView(stored);
+    } catch {
+      // ignore unavailable storage
+    }
+  }, []);
+
+  function handleViewChange(next: ViewMode) {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+      // ignore unavailable storage
+    }
+  }
 
   const order = useMemo(() => {
     if (!localOrder) return products;
@@ -164,12 +190,143 @@ export function ProductsList({ products }: { products: Product[] }) {
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </SelectField>
+        <div className="flex items-center gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-white/8">
+          <button
+            type="button"
+            aria-label="List view"
+            aria-pressed={view === "list"}
+            onClick={() => handleViewChange("list")}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+              view === "list"
+                ? "bg-white text-brand-600 shadow-sm dark:bg-zinc-800 dark:text-brand-300"
+                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            <ListIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Card view"
+            aria-pressed={view === "card"}
+            onClick={() => handleViewChange("card")}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+              view === "card"
+                ? "bg-white text-brand-600 shadow-sm dark:bg-zinc-800 dark:text-brand-300"
+                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            <GridIcon className="h-4 w-4" />
+          </button>
+        </div>
         <NewProductButton className={primaryButtonClass}>
           <PlusIcon className="h-4 w-4" />
           Add product
         </NewProductButton>
       </div>
 
+      {view === "card" ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((product) => {
+            const priceLabel = formatPrice(product.price, product.currency);
+
+            return (
+              <div
+                key={product.id}
+                className="flex flex-col overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4"
+              >
+                <div className="relative">
+                  {product.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL
+                    <img
+                      src={product.image_url}
+                      alt=""
+                      className="h-40 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-40 w-full items-center justify-center bg-zinc-100 text-zinc-400 dark:bg-white/10 dark:text-zinc-500">
+                      <ShoppingBagIcon className="h-8 w-8" />
+                    </div>
+                  )}
+                  {product.is_featured && (
+                    <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
+                      <StarIcon className="h-2.5 w-2.5" />
+                      Featured
+                    </span>
+                  )}
+                  <div className="absolute right-3 top-3">
+                    <StatusBadge status={product.is_active ? "active" : "inactive"} />
+                  </div>
+                </div>
+
+                <div className="flex flex-1 flex-col gap-3 p-4">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{product.name}</p>
+                    <p className="truncate text-sm text-zinc-500">
+                      {priceLabel ?? "No price set"}
+                    </p>
+                    {product.description && (
+                      <p className="mt-1 line-clamp-2 text-xs text-zinc-400">
+                        {product.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mt-auto flex items-center justify-between border-t border-black/6 pt-3 dark:border-white/8">
+                    <form
+                      action={() =>
+                        handleToggleActive(product.id, product.name, !product.is_active)
+                      }
+                    >
+                      <ToggleSwitchButton isActive={product.is_active} />
+                    </form>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        title="Edit product"
+                        aria-label={`Edit ${product.name}`}
+                        onClick={() => setEditProductId(product.id)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </button>
+
+                      <ConfirmAction
+                        action={() => handleDelete(product.id, product.name)}
+                        title="Delete this product?"
+                        description={`"${product.name}" will be removed from your profile.`}
+                        confirmLabel="Delete"
+                        trigger={
+                          <button
+                            type="button"
+                            title="Delete product"
+                            aria-label={`Delete ${product.name}`}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        }
+                      />
+
+                      <RowMenu
+                        items={[
+                          {
+                            label: product.is_featured ? "Unfeature" : "Feature",
+                            onSelect: () =>
+                              handleToggleFeatured(product.id, product.name, !product.is_featured),
+                          },
+                          { label: "Move up", onSelect: () => handleMove(product.id, "up") },
+                          { label: "Move down", onSelect: () => handleMove(product.id, "down") },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
       <ul className="flex flex-col gap-2.5">
         {filtered.map((product) => {
           const priceLabel = formatPrice(product.price, product.currency);
@@ -275,6 +432,7 @@ export function ProductsList({ products }: { products: Product[] }) {
           );
         })}
       </ul>
+      )}
 
       {editProductId && (
         <ProductFormModal
