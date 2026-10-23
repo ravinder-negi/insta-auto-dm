@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import {
   FIRST_ONBOARDING_STEP,
@@ -43,6 +44,7 @@ export async function signUp(
     return { error: "Passwords do not match." };
   }
 
+  const origin = (await headers()).get("origin");
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -51,6 +53,7 @@ export async function signUp(
     // it into the new profile row. See @/lib/auth/onboarding.
     options: {
       data: { display_name: name, onboarding_step: FIRST_ONBOARDING_STEP },
+      emailRedirectTo: `${origin}/auth/callback?redirectTo=${ONBOARDING_PATH}`,
     },
   });
 
