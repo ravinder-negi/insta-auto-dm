@@ -15,6 +15,7 @@ import {
 } from "@/components/icons";
 import { AccountsHero } from "@/features/accounts/components/AccountsHero";
 import { AccountsList, type AccountRow } from "@/features/accounts/components/AccountsList";
+import { fetchInstagramProfileStats } from "@/lib/instagram/profile";
 
 const HIGHLIGHTS = [
   {
@@ -50,7 +51,7 @@ export default async function AccountsPage(
     await Promise.all([
       supabase
         .from("instagram_accounts")
-        .select("id, instagram_user_id, username, is_active, created_at")
+        .select("id, instagram_user_id, username, is_active, created_at, access_token")
         .order("created_at", { ascending: false }),
       // Newest first, so the first row seen for an account is its last activity.
       supabase
@@ -73,13 +74,28 @@ export default async function AccountsPage(
 
   const rows = (data ?? []) as Pick<
     InstagramAccount,
-    "id" | "instagram_user_id" | "username" | "is_active" | "created_at"
+    "id" | "instagram_user_id" | "username" | "is_active" | "created_at" | "access_token"
   >[];
 
-  const accounts: AccountRow[] = rows.map((account) => ({
-    ...account,
-    lastActivityAt: lastActivity.get(account.id) ?? null,
-  }));
+  const profileStats = await Promise.all(
+    rows.map((account) => fetchInstagramProfileStats(account.access_token))
+  );
+
+  const accounts: AccountRow[] = rows.map((account, index) => {
+    const stats = profileStats[index];
+    return {
+      id: account.id,
+      instagram_user_id: account.instagram_user_id,
+      username: account.username,
+      is_active: account.is_active,
+      created_at: account.created_at,
+      lastActivityAt: lastActivity.get(account.id) ?? null,
+      profilePictureUrl: stats?.profilePictureUrl ?? null,
+      followersCount: stats?.followersCount ?? null,
+      followsCount: stats?.followsCount ?? null,
+      mediaCount: stats?.mediaCount ?? null,
+    };
+  });
 
   const activeCount = accounts.filter((account) => account.is_active).length;
   const activeShare =

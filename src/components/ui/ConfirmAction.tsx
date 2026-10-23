@@ -11,6 +11,7 @@ export function ConfirmAction({
   title,
   description,
   confirmLabel,
+  className = "",
 }: {
   action: () => Promise<void>;
   /** Rendered as the clickable element that opens the dialog. */
@@ -18,6 +19,7 @@ export function ConfirmAction({
   title: string;
   description: string;
   confirmLabel: string;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -32,7 +34,9 @@ export function ConfirmAction({
 
   return (
     <>
-      <span onClick={() => setOpen(true)}>{trigger}</span>
+      <span className={className} onClick={() => setOpen(true)}>
+        {trigger}
+      </span>
 
       {open &&
         createPortal(

@@ -9,7 +9,6 @@ import {
   CloseIcon,
   GiftIcon,
   HomeIcon,
-  InstagramIcon,
   LayersIcon,
   LinkIcon,
   PaletteIcon,
@@ -65,15 +64,16 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/products", label: "Products", icon: ShoppingBagIcon },
     ],
   },
-  {
-    label: null,
-    links: [{ href: "/dashboard/settings", label: "Settings", icon: SettingsIcon }],
-  },
 ];
 
 const ADMIN_NAV_GROUP: NavGroup = {
   label: "Admin",
   links: [{ href: "/dashboard/admin/appearance", label: "Appearance", icon: ShieldIcon }],
+};
+
+const SETTINGS_NAV_GROUP: NavGroup = {
+  label: null,
+  links: [{ href: "/dashboard/settings", label: "Settings", icon: SettingsIcon }],
 };
 
 export function DashboardShell({
@@ -90,6 +90,7 @@ export function DashboardShell({
   isAdmin: boolean;
 }) {
   const navGroups = isAdmin ? [...NAV_GROUPS, ADMIN_NAV_GROUP] : NAV_GROUPS;
+  const settingsLink = SETTINGS_NAV_GROUP.links[0];
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -202,20 +203,30 @@ export function DashboardShell({
             );
           })}
         </nav>
+      </div>
 
-        <div className="m-4 rounded-2xl bg-gradient-to-b from-brand-50 to-brand-100 p-4 dark:from-brand-500/10 dark:to-brand-600/10">
-          <span className="ig-gradient flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-[0_6px_16px_-4px_rgba(220,39,67,0.5)]">
-            <InstagramIcon className="h-5 w-5" />
-          </span>
-          <p className="mt-3 text-sm leading-snug font-semibold">
-            Turn comments
-            <br />
-            into conversations
-          </p>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            Automate your Instagram growth with AI.
-          </p>
-        </div>
+      <div className="shrink-0 border-t border-black/6 px-3 py-3 dark:border-white/8">
+        {(() => {
+          const active = activePath.startsWith(settingsLink.href);
+          return (
+            <Link
+              href={settingsLink.href}
+              onClick={() => navigate(settingsLink.href)}
+              aria-current={active ? "page" : undefined}
+              className={`relative flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors duration-200 ${
+                active
+                  ? "bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
+                  : "text-zinc-500 hover:bg-black/4 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
+              }`}
+            >
+              {active && (
+                <span className="absolute top-1.5 bottom-1.5 -left-3 w-1 rounded-r-full bg-brand-600 dark:bg-brand-400" />
+              )}
+              <settingsLink.icon className="h-5 w-5 shrink-0" />
+              {settingsLink.label}
+            </Link>
+          );
+        })()}
       </div>
     </>
   );

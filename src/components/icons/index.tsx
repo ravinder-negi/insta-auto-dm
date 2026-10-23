@@ -273,6 +273,37 @@ export function MenuIcon(props: IconProps) {
   );
 }
 
+export function GridIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </Stroke>
+  );
+}
+
+export function ListIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="M8 6h13M8 12h13M8 18h13" />
+      <path d="M3 6h.01M3 12h.01M3 18h.01" />
+    </Stroke>
+  );
+}
+
+export function RefreshIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16" />
+      <path d="M3 21v-5h5" />
+    </Stroke>
+  );
+}
+
 export function CalendarIcon(props: IconProps) {
   return (
     <Stroke {...props}>
