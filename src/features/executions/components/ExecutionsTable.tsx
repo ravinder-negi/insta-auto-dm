@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { StatusChip } from "@/components/ui/LinkInBioCollection";
 import { PillSelect } from "@/components/ui/PillSelect";
 import { formatDateTime } from "@/lib/utils/format";
+import { explainSendError } from "@/lib/instagram/sendErrors";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -351,8 +352,8 @@ export function ExecutionsTable({
                   </DetailRow>
                 )}
                 {detail.error_message && (
-                  <DetailRow label="Error">
-                    <span className="text-[var(--danger-strong)]">{detail.error_message}</span>
+                  <DetailRow label="Why it failed">
+                    <SendErrorDetail raw={detail.error_message} />
                   </DetailRow>
                 )}
               </div>
@@ -360,6 +361,22 @@ export function ExecutionsTable({
           </div>,
           document.body
         )}
+    </div>
+  );
+}
+
+function SendErrorDetail({ raw }: { raw: string }) {
+  const explanation = explainSendError(raw);
+  if (!explanation) return null;
+
+  return (
+    <div className="flex flex-col gap-1.5 whitespace-normal">
+      <span className="font-semibold text-[var(--danger-strong)]">{explanation.title}</span>
+      {explanation.hint && <span className="text-[var(--muted)]">{explanation.hint}</span>}
+      <details className="text-xs text-[var(--muted)]">
+        <summary className="cursor-pointer select-none">Technical details</summary>
+        <span className="mt-1 block font-mono break-all whitespace-pre-wrap">{explanation.raw}</span>
+      </details>
     </div>
   );
 }

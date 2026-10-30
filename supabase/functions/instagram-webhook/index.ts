@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { describeGraphError, isInvalidTokenError } from "../_shared/instagramToken.ts";
+import { commentMatchesRule, dmMatchesRule } from "../_shared/keywordMatch.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 
@@ -119,50 +120,12 @@ interface AutomationRule {
   public_reply_message: string | null;
   attachment_url: string | null;
   attachment_type: AttachmentType | null;
+  // dm_keyword only: whole-message match, and how soon the same person may
+  // trigger the rule again (null = only once).
+  keyword_exact?: boolean;
+  dm_repeat_after_days?: number | null;
 }
 
-/**
- * Word-boundary, case-insensitive containment — the keyword "ai" matches the
- * comment "ai" or "send me ai" but not "pain". Multi-word keywords work the
- * same way.
- */
-function commentIncludesKeyword(normalizedComment: string, keyword: string) {
-  const needle = keyword.trim().toLowerCase();
-  if (!needle) return false;
-
-  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(
-    `(^|[^\\p{L}\\p{N}_])${escaped}([^\\p{L}\\p{N}_]|$)`,
-    "u"
-  ).test(normalizedComment);
-}
-
-interface KeywordMatchable {
-  keyword_match: "specific" | "any";
-  keywords: string[] | null;
-  excluded_keywords: string[] | null;
-  keyword: string | null;
-}
-
-/** Excluded keywords veto a match, including on "any comment" rules. Shared
- *  by automation_rules and dm_flows, which both use the same keyword-set
- *  shape. */
-function commentMatchesRule(rule: KeywordMatchable, normalizedComment: string) {
-  const excluded = rule.excluded_keywords ?? [];
-  if (excluded.some((word) => commentIncludesKeyword(normalizedComment, word))) {
-    return false;
-  }
-
-  if (rule.keyword_match === "any") return true;
-
-  const keywords = rule.keywords?.length
-    ? rule.keywords
-    : rule.keyword
-      ? [rule.keyword]
-      : [];
-
-  return keywords.some((word) => commentIncludesKeyword(normalizedComment, word));
-}
 
 /** Generic-template element titles are capped by Instagram; the card needs
  *  one even when the real copy lives in the text DM sent just before it. */
@@ -950,7 +913,7 @@ async function handleCommentChange(
    * ======================================
    */
 
-  const { error: executionInsertError } = await supabaseAdmin
+  const { data: execution, error: executionInsertError } = await supabaseAdmin
     .from("automation_executions")
     .insert({
       automation_rule_id: matchedRule.id,
@@ -962,7 +925,9 @@ async function handleCommentChange(
       comment_text: commentText,
       status: "processing",
       dm_message: outgoingMessage,
-    });
+   })
+    .select("id")
+    .single();
 
   if (executionInsertError) {
     if (executionInsertError.code === "23505") {
@@ -1011,6 +976,7 @@ async function handleCommentChange(
           // Only the first message can use the comment's private-reply
           // allowance; the rest ride the thread it opens.
           recipient_comment_id: index === 0 ? commentId : null,
+          automation_execution_id: execution.id,
           message: typeof payload.text === "string" ? payload.text : "",
           message_payload: payload,
           // One second apart so the sweep keeps them in order.
@@ -1538,7 +1504,14 @@ async function handleMessagingEvent(
     console.error("Failed to look up dm_flow_sessions:", sessionError.message);
     return;
   }
-  if (!session) return;
+
+  // No flow is waiting on this person, so a keyword DM can start an AutoDM.
+  if (!session) {
+    if (mid) {
+      await handleDmKeywordEvent({ instagramAccount, senderId, mid, text });
+    }
+    return;
+  }
 
   const typedSession = session as DmFlowSession;
 
@@ -1691,6 +1664,381 @@ async function handleMessagingEvent(
 
 /**
  * ============================================
+ * RUN A MATCHED RULE FOR AN INBOUND DM
+ * Everything after rule matching is the same for every DM-based trigger
+ * (story reply, post/reel share, DM keyword): follow gate, email ask,
+ * execution row deduped on the inbound mid, delay, then an ordinary thread
+ * message ({id: senderId}) since there's no comment to privately reply to.
+ * ============================================
+ */
+
+async function runInboundDmRule({
+  instagramAccount,
+  senderId,
+  mid,
+  matchedRule,
+  mediaId,
+  inboundText,
+  label,
+}: {
+  instagramAccount: { id: string; instagram_user_id: string; username: string | null; access_token: string };
+  senderId: string;
+  mid: string;
+  matchedRule: AutomationRule;
+  /** Stored on the execution: the story id for a story reply, else null. */
+  mediaId: string | null;
+  /** Stored as the execution's comment_text: the DM text, or the shared url. */
+  inboundText: string | null;
+  /** For logs, e.g. "story-reply". */
+  label: string;
+}) {
+  let outgoingMessage = matchedRule.dm_message;
+  let isFollowPrompt = false;
+
+  if (matchedRule.require_follow) {
+    const isFollowing = await checkUserFollowsBusiness(
+      senderId,
+      instagramAccount.access_token
+    );
+
+    if (!isFollowing) {
+      const { data: existingPrompt } = await supabaseAdmin
+        .from("automation_follow_prompts")
+        .select("id")
+        .eq("automation_rule_id", matchedRule.id)
+        .eq("commenter_instagram_id", senderId)
+        .maybeSingle();
+
+      if (existingPrompt) {
+        await supabaseAdmin.from("automation_executions").insert({
+          automation_rule_id: matchedRule.id,
+          instagram_account_id: instagramAccount.id,
+          inbound_message_id: mid,
+          commenter_instagram_id: senderId,
+          instagram_media_id: mediaId,
+          comment_text: inboundText,
+          status: "skipped_already_prompted",
+        });
+        console.log(`Already prompted to follow, skipping ${label}:`, mid);
+        return;
+      }
+
+      const profileLink = `${INSTAGRAM_AUTHORIZE_BASE_URL}/_u/${
+        instagramAccount.username ?? instagramAccount.instagram_user_id
+      }/`;
+      outgoingMessage = (matchedRule.follow_prompt_message ?? "").replaceAll(
+        "{profile_link}",
+        profileLink
+      );
+      isFollowPrompt = true;
+    } else {
+      await supabaseAdmin
+        .from("automation_follow_prompts")
+        .update({ followed_at: new Date().toISOString() })
+        .eq("automation_rule_id", matchedRule.id)
+        .eq("commenter_instagram_id", senderId)
+        .is("followed_at", null);
+    }
+  }
+
+  let isEmailPrompt = false;
+
+  if (matchedRule.collect_email && !isFollowPrompt) {
+    const { data: lead } = await supabaseAdmin
+      .from("automation_rule_leads")
+      .select("id")
+      .eq("automation_rule_id", matchedRule.id)
+      .eq("ig_sender_id", senderId)
+      .maybeSingle();
+
+    if (!lead) {
+      const { data: existingPrompt } = await supabaseAdmin
+        .from("automation_email_prompts")
+        .select("id")
+        .eq("automation_rule_id", matchedRule.id)
+        .eq("ig_sender_id", senderId)
+        .maybeSingle();
+
+      if (existingPrompt) {
+        await supabaseAdmin.from("automation_executions").insert({
+          automation_rule_id: matchedRule.id,
+          instagram_account_id: instagramAccount.id,
+          inbound_message_id: mid,
+          commenter_instagram_id: senderId,
+          instagram_media_id: mediaId,
+          comment_text: inboundText,
+          status: "skipped_already_prompted",
+        });
+        console.log(`Already asked for an email, skipping ${label}:`, mid);
+        return;
+      }
+
+      outgoingMessage = matchedRule.email_prompt_message ?? "";
+      isEmailPrompt = true;
+    }
+  }
+
+  const { data: execution, error: executionInsertError } = await supabaseAdmin
+    .from("automation_executions")
+    .insert({
+      automation_rule_id: matchedRule.id,
+      instagram_account_id: instagramAccount.id,
+      inbound_message_id: mid,
+      commenter_instagram_id: senderId,
+      instagram_media_id: mediaId,
+      comment_text: inboundText,
+      status: "processing",
+      dm_message: outgoingMessage,
+    })
+    .select("id")
+    .single();
+
+  if (executionInsertError) {
+    if (executionInsertError.code === "23505") {
+      console.log(`Duplicate ${label} execution detected:`, mid);
+      return;
+    }
+
+    console.error(`Failed to create ${label} execution:`, executionInsertError.message);
+    return;
+  }
+
+  const isPrompt = isFollowPrompt || isEmailPrompt;
+  const buttons = isPrompt ? [] : (matchedRule.dm_buttons ?? []);
+  const delaySeconds = isPrompt ? 0 : (matchedRule.send_delay_seconds ?? 0);
+
+  if (delaySeconds > LIVE_SEND_MAX_DELAY_SECONDS) {
+    const sendAt = Date.now() + delaySeconds * 1000;
+
+    const { error: scheduleError } = await supabaseAdmin
+      .from("scheduled_dms")
+      .insert(
+        scheduledMessagePayloads({
+          text: outgoingMessage,
+          buttons,
+          cardTitle: matchedRule.dm_button_card_title,
+          cardSubtitle: isPrompt ? null : matchedRule.dm_card_subtitle,
+          defaultActionUrl: isPrompt ? null : matchedRule.dm_default_action_url,
+          attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
+          attachmentType: isPrompt ? null : matchedRule.attachment_type,
+        }).map((payload, index) => ({
+          instagram_account_id: instagramAccount.id,
+          automation_rule_id: matchedRule.id,
+          automation_execution_id: execution.id,
+          recipient_ig_id: senderId,
+          message: typeof payload.text === "string" ? payload.text : "",
+          message_payload: payload,
+          // One second apart so the sweep keeps them in order.
+          send_after: new Date(sendAt + index * 1000).toISOString(),
+        }))
+      );
+
+    await supabaseAdmin
+      .from("automation_executions")
+      .update({
+        status: scheduleError ? "failed" : "scheduled",
+        error_message: scheduleError?.message ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("inbound_message_id", mid);
+
+    if (scheduleError) {
+      console.error(`Failed to schedule delayed ${label} DM:`, mid, scheduleError.message);
+      return;
+    }
+
+    await scheduleFollowups({
+      ruleId: matchedRule.id,
+      instagramAccountId: instagramAccount.id,
+      recipientIgId: senderId,
+      baseDelaySeconds: delaySeconds,
+    });
+
+    console.log(`${label} DM scheduled:`, mid);
+    return;
+  }
+
+  if (delaySeconds > 0) {
+    await sleep(delaySeconds * 1000);
+  }
+
+  const result = await sendRuleOrStepMessage({
+    instagramUserId: instagramAccount.instagram_user_id,
+    accessToken: instagramAccount.access_token,
+    recipient: { id: senderId },
+    text: outgoingMessage,
+    buttons,
+    cardTitle: matchedRule.dm_button_card_title,
+    cardSubtitle: isPrompt ? null : matchedRule.dm_card_subtitle,
+    defaultActionUrl: isPrompt ? null : matchedRule.dm_default_action_url,
+    attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
+    attachmentType: isPrompt ? null : matchedRule.attachment_type,
+  });
+
+  if (result.success) {
+    await supabaseAdmin
+      .from("automation_executions")
+      .update({
+        status: isFollowPrompt
+          ? "follow_prompt_sent"
+          : isEmailPrompt
+            ? "email_prompt_sent"
+            : "sent",
+        instagram_message_id: result.messageId ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("inbound_message_id", mid);
+
+    if (isFollowPrompt) {
+      await supabaseAdmin.from("automation_follow_prompts").insert({
+        automation_rule_id: matchedRule.id,
+        commenter_instagram_id: senderId,
+      });
+    }
+
+    if (isEmailPrompt) {
+      await supabaseAdmin.from("automation_email_prompts").insert({
+        automation_rule_id: matchedRule.id,
+        instagram_account_id: instagramAccount.id,
+        ig_sender_id: senderId,
+      });
+    }
+
+    if (!isPrompt) {
+      await scheduleFollowups({
+        ruleId: matchedRule.id,
+        instagramAccountId: instagramAccount.id,
+        recipientIgId: senderId,
+        baseDelaySeconds: 0,
+      });
+    }
+
+    console.log(`${label} DM sent:`, mid);
+  } else {
+    await supabaseAdmin
+      .from("automation_executions")
+      .update({
+        status: "failed",
+        error_message: result.error,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("inbound_message_id", mid);
+
+    console.error(`${label} DM failed:`, mid, result.error);
+  }
+}
+
+/**
+ * ============================================
+ * HANDLE DM KEYWORD
+ * A plain DM (no story reply, no share) from someone with no pending email
+ * ask and no active DM flow, matched against dm_keyword automation_rules —
+ * see dmMatchesRule() for the conversation-safe matching. Each rule reaches
+ * a person once, or again only after dm_repeat_after_days. Deduped on the
+ * inbound mid like the other DM triggers.
+ * ============================================
+ */
+
+async function dmRuleRecentlyRan(rule: AutomationRule, senderId: string) {
+  let query = supabaseAdmin
+    .from("automation_executions")
+    .select("id")
+    .eq("automation_rule_id", rule.id)
+    .eq("commenter_instagram_id", senderId)
+    // Only the real DM uses up their turn: not a failed attempt, and not a
+    // follow/email prompt — they must be able to DM again once they've
+    // followed. "processing" covers a send still in flight.
+    .in("status", ["sent", "scheduled", "processing"])
+    .limit(1);
+
+  if (rule.dm_repeat_after_days) {
+    query = query.gte(
+      "created_at",
+      new Date(Date.now() - rule.dm_repeat_after_days * 86_400_000).toISOString()
+    );
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    // Fail closed: skipping one reply beats messaging someone twice.
+    console.error("Failed to check dm_keyword repeat guard:", error.message);
+    return true;
+  }
+
+  return (data ?? []).length > 0;
+}
+
+async function handleDmKeywordEvent({
+  instagramAccount,
+  senderId,
+  mid,
+  text,
+}: {
+  instagramAccount: { id: string; instagram_user_id: string; username: string | null; access_token: string };
+  senderId: string;
+  mid: string;
+  text: string;
+}) {
+  const { data: existingExecution } = await supabaseAdmin
+    .from("automation_executions")
+    .select("id")
+    .eq("inbound_message_id", mid)
+    .maybeSingle();
+
+  if (existingExecution) {
+    console.log("DM keyword already processed:", mid);
+    return;
+  }
+
+  const { data: rules, error: rulesError } = await supabaseAdmin
+    .from("automation_rules")
+    .select(
+      "id, keyword_match, keywords, excluded_keywords, keyword, keyword_exact, dm_repeat_after_days, instagram_media_id, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, dm_card_subtitle, dm_default_action_url, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type"
+    )
+    .eq("instagram_account_id", instagramAccount.id)
+    .eq("trigger_type", "dm_keyword")
+    .eq("is_active", true);
+
+  if (rulesError) {
+    console.error("Failed to load dm_keyword automation_rules:", rulesError.message);
+    return;
+  }
+
+  const normalizedText = text.trim().toLowerCase();
+
+  // Whole-message rules are more specific than "contains" ones.
+  const candidates = ((rules ?? []) as AutomationRule[])
+    .filter((rule) => dmMatchesRule(rule, normalizedText))
+    .sort((a, b) => (a.keyword_exact ? 0 : 1) - (b.keyword_exact ? 0 : 1));
+
+  let matchedRule: AutomationRule | undefined;
+  for (const rule of candidates) {
+    if (await dmRuleRecentlyRan(rule, senderId)) {
+      console.log("DM keyword rule already reached this person, skipping:", rule.id);
+      continue;
+    }
+    matchedRule = rule;
+    break;
+  }
+
+  if (!matchedRule) return;
+
+  console.log("DM keyword automation matched:", matchedRule.id);
+
+  await runInboundDmRule({
+    instagramAccount,
+    senderId,
+    mid,
+    matchedRule,
+    mediaId: null,
+    inboundText: text,
+    label: "dm-keyword",
+  });
+}
+
+/**
+ * ============================================
  * HANDLE STORY REPLY
  * A DM whose message.reply_to.story is set. Matched against story_reply
  * automation_rules the same way a comment matches comment_keyword rules
@@ -1761,237 +2109,15 @@ async function handleStoryReplyEvent({
 
   console.log("Story-reply automation matched:", matchedRule.id);
 
-  let outgoingMessage = matchedRule.dm_message;
-  let isFollowPrompt = false;
-
-  if (matchedRule.require_follow) {
-    const isFollowing = await checkUserFollowsBusiness(
-      senderId,
-      instagramAccount.access_token
-    );
-
-    if (!isFollowing) {
-      const { data: existingPrompt } = await supabaseAdmin
-        .from("automation_follow_prompts")
-        .select("id")
-        .eq("automation_rule_id", matchedRule.id)
-        .eq("commenter_instagram_id", senderId)
-        .maybeSingle();
-
-      if (existingPrompt) {
-        await supabaseAdmin.from("automation_executions").insert({
-          automation_rule_id: matchedRule.id,
-          instagram_account_id: instagramAccount.id,
-          inbound_message_id: mid,
-          commenter_instagram_id: senderId,
-          instagram_media_id: storyId,
-          comment_text: text,
-          status: "skipped_already_prompted",
-        });
-        console.log("Already prompted to follow, skipping story reply:", mid);
-        return;
-      }
-
-      const profileLink = `${INSTAGRAM_AUTHORIZE_BASE_URL}/_u/${
-        instagramAccount.username ?? instagramAccount.instagram_user_id
-      }/`;
-      outgoingMessage = (matchedRule.follow_prompt_message ?? "").replaceAll(
-        "{profile_link}",
-        profileLink
-      );
-      isFollowPrompt = true;
-    } else {
-      await supabaseAdmin
-        .from("automation_follow_prompts")
-        .update({ followed_at: new Date().toISOString() })
-        .eq("automation_rule_id", matchedRule.id)
-        .eq("commenter_instagram_id", senderId)
-        .is("followed_at", null);
-    }
-  }
-
-  let isEmailPrompt = false;
-
-  if (matchedRule.collect_email && !isFollowPrompt) {
-    const { data: lead } = await supabaseAdmin
-      .from("automation_rule_leads")
-      .select("id")
-      .eq("automation_rule_id", matchedRule.id)
-      .eq("ig_sender_id", senderId)
-      .maybeSingle();
-
-    if (!lead) {
-      const { data: existingPrompt } = await supabaseAdmin
-        .from("automation_email_prompts")
-        .select("id")
-        .eq("automation_rule_id", matchedRule.id)
-        .eq("ig_sender_id", senderId)
-        .maybeSingle();
-
-      if (existingPrompt) {
-        await supabaseAdmin.from("automation_executions").insert({
-          automation_rule_id: matchedRule.id,
-          instagram_account_id: instagramAccount.id,
-          inbound_message_id: mid,
-          commenter_instagram_id: senderId,
-          instagram_media_id: storyId,
-          comment_text: text,
-          status: "skipped_already_prompted",
-        });
-        console.log("Already asked for an email, skipping story reply:", mid);
-        return;
-      }
-
-      outgoingMessage = matchedRule.email_prompt_message ?? "";
-      isEmailPrompt = true;
-    }
-  }
-
-  const { error: executionInsertError } = await supabaseAdmin
-    .from("automation_executions")
-    .insert({
-      automation_rule_id: matchedRule.id,
-      instagram_account_id: instagramAccount.id,
-      inbound_message_id: mid,
-      commenter_instagram_id: senderId,
-      instagram_media_id: storyId,
-      comment_text: text,
-      status: "processing",
-      dm_message: outgoingMessage,
-    });
-
-  if (executionInsertError) {
-    if (executionInsertError.code === "23505") {
-      console.log("Duplicate story-reply execution detected:", mid);
-      return;
-    }
-
-    console.error("Failed to create story-reply execution:", executionInsertError.message);
-    return;
-  }
-
-  const isPrompt = isFollowPrompt || isEmailPrompt;
-  const buttons = isPrompt ? [] : (matchedRule.dm_buttons ?? []);
-  const delaySeconds = isPrompt ? 0 : (matchedRule.send_delay_seconds ?? 0);
-
-  if (delaySeconds > LIVE_SEND_MAX_DELAY_SECONDS) {
-    const sendAt = Date.now() + delaySeconds * 1000;
-
-    const { error: scheduleError } = await supabaseAdmin
-      .from("scheduled_dms")
-      .insert(
-        scheduledMessagePayloads({
-          text: outgoingMessage,
-          buttons,
-          cardTitle: matchedRule.dm_button_card_title,
-          cardSubtitle: isPrompt ? null : matchedRule.dm_card_subtitle,
-          defaultActionUrl: isPrompt ? null : matchedRule.dm_default_action_url,
-          attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
-          attachmentType: isPrompt ? null : matchedRule.attachment_type,
-        }).map((payload, index) => ({
-          instagram_account_id: instagramAccount.id,
-          automation_rule_id: matchedRule.id,
-          recipient_ig_id: senderId,
-          message: typeof payload.text === "string" ? payload.text : "",
-          message_payload: payload,
-          // One second apart so the sweep keeps them in order.
-          send_after: new Date(sendAt + index * 1000).toISOString(),
-        }))
-      );
-
-    await supabaseAdmin
-      .from("automation_executions")
-      .update({
-        status: scheduleError ? "failed" : "scheduled",
-        error_message: scheduleError?.message ?? null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("inbound_message_id", mid);
-
-    if (scheduleError) {
-      console.error("Failed to schedule delayed story-reply DM:", mid, scheduleError.message);
-      return;
-    }
-
-    await scheduleFollowups({
-      ruleId: matchedRule.id,
-      instagramAccountId: instagramAccount.id,
-      recipientIgId: senderId,
-      baseDelaySeconds: delaySeconds,
-    });
-
-    console.log("Story-reply DM scheduled:", mid);
-    return;
-  }
-
-  if (delaySeconds > 0) {
-    await sleep(delaySeconds * 1000);
-  }
-
-  const result = await sendRuleOrStepMessage({
-    instagramUserId: instagramAccount.instagram_user_id,
-    accessToken: instagramAccount.access_token,
-    recipient: { id: senderId },
-    text: outgoingMessage,
-    buttons,
-    cardTitle: matchedRule.dm_button_card_title,
-    cardSubtitle: isPrompt ? null : matchedRule.dm_card_subtitle,
-    defaultActionUrl: isPrompt ? null : matchedRule.dm_default_action_url,
-    attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
-    attachmentType: isPrompt ? null : matchedRule.attachment_type,
+  await runInboundDmRule({
+    instagramAccount,
+    senderId,
+    mid,
+    matchedRule,
+    mediaId: storyId,
+    inboundText: text,
+    label: "story-reply",
   });
-
-  if (result.success) {
-    await supabaseAdmin
-      .from("automation_executions")
-      .update({
-        status: isFollowPrompt
-          ? "follow_prompt_sent"
-          : isEmailPrompt
-            ? "email_prompt_sent"
-            : "sent",
-        instagram_message_id: result.messageId ?? null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("inbound_message_id", mid);
-
-    if (isFollowPrompt) {
-      await supabaseAdmin.from("automation_follow_prompts").insert({
-        automation_rule_id: matchedRule.id,
-        commenter_instagram_id: senderId,
-      });
-    }
-
-    if (isEmailPrompt) {
-      await supabaseAdmin.from("automation_email_prompts").insert({
-        automation_rule_id: matchedRule.id,
-        instagram_account_id: instagramAccount.id,
-        ig_sender_id: senderId,
-      });
-    }
-
-    if (!isPrompt) {
-      await scheduleFollowups({
-        ruleId: matchedRule.id,
-        instagramAccountId: instagramAccount.id,
-        recipientIgId: senderId,
-        baseDelaySeconds: 0,
-      });
-    }
-
-    console.log("Story-reply DM sent:", mid);
-  } else {
-    await supabaseAdmin
-      .from("automation_executions")
-      .update({
-        status: "failed",
-        error_message: result.error,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("inbound_message_id", mid);
-
-    console.error("Story-reply DM failed:", mid, result.error);
-  }
 }
 
 /**
@@ -2109,237 +2235,15 @@ async function handlePostShareEvent({
 
   console.log("Post-share automation matched:", matchedRule.id);
 
-  let outgoingMessage = matchedRule.dm_message;
-  let isFollowPrompt = false;
-
-  if (matchedRule.require_follow) {
-    const isFollowing = await checkUserFollowsBusiness(
-      senderId,
-      instagramAccount.access_token
-    );
-
-    if (!isFollowing) {
-      const { data: existingPrompt } = await supabaseAdmin
-        .from("automation_follow_prompts")
-        .select("id")
-        .eq("automation_rule_id", matchedRule.id)
-        .eq("commenter_instagram_id", senderId)
-        .maybeSingle();
-
-      if (existingPrompt) {
-        await supabaseAdmin.from("automation_executions").insert({
-          automation_rule_id: matchedRule.id,
-          instagram_account_id: instagramAccount.id,
-          inbound_message_id: mid,
-          commenter_instagram_id: senderId,
-          instagram_media_id: null,
-          comment_text: sharedUrl,
-          status: "skipped_already_prompted",
-        });
-        console.log("Already prompted to follow, skipping post share:", mid);
-        return;
-      }
-
-      const profileLink = `${INSTAGRAM_AUTHORIZE_BASE_URL}/_u/${
-        instagramAccount.username ?? instagramAccount.instagram_user_id
-      }/`;
-      outgoingMessage = (matchedRule.follow_prompt_message ?? "").replaceAll(
-        "{profile_link}",
-        profileLink
-      );
-      isFollowPrompt = true;
-    } else {
-      await supabaseAdmin
-        .from("automation_follow_prompts")
-        .update({ followed_at: new Date().toISOString() })
-        .eq("automation_rule_id", matchedRule.id)
-        .eq("commenter_instagram_id", senderId)
-        .is("followed_at", null);
-    }
-  }
-
-  let isEmailPrompt = false;
-
-  if (matchedRule.collect_email && !isFollowPrompt) {
-    const { data: lead } = await supabaseAdmin
-      .from("automation_rule_leads")
-      .select("id")
-      .eq("automation_rule_id", matchedRule.id)
-      .eq("ig_sender_id", senderId)
-      .maybeSingle();
-
-    if (!lead) {
-      const { data: existingPrompt } = await supabaseAdmin
-        .from("automation_email_prompts")
-        .select("id")
-        .eq("automation_rule_id", matchedRule.id)
-        .eq("ig_sender_id", senderId)
-        .maybeSingle();
-
-      if (existingPrompt) {
-        await supabaseAdmin.from("automation_executions").insert({
-          automation_rule_id: matchedRule.id,
-          instagram_account_id: instagramAccount.id,
-          inbound_message_id: mid,
-          commenter_instagram_id: senderId,
-          instagram_media_id: null,
-          comment_text: sharedUrl,
-          status: "skipped_already_prompted",
-        });
-        console.log("Already asked for an email, skipping post share:", mid);
-        return;
-      }
-
-      outgoingMessage = matchedRule.email_prompt_message ?? "";
-      isEmailPrompt = true;
-    }
-  }
-
-  const { error: executionInsertError } = await supabaseAdmin
-    .from("automation_executions")
-    .insert({
-      automation_rule_id: matchedRule.id,
-      instagram_account_id: instagramAccount.id,
-      inbound_message_id: mid,
-      commenter_instagram_id: senderId,
-      instagram_media_id: null,
-      comment_text: sharedUrl,
-      status: "processing",
-      dm_message: outgoingMessage,
-    });
-
-  if (executionInsertError) {
-    if (executionInsertError.code === "23505") {
-      console.log("Duplicate post-share execution detected:", mid);
-      return;
-    }
-
-    console.error("Failed to create post-share execution:", executionInsertError.message);
-    return;
-  }
-
-  const isPrompt = isFollowPrompt || isEmailPrompt;
-  const buttons = isPrompt ? [] : (matchedRule.dm_buttons ?? []);
-  const delaySeconds = isPrompt ? 0 : (matchedRule.send_delay_seconds ?? 0);
-
-  if (delaySeconds > LIVE_SEND_MAX_DELAY_SECONDS) {
-    const sendAt = Date.now() + delaySeconds * 1000;
-
-    const { error: scheduleError } = await supabaseAdmin
-      .from("scheduled_dms")
-      .insert(
-        scheduledMessagePayloads({
-          text: outgoingMessage,
-          buttons,
-          cardTitle: matchedRule.dm_button_card_title,
-          cardSubtitle: isPrompt ? null : matchedRule.dm_card_subtitle,
-          defaultActionUrl: isPrompt ? null : matchedRule.dm_default_action_url,
-          attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
-          attachmentType: isPrompt ? null : matchedRule.attachment_type,
-        }).map((payload, index) => ({
-          instagram_account_id: instagramAccount.id,
-          automation_rule_id: matchedRule.id,
-          recipient_ig_id: senderId,
-          message: typeof payload.text === "string" ? payload.text : "",
-          message_payload: payload,
-          // One second apart so the sweep keeps them in order.
-          send_after: new Date(sendAt + index * 1000).toISOString(),
-        }))
-      );
-
-    await supabaseAdmin
-      .from("automation_executions")
-      .update({
-        status: scheduleError ? "failed" : "scheduled",
-        error_message: scheduleError?.message ?? null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("inbound_message_id", mid);
-
-    if (scheduleError) {
-      console.error("Failed to schedule delayed post-share DM:", mid, scheduleError.message);
-      return;
-    }
-
-    await scheduleFollowups({
-      ruleId: matchedRule.id,
-      instagramAccountId: instagramAccount.id,
-      recipientIgId: senderId,
-      baseDelaySeconds: delaySeconds,
-    });
-
-    console.log("Post-share DM scheduled:", mid);
-    return;
-  }
-
-  if (delaySeconds > 0) {
-    await sleep(delaySeconds * 1000);
-  }
-
-  const result = await sendRuleOrStepMessage({
-    instagramUserId: instagramAccount.instagram_user_id,
-    accessToken: instagramAccount.access_token,
-    recipient: { id: senderId },
-    text: outgoingMessage,
-    buttons,
-    cardTitle: matchedRule.dm_button_card_title,
-    cardSubtitle: isPrompt ? null : matchedRule.dm_card_subtitle,
-    defaultActionUrl: isPrompt ? null : matchedRule.dm_default_action_url,
-    attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
-    attachmentType: isPrompt ? null : matchedRule.attachment_type,
+  await runInboundDmRule({
+    instagramAccount,
+    senderId,
+    mid,
+    matchedRule,
+    mediaId: null,
+    inboundText: sharedUrl,
+    label: "post-share",
   });
-
-  if (result.success) {
-    await supabaseAdmin
-      .from("automation_executions")
-      .update({
-        status: isFollowPrompt
-          ? "follow_prompt_sent"
-          : isEmailPrompt
-            ? "email_prompt_sent"
-            : "sent",
-        instagram_message_id: result.messageId ?? null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("inbound_message_id", mid);
-
-    if (isFollowPrompt) {
-      await supabaseAdmin.from("automation_follow_prompts").insert({
-        automation_rule_id: matchedRule.id,
-        commenter_instagram_id: senderId,
-      });
-    }
-
-    if (isEmailPrompt) {
-      await supabaseAdmin.from("automation_email_prompts").insert({
-        automation_rule_id: matchedRule.id,
-        instagram_account_id: instagramAccount.id,
-        ig_sender_id: senderId,
-      });
-    }
-
-    if (!isPrompt) {
-      await scheduleFollowups({
-        ruleId: matchedRule.id,
-        instagramAccountId: instagramAccount.id,
-        recipientIgId: senderId,
-        baseDelaySeconds: 0,
-      });
-    }
-
-    console.log("Post-share DM sent:", mid);
-  } else {
-    await supabaseAdmin
-      .from("automation_executions")
-      .update({
-        status: "failed",
-        error_message: result.error,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("inbound_message_id", mid);
-
-    console.error("Post-share DM failed:", mid, result.error);
-  }
 }
 
 /**

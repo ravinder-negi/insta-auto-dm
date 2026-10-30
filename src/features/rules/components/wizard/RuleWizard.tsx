@@ -35,6 +35,8 @@ type StepKind = "trigger" | "account" | "post" | "keyword" | "message";
 
 function stepKindsFor(triggerType: TriggerType): StepKind[] {
   if (triggerType === "post_share") return ["trigger", "account", "post", "message"];
+  // A DM isn't tied to a post, story or Live.
+  if (triggerType === "dm_keyword") return ["trigger", "account", "keyword", "message"];
   return ["trigger", "account", "post", "keyword", "message"];
 }
 
@@ -42,6 +44,7 @@ function getSteps(triggerType: TriggerType): (WizardStepMeta & { kind: StepKind 
   const isStory = triggerType === "story_reply";
   const isLive = triggerType === "live_comment";
   const isShare = triggerType === "post_share";
+  const isDm = triggerType === "dm_keyword";
 
   const metaByKind: Record<StepKind, WizardStepMeta> = {
     trigger: {
@@ -64,9 +67,11 @@ function getSteps(triggerType: TriggerType): (WizardStepMeta & { kind: StepKind 
             : "Choose which post or reel the comment has to be on.",
     },
     keyword: {
-      title: isStory ? "Reply trigger" : "Comment trigger",
+      title: isStory ? "Reply trigger" : isDm ? "Message trigger" : "Comment trigger",
       description: isStory
         ? "Decide which story replies start this automation."
+        : isDm
+          ? "Decide which DMs start this automation, and how often."
         : isLive
           ? "Decide which Live comments start this automation, and whether to reply publicly."
           : "Decide which comments start this automation, and whether to reply publicly.",
@@ -87,6 +92,8 @@ export interface RuleWizardInitialValues {
   keyword_match: string | null;
   keywords: string[] | null;
   excluded_keywords: string[] | null;
+  keyword_exact?: boolean | null;
+  dm_repeat_after_days?: number | null;
   instagram_media_id: string | null;
   instagram_media_shortcode: string | null;
   dm_message: string;
@@ -161,6 +168,12 @@ export function RuleWizard({
     keyword_match: (initialValues?.keyword_match as KeywordMatch) ?? "specific",
     keywords: initialValues?.keywords ?? [],
     excluded_keywords: initialValues?.excluded_keywords ?? [],
+    // New DM rules default to whole-message matching; a saved rule keeps
+    // whatever it was saved with.
+    keyword_exact: initialValues ? (initialValues.keyword_exact ?? false) : true,
+    dm_repeat_after_days: initialValues?.dm_repeat_after_days
+      ? String(initialValues.dm_repeat_after_days)
+      : "",
     // New AutoDMs start from a usable message; an existing one keeps its own,
     // including a blank it was saved with.
     dm_message: initialValues ? initialValues.dm_message : DEFAULT_DM_MESSAGE,
@@ -199,7 +212,8 @@ export function RuleWizard({
     values.instagram_account_id,
     values.trigger_type === "story_reply"
       ? "story"
-      : values.trigger_type === "live_comment"
+      : values.trigger_type === "live_comment" ||
+          values.trigger_type === "dm_keyword"
         ? "none"
         : "post"
   );
@@ -229,10 +243,21 @@ export function RuleWizard({
       trigger_type: triggerType,
       instagram_media_id: "",
       instagram_media_shortcode: "",
-      media_scope: triggerType === "live_comment" ? "any" : current.media_scope,
-      keyword_match: triggerType === "post_share" ? "any" : current.keyword_match,
+      media_scope:
+        triggerType === "live_comment" || triggerType === "dm_keyword"
+          ? "any"
+          : current.media_scope,
+      // A DM rule never fires on "any message" — see KeywordStep.
+      keyword_match:
+        triggerType === "post_share"
+          ? "any"
+          : triggerType === "dm_keyword"
+            ? "specific"
+            : current.keyword_match,
       send_public_reply:
-        triggerType === "story_reply" || triggerType === "post_share"
+        triggerType === "story_reply" ||
+        triggerType === "post_share" ||
+        triggerType === "dm_keyword"
           ? false
           : current.send_public_reply,
     }));
@@ -336,6 +361,16 @@ export function RuleWizard({
         }
       />
       <input type="hidden" name="keyword_match" value={values.keyword_match} />
+      {values.trigger_type === "dm_keyword" && (
+        <>
+          {values.keyword_exact && <input type="hidden" name="keyword_exact" value="on" />}
+          <input
+            type="hidden"
+            name="dm_repeat_after_days"
+            value={values.dm_repeat_after_days}
+          />
+        </>
+      )}
       {values.keyword_match === "specific" &&
         values.keywords.map((keyword) => (
           <input key={keyword} type="hidden" name="keywords" value={keyword} />

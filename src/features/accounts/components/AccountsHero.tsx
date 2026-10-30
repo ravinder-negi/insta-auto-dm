@@ -87,29 +87,34 @@ export function AccountsHero({
           <div className="relative h-[180px] w-[180px]">
             <svg width="180" height="180" viewBox="0 0 140 140" aria-hidden="true" className="-rotate-90">
               <circle cx="70" cy="70" r="54" fill="none" strokeWidth="13" stroke="rgba(255,255,255,0.1)" />
-              <circle
-                cx="70"
-                cy="70"
-                r="54"
-                fill="none"
-                strokeWidth="13"
-                strokeLinecap="round"
-                stroke="#3DD9A0"
-                strokeDasharray={`${activeLen} ${RING_CIRCUMFERENCE}`}
-                className="transition-[stroke-dasharray] duration-700 ease-out"
-              />
-              <circle
-                cx="70"
-                cy="70"
-                r="54"
-                fill="none"
-                strokeWidth="13"
-                strokeLinecap="round"
-                stroke="#F5B84B"
-                strokeDasharray={`${pausedLen} ${RING_CIRCUMFERENCE}`}
-                strokeDashoffset={-activeLen}
-                className="transition-[stroke-dasharray] duration-700 ease-out"
-              />
+              {/* A zero-length arc with round caps still draws a dot. */}
+              {activeLen > 0 && (
+                <circle
+                  cx="70"
+                  cy="70"
+                  r="54"
+                  fill="none"
+                  strokeWidth="13"
+                  strokeLinecap="round"
+                  stroke="#3DD9A0"
+                  strokeDasharray={`${activeLen} ${RING_CIRCUMFERENCE}`}
+                  className="transition-[stroke-dasharray] duration-700 ease-out"
+                />
+              )}
+              {pausedLen > 0 && (
+                <circle
+                  cx="70"
+                  cy="70"
+                  r="54"
+                  fill="none"
+                  strokeWidth="13"
+                  strokeLinecap="round"
+                  stroke="#F5B84B"
+                  strokeDasharray={`${pausedLen} ${RING_CIRCUMFERENCE}`}
+                  strokeDashoffset={-activeLen}
+                  className="transition-[stroke-dasharray] duration-700 ease-out"
+                />
+              )}
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
               <span className="text-[2.6rem] font-extrabold tracking-tight">

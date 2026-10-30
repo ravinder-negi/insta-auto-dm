@@ -9,10 +9,12 @@ import {
   SearchIcon,
 } from "@/components/icons";
 import { formatDate, formatTime } from "@/lib/utils/format";
+import { toCsv } from "./leadsCsv";
 
 export interface LeadRow {
   id: string;
-  ig_sender_id: string;
+  /** Absent for leads captured outside Instagram, e.g. lead-magnet web forms. */
+  ig_sender_id?: string | null;
   email: string;
   collected_at: string;
 }
@@ -22,21 +24,19 @@ const HEAD_CLASS =
 
 const PAGE_SIZE = 20;
 
-function toCsv(leads: LeadRow[]) {
-  const escape = (value: string) => `"${value.replaceAll('"', '""')}"`;
-  const header = "email,ig_sender_id,collected_at";
-  const rows = leads.map((lead) =>
-    [lead.email, lead.ig_sender_id, lead.collected_at].map(escape).join(",")
-  );
-  return [header, ...rows].join("\n");
-}
-
 function downloadCsv(leads: LeadRow[], flowName: string) {
-  const blob = new Blob([toCsv(leads)], { type: "text/csv;charset=utf-8" });
+  // The BOM makes Excel read the file as UTF-8 instead of garbling
+  // non-ASCII characters.
+  const blob = new Blob(["\uFEFF", toCsv(leads)], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
+  const slug = flowName
+    .trim()
+    .toLowerCase()
+    .replaceAll(/[^\p{L}\p{M}\p{N}]+/gu, "-")
+    .replaceAll(/^-+|-+$/g, "");
   link.href = url;
-  link.download = `${flowName.trim().toLowerCase().replaceAll(/\s+/g, "-")}-leads.csv`;
+  link.download = `${slug || "export"}-leads.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }

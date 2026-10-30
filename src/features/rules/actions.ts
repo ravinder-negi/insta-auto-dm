@@ -17,7 +17,11 @@ const TRIGGER_TYPES = [
   "story_reply",
   "live_comment",
   "post_share",
+  "dm_keyword",
 ] as const;
+
+/** dm_keyword: allowed values of dm_repeat_after_days (null = once). */
+const DM_REPEAT_DAYS = [1, 7, 30] as const;
 
 type TriggerType = (typeof TRIGGER_TYPES)[number];
 
@@ -55,6 +59,10 @@ interface RuleFields {
   keyword_match: KeywordMatch;
   keywords: string[];
   excluded_keywords: string[];
+  /** dm_keyword only; false for every other trigger. */
+  keyword_exact: boolean;
+  /** dm_keyword only; null = once per person, and for other triggers. */
+  dm_repeat_after_days: number | null;
   /** Kept in sync with keywords[0] for readers still on the single column. */
   keyword: string | null;
   instagram_media_id: string | null;
@@ -227,6 +235,14 @@ function readRuleFields(
   const followups = readFollowups(formData);
   if ("error" in followups) return { ok: false, error: followups.error };
 
+  const keywordExact = formData.get("keyword_exact") === "on";
+  const dmRepeatRaw = Number(String(formData.get("dm_repeat_after_days") ?? ""));
+  const dmRepeatAfterDays = DM_REPEAT_DAYS.includes(
+    dmRepeatRaw as (typeof DM_REPEAT_DAYS)[number]
+  )
+    ? dmRepeatRaw
+    : null;
+
   const keywordMatch = KEYWORD_MATCHES.includes(keywordMatchRaw as KeywordMatch)
     ? (keywordMatchRaw as KeywordMatch)
     : "specific";
@@ -235,22 +251,27 @@ function readRuleFields(
     ? (triggerTypeRaw as TriggerType)
     : "comment_keyword";
 
+  const isDm = triggerType === "dm_keyword";
+
   // A shared post/reel carries no text to match a keyword against —
   // enforce "any" server-side too, not just via the wizard's forced choice.
+  // A DM rule is the opposite: replying to every DM would hijack real
+  // conversations, so it always needs keywords.
   const effectiveKeywordMatch =
-    triggerType === "post_share" ? "any" : keywordMatch;
+    triggerType === "post_share" ? "any" : isDm ? "specific" : keywordMatch;
 
-  // A story reply or a post/reel share has no comment to publicly reply to.
+  // A story reply, a post/reel share or a DM has no comment to publicly
+  // reply to.
   const effectiveSendPublicReply =
-    triggerType === "story_reply" || triggerType === "post_share"
+    triggerType === "story_reply" || triggerType === "post_share" || isDm
       ? false
       : sendPublicReply;
 
   // A Live's media id doesn't exist until the broadcast starts — enforce
   // account-wide server-side too, not just via the wizard's forced "any"
-  // scope.
+  // scope. A DM isn't tied to any media.
   const effectiveInstagramMediaId =
-    triggerType === "live_comment" ? null : instagramMediaIdRaw || null;
+    triggerType === "live_comment" || isDm ? null : instagramMediaIdRaw || null;
 
   // A shared DM's attachment doesn't always carry a parseable permalink (an
   // image-post share is often a CDN redirect url with no shortcode in it),
@@ -277,7 +298,9 @@ function readRuleFields(
   if (effectiveKeywordMatch === "specific" && keywords.length === 0) {
     return {
       ok: false,
-      error: "Add at least one keyword, or switch the trigger to match everything.",
+      error: isDm
+        ? "Add at least one keyword."
+        : "Add at least one keyword, or switch the trigger to match everything.",
     };
   }
 
@@ -356,6 +379,8 @@ function readRuleFields(
       keyword_match: effectiveKeywordMatch,
       keywords: effectiveKeywords,
       excluded_keywords: excludedKeywords,
+      keyword_exact: isDm ? keywordExact : false,
+      dm_repeat_after_days: isDm ? dmRepeatAfterDays : null,
       keyword: effectiveKeywords[0] ?? null,
       instagram_media_id: effectiveInstagramMediaId,
       instagram_media_shortcode: effectiveInstagramMediaShortcode,
@@ -541,7 +566,7 @@ export async function getRuleFormData(
     supabase
       .from("automation_rules")
       .select(
-        "id, instagram_account_id, name, trigger_type, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, instagram_media_shortcode, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, dm_card_subtitle, dm_default_action_url, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type, automation_rule_followups(step_order, delay_minutes, message)"
+        "id, instagram_account_id, name, trigger_type, keyword_match, keywords, excluded_keywords, keyword, keyword_exact, dm_repeat_after_days, instagram_media_id, instagram_media_shortcode, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, dm_card_subtitle, dm_default_action_url, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type, automation_rule_followups(step_order, delay_minutes, message)"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -581,6 +606,8 @@ export async function getRuleFormData(
       keyword_match: rule.keyword_match,
       keywords,
       excluded_keywords: rule.excluded_keywords ?? [],
+      keyword_exact: rule.keyword_exact,
+      dm_repeat_after_days: rule.dm_repeat_after_days,
       instagram_media_id: rule.instagram_media_id,
       instagram_media_shortcode: rule.instagram_media_shortcode,
       dm_message: rule.dm_message,
@@ -654,7 +681,7 @@ export async function duplicateRule(id: string) {
   const { data: rule, error: readError } = await supabase
     .from("automation_rules")
     .select(
-      "instagram_account_id, name, trigger_type, keyword_match, keywords, excluded_keywords, keyword, instagram_media_id, instagram_media_shortcode, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, dm_card_subtitle, dm_default_action_url, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type"
+      "instagram_account_id, name, trigger_type, keyword_match, keywords, excluded_keywords, keyword, keyword_exact, dm_repeat_after_days, instagram_media_id, instagram_media_shortcode, send_delay_seconds, dm_message, dm_buttons, dm_button_card_title, dm_card_subtitle, dm_default_action_url, require_follow, follow_prompt_message, collect_email, email_prompt_message, send_public_reply, public_reply_messages, public_reply_message, attachment_url, attachment_type"
     )
     .eq("id", id)
     .maybeSingle();

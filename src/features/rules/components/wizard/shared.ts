@@ -155,12 +155,22 @@ export type KeywordMatch = "specific" | "any";
 
 /** "comment_keyword" matches comments on a post/reel; "story_reply" matches
  *  a DM reply to a story; "live_comment" matches a comment on a Live;
- *  "post_share" matches someone sharing a post/reel into the DM. */
+ *  "post_share" matches someone sharing a post/reel into the DM;
+ *  "dm_keyword" matches a plain DM containing a keyword. */
 export type TriggerType =
   | "comment_keyword"
   | "story_reply"
   | "live_comment"
-  | "post_share";
+  | "post_share"
+  | "dm_keyword";
+
+/** How soon one person can trigger a dm_keyword AutoDM again. "" = once. */
+export const DM_REPEAT_OPTIONS = [
+  { value: "", label: "Only once per person" },
+  { value: "1", label: "Again after 1 day" },
+  { value: "7", label: "Again after 7 days" },
+  { value: "30", label: "Again after 30 days" },
+] as const;
 
 export interface RuleWizardValues {
   instagram_account_id: string;
@@ -174,6 +184,10 @@ export interface RuleWizardValues {
   keyword_match: KeywordMatch;
   keywords: string[];
   excluded_keywords: string[];
+  /** dm_keyword only: the whole message must be the keyword. */
+  keyword_exact: boolean;
+  /** dm_keyword only: one of DM_REPEAT_OPTIONS' values. */
+  dm_repeat_after_days: string;
   dm_message: string;
   require_follow: boolean;
   follow_prompt_message: string;

@@ -132,6 +132,7 @@ function targetLabel(rule: RuleTableRow) {
   if (rule.instagram_media_shortcode) return rule.instagram_media_shortcode;
   if (rule.triggerType === "story_reply") return "Any story";
   if (rule.triggerType === "post_share") return "Any post/reel";
+  if (rule.triggerType === "dm_keyword") return "Direct messages";
   return "All posts";
 }
 

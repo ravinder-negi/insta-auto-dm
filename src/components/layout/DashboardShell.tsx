@@ -17,6 +17,7 @@ import {
   ShoppingBagIcon,
   SignOutIcon,
   UserIcon,
+  UsersIcon,
 } from "@/components/icons";
 import { SignOutDialog } from "./SignOutDialog";
 // import { ThemeToggle } from "./ThemeToggle";
@@ -57,9 +58,13 @@ type NavGroup = { label: string | null; links: { href: string; label: string; ic
 
 const NAV_GROUPS: NavGroup[] = [
   {
+    label: null,
+    links: [{ href: "/dashboard", label: "Home", icon: HomeIcon }],
+  },
+  {
     label: "Automation",
     links: [
-      { href: "/dashboard/accounts", label: "Accounts", icon: HomeIcon },
+      { href: "/dashboard/accounts", label: "Accounts", icon: UsersIcon },
       { href: "/dashboard/rules", label: "AutoDMs", icon: BoltIcon },
       { href: "/dashboard/flows", label: "DM Flows", icon: LayersIcon },
     ],
@@ -75,12 +80,12 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/theme", label: "Design", icon: PaletteIcon },
     ],
   },
+  {
+    label: null,
+    links: [{ href: "/dashboard/settings", label: "Settings", icon: SettingsIcon }],
+  },
 ];
 
-const SETTINGS_NAV_GROUP: NavGroup = {
-  label: null,
-  links: [{ href: "/dashboard/settings", label: "Settings", icon: SettingsIcon }],
-};
 
 // Pages reached from a nav link but living outside its href prefix (e.g.
 // "View analytics" on Creator profile goes to /dashboard/analytics, not a
@@ -90,6 +95,8 @@ const EXTRA_ACTIVE_PATHS: Record<string, string[]> = {
 };
 
 function isNavLinkActive(href: string, activePath: string) {
+  // Every dashboard path starts with "/dashboard", so Home only matches itself.
+  if (href === "/dashboard") return activePath === "/dashboard";
   if (activePath.startsWith(href)) return true;
   return (EXTRA_ACTIVE_PATHS[href] ?? []).some((path) => activePath.startsWith(path));
 }
@@ -118,7 +125,6 @@ export function DashboardShell({
   displayName: string | null;
   signOutAction: () => Promise<void>;
 }) {
-  const settingsLink = SETTINGS_NAV_GROUP.links[0];
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
@@ -207,9 +213,9 @@ export function DashboardShell({
         </button>
 
         <div
-          className={`flex min-h-0 flex-1 flex-col ${collapsed ? "" : "thin-scrollbar overflow-y-auto"}`}
+          className={`flex min-h-0 flex-1 flex-col ${collapsed ? "" : "sidebar-scrollbar overflow-y-auto"}`}
         >
-          <nav className="flex flex-1 flex-col gap-1 px-3">
+          <nav className="flex flex-1 flex-col gap-1 px-3 pt-2 pb-4">
             {NAV_GROUPS.map((group, groupIndex) => {
               const label = group.label;
               const isCollapsed = !collapsed && label ? Boolean(collapsedGroups[label]) : false;
@@ -269,26 +275,6 @@ export function DashboardShell({
           </nav>
         </div>
 
-        <div className={`shrink-0 border-t border-white/10 px-3 py-3 ${collapsed ? "flex justify-center" : ""}`}>
-          {(() => {
-            const active = activePath.startsWith(settingsLink.href);
-            return (
-              <Link
-                href={settingsLink.href}
-                onClick={() => navigate(settingsLink.href)}
-                aria-current={active ? "page" : undefined}
-                title={collapsed ? settingsLink.label : undefined}
-                className={`group ${dockItemBase} ${active ? dockItemActive : dockItemInactive} ${
-                  collapsed ? "h-11 w-11 justify-center" : "px-4 py-3"
-                }`}
-              >
-                <settingsLink.icon className="h-5 w-5 shrink-0" />
-                {!collapsed && settingsLink.label}
-                {collapsed && <DockTooltip label={settingsLink.label} />}
-              </Link>
-            );
-          })()}
-        </div>
       </>
     );
   }
@@ -296,7 +282,7 @@ export function DashboardShell({
   return (
     <ToastProvider>
       <div
-        className="dashboard-theme relative flex h-dvh flex-1 overflow-hidden"
+        className="dashboard-theme relative flex h-dvh min-h-0 overflow-hidden"
         style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}
       >
         <aside

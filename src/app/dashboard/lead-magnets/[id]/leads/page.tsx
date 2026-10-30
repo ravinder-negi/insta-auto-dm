@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ArrowLeftIcon } from "@/components/icons";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { MailIcon } from "@/components/icons";
-import { formatDate } from "@/lib/utils/format";
+import { ArrowLeftIcon, MailIcon } from "@/components/icons";
+import { LeadsTable } from "@/features/flows/components/LeadsTable";
+import { displayFont, linkInBioCssVars, linkInBioWrapperClass } from "@/lib/linkInBioTheme";
 import type { LeadMagnetLead } from "@/types";
 
 export default async function LeadMagnetLeadsPage({
@@ -37,63 +35,90 @@ export default async function LeadMagnetLeadsPage({
     notFound();
   }
 
+  const rows = (leads ?? []).map((lead) => ({
+    id: lead.id,
+    email: lead.email,
+    collected_at: lead.created_at,
+  }));
+
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-5">
+    <div className={linkInBioWrapperClass} style={linkInBioCssVars}>
+      <div className="flex flex-col gap-7">
         <Link
           href="/dashboard/lead-magnets"
-          className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-200"
+          className="inline-flex w-fit items-center gap-2 rounded-full border-[1.5px] border-[var(--line)] bg-white px-4 py-2 text-sm font-semibold transition-colors hover:bg-[var(--secondary-soft-bg)]"
         >
           <ArrowLeftIcon className="h-4 w-4" />
           Back to lead magnets
         </Link>
-        <PageHeader
-          eyebrow="Leads"
-          title={magnet.title}
-          description={`${leads?.length ?? 0} email${leads?.length === 1 ? "" : "s"} captured for this lead magnet.`}
-        />
+
+        {/* hero */}
+        <div className="relative overflow-hidden rounded-[40px] border border-[var(--line)] bg-white bg-[radial-gradient(#DDD6EC_1.2px,transparent_1.2px)] bg-[length:30px_30px]">
+          <div
+            className="animate-float pointer-events-none absolute -top-32 -left-24 h-96 w-96 rounded-full opacity-70 blur-[90px]"
+            style={{ background: "var(--secondary-pale-border)" }}
+          />
+          <div
+            className="animate-float-delayed pointer-events-none absolute -top-20 -right-24 h-[420px] w-[420px] rounded-full opacity-80 blur-[100px]"
+            style={{ background: "var(--tint)" }}
+          />
+          <div className="relative flex flex-col gap-3.5 p-9 sm:p-11">
+            <span className="animate-fade-in-up inline-flex w-fit items-center gap-2.5 rounded-full border border-[var(--line)] bg-white py-[7px] pr-4 pl-3 text-xs font-bold tracking-[0.1em] text-[var(--muted)] uppercase">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--success)] opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--success)]" />
+              </span>
+              Lead magnet
+            </span>
+            <h1
+              className={`animate-fade-in-up m-0 ${displayFont} text-[clamp(32px,4.2vw,48px)] leading-[1.03] font-extrabold tracking-[-0.035em]`}
+              style={{ animationDelay: "0.1s" }}
+            >
+              Captured{" "}
+              <span className="relative inline-block text-[var(--accent)]">
+                leads
+                <svg
+                  className="absolute bottom-[-6px] left-0 h-3.5 w-full"
+                  viewBox="0 0 200 14"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M2 9 C 40 2, 90 14, 198 5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+            </h1>
+            <p
+              className="animate-fade-in-up m-0 max-w-[540px] text-lg text-[var(--muted)]"
+              style={{ animationDelay: "0.2s" }}
+            >
+              Emails submitted for <strong className="font-bold text-[var(--ink)]">{magnet.title}</strong>,
+              newest first.
+            </p>
+          </div>
+        </div>
+
+        {rows.length > 0 ? (
+          <LeadsTable leads={rows} flowName={magnet.title} />
+        ) : (
+          <div className="flex flex-col items-center gap-4 rounded-[36px] border-[1.5px] border-dashed border-[var(--secondary-border)] bg-[var(--secondary-faint-bg)] px-7 py-14 text-center">
+            <span className="animate-float flex h-[72px] w-[72px] items-center justify-center rounded-[22px] bg-[var(--violet)] text-white">
+              <MailIcon className="h-[34px] w-[34px]" />
+            </span>
+            <h3 className={`m-0 ${displayFont} text-[28px] font-extrabold tracking-[-0.03em]`}>
+              No leads yet
+            </h3>
+            <p className="m-0 max-w-[380px] text-[var(--muted)]">
+              Once a visitor submits their email for this lead magnet on your profile, it&apos;ll show up here.
+            </p>
+          </div>
+        )}
       </div>
-
-      {!leads || leads.length === 0 ? (
-        <EmptyState
-          icon={<MailIcon className="h-6 w-6" />}
-          title="No leads yet"
-          description="Emails visitors submit for this lead magnet will show up here."
-        />
-      ) : (
-        <>
-          <div className="flex flex-col gap-3 sm:hidden">
-            {leads.map((lead) => (
-              <div
-                key={lead.id}
-                className="rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4"
-              >
-                <p className="truncate font-medium">{lead.email}</p>
-                <p className="mt-1 text-xs text-zinc-500">{formatDate(lead.created_at)}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="hidden overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] sm:block dark:border-white/8 dark:bg-white/4">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-black/6 text-left text-xs font-semibold tracking-[0.08em] text-zinc-400 uppercase dark:border-white/8">
-                  <th className="px-5 py-3">Email</th>
-                  <th className="px-5 py-3">Captured</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leads.map((lead) => (
-                  <tr key={lead.id} className="border-b border-black/6 last:border-0 dark:border-white/8">
-                    <td className="px-5 py-3.5 font-medium">{lead.email}</td>
-                    <td className="px-5 py-3.5 text-zinc-500">{formatDate(lead.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
     </div>
   );
 }

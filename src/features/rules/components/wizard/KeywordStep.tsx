@@ -4,6 +4,7 @@ import { useState } from "react";
 import { fieldClass } from "@/components/ui/controls";
 import { CloseIcon, InfoIcon, PlusIcon } from "@/components/icons";
 import {
+  DM_REPEAT_OPTIONS,
   MAX_KEYWORDS,
   PUBLIC_REPLY_MAX_LENGTH,
   PUBLIC_REPLY_SLOTS,
@@ -66,6 +67,21 @@ const COPY = {
     excludeHint:
       "An excluded keyword anywhere in the comment stops this AutoDM, even when a trigger keyword also matches.",
   },
+  dm_keyword: {
+    legend: "What kind of DM should trigger this automation?",
+    anyOption: "",
+    anyNotice: "",
+    includeLabel: "Trigger keywords:",
+    includePlaceholder: "Type a keyword, e.g. GUIDE",
+    includeHint: (
+      <>
+        Keywords are not case-sensitive. Pick a word people wouldn&apos;t use
+        in normal conversation, like &quot;GUIDE&quot; or &quot;PRICE&quot;.
+      </>
+    ),
+    excludeHint:
+      "An excluded keyword anywhere in the message stops this AutoDM, even when a trigger keyword also matches.",
+  },
   post_share: {
     legend: "What triggers this automation?",
     anyOption: "Any share",
@@ -93,6 +109,7 @@ export function KeywordStep({
   const isStory = values.trigger_type === "story_reply";
   const isLive = values.trigger_type === "live_comment";
   const isShare = values.trigger_type === "post_share";
+  const isDm = values.trigger_type === "dm_keyword";
 
   const matches: { value: KeywordMatch; label: string }[] = [
     { value: "specific", label: "Specific keyword" },
@@ -110,7 +127,55 @@ export function KeywordStep({
 
   return (
     <div className="flex flex-col gap-6">
-      {!isShare && (
+      {isDm && (
+        <fieldset>
+          <legend className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
+            {copy.legend}
+          </legend>
+          <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {[
+              {
+                exact: true,
+                label: "Message is the keyword",
+                hint: "“Guide” or “GUIDE!” triggers. “Can you guide me?” doesn’t.",
+              },
+              {
+                exact: false,
+                label: "Message contains the keyword",
+                hint: "Any message with the keyword as a whole word triggers, even mid-conversation.",
+              },
+            ].map((option) => {
+              const active = option.exact === values.keyword_exact;
+              return (
+                <button
+                  key={option.label}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => update("keyword_exact", option.exact)}
+                  className="flex flex-col gap-1 rounded-xl border px-3 py-2.5 text-left transition-all duration-200 hover:border-[var(--secondary-border)] hover:bg-[var(--secondary-faint-bg)]"
+                  style={
+                    active
+                      ? { borderColor: "var(--primary)", backgroundColor: "var(--tint-faint)", boxShadow: "0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent)" }
+                      : { borderColor: "var(--line)", backgroundColor: "#fff" }
+                  }
+                >
+                  <span
+                    className="text-sm font-semibold"
+                    style={{ color: active ? "var(--primary-strong)" : "var(--ink)" }}
+                  >
+                    {option.label}
+                  </span>
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>
+                    {option.hint}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
+
+      {!isShare && !isDm && (
         <fieldset>
           <legend className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
             {copy.legend}
@@ -161,7 +226,7 @@ export function KeywordStep({
 
           {showExcluded ? (
             <ChipInput
-              label={`Never trigger when the ${isStory ? "reply" : "comment"} includes:`}
+              label={`Never trigger when the ${isStory ? "reply" : isDm ? "message" : "comment"} includes:`}
               placeholder="Type a keyword to exclude"
               values={values.excluded_keywords}
               onChange={(next) => update("excluded_keywords", next)}
@@ -189,7 +254,34 @@ export function KeywordStep({
         </p>
       )}
 
-      {!isStory && !isShare && (
+      {isDm && (
+        <div className="flex flex-col">
+          <label
+            htmlFor="dm_repeat_after_days"
+            className="mb-1.5 text-sm font-semibold"
+            style={{ color: "var(--ink)" }}
+          >
+            How often can one person trigger it?
+          </label>
+          <select
+            id="dm_repeat_after_days"
+            value={values.dm_repeat_after_days}
+            onChange={(event) => update("dm_repeat_after_days", event.target.value)}
+            className={fieldClass}
+          >
+            {DM_REPEAT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-xs" style={{ color: "var(--muted)" }}>
+            DMs from someone already in one of your DM Flows go to that flow instead.
+          </p>
+        </div>
+      )}
+
+      {!isStory && !isShare && !isDm && (
         <div className="rounded-2xl border p-4" style={{ borderColor: "var(--line)", backgroundColor: "var(--bg)" }}>
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>

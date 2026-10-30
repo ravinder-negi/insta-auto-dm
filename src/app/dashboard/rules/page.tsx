@@ -86,7 +86,7 @@ export default async function RulesPage() {
       <AutomationHero
         titlePlain="Auto"
         titleAccent="DMs"
-        description="Each AutoDM watches for a keyword in your comments and sends the DM you wrote."
+        description="Each AutoDM watches for a keyword in comments, story replies, shares or DMs and sends the DM you wrote."
         actions={
           <>
             <Link

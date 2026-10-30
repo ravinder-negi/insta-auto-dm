@@ -45,6 +45,11 @@ export interface AutomationRule {
   excluded_keywords: string[];
   /** Legacy single-keyword column, kept in sync with keywords[0]. */
   keyword: string | null;
+  /** dm_keyword only: the whole message must be the keyword. */
+  keyword_exact: boolean;
+  /** dm_keyword only: days before the same person can trigger it again;
+   *  null = only once. */
+  dm_repeat_after_days: number | null;
   instagram_media_id: string | null;
   /** Only set for a post_share rule scoped to one post — see
    *  components/wizard/shared.ts for why a share is matched by shortcode

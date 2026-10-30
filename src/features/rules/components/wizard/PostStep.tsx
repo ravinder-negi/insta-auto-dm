@@ -70,6 +70,8 @@ const SCOPES: Record<
       hint: "Sharing any post or reel of this account into your DMs triggers this AutoDM.",
     },
   ],
+  // A DM rule has no post step — see stepKindsFor() in RuleWizard.
+  dm_keyword: [],
 };
 
 function mediaTypeIcon(mediaType: string) {

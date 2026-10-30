@@ -3,6 +3,7 @@
 import {
   BoltIcon,
   CameraIcon,
+  ChatIcon,
   CheckIcon,
   ShareIcon,
   VideoCameraIcon,
@@ -40,6 +41,14 @@ const TRIGGERS: {
     fg: "var(--success-text)",
     title: "Shares your Post or Reel",
     description: "Reply with a DM whenever someone shares your post or reel to you.",
+  },
+  {
+    value: "dm_keyword",
+    icon: ChatIcon,
+    bg: "var(--neutral-tint)",
+    fg: "var(--ink)",
+    title: "Sends you a DM",
+    description: "Reply with a DM whenever someone messages you your keyword.",
   },
   {
     value: "live_comment",
