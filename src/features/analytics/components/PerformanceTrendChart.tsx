@@ -102,17 +102,17 @@ export function PerformanceTrendChart({ data }: { data: DayPoint[] }) {
         </ResponsiveContainer>
       </div>
 
-      <ul className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-black/6 pt-4 dark:border-white/8">
+      <ul className="m-0 mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t-[1.5px] border-[var(--line)] p-0 pt-4">
         {SERIES.map((series) => (
           <li key={series.key} className="flex items-center gap-2 text-sm">
             <span
               className="h-0.5 w-4 shrink-0 rounded-full"
               style={{ backgroundColor: series.color }}
             />
-            <span className="font-semibold tabular-nums">
+            <span className="font-bold tabular-nums">
               {totals[series.key].toLocaleString("en-US")}
             </span>
-            <span className="text-zinc-500">{series.name}</span>
+            <span className="text-[var(--muted)]">{series.name}</span>
           </li>
         ))}
       </ul>

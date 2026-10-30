@@ -34,7 +34,7 @@ export default function DataDeletionPage() {
           us a message from our{" "}
           <Link
             href="/contact"
-            className="font-medium text-zinc-900 underline hover:no-underline dark:text-zinc-50"
+            className="font-medium text-[var(--accent)] underline hover:no-underline"
           >
             contact page
           </Link>{" "}
@@ -59,7 +59,7 @@ export default function DataDeletionPage() {
           enforce our agreements, as described in our{" "}
           <Link
             href="/privacy"
-            className="font-medium text-zinc-900 underline hover:no-underline dark:text-zinc-50"
+            className="font-medium text-[var(--accent)] underline hover:no-underline"
           >
             Privacy Policy
           </Link>

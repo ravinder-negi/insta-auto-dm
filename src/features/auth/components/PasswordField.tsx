@@ -25,15 +25,15 @@ export function PasswordField({
   const [visible, setVisible] = useState(false);
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <label htmlFor={id} className="text-sm font-medium">
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <label htmlFor={id} className="text-[15px] font-semibold text-[var(--ink)]">
           {label}
         </label>
         {labelAction}
       </div>
-      <div className="relative">
-        <LockIcon className="pointer-events-none absolute inset-y-0 left-3.5 my-auto h-4.5 w-4.5 text-zinc-400" />
+      <div className="flex items-center gap-2.5 rounded-[14px] border-[1.5px] border-[var(--line)] bg-[var(--bg)] pr-1.5 pl-3.5 transition-colors duration-200 focus-within:border-[var(--accent)] focus-within:bg-white focus-within:shadow-[0_0_0_4px_color-mix(in srgb, var(--primary) 14%, transparent)]">
+        <LockIcon className="h-5 w-5 flex-none text-[var(--muted)]" />
         <input
           id={id}
           name={name}
@@ -44,13 +44,13 @@ export function PasswordField({
           autoComplete={autoComplete}
           value={value}
           onChange={onChange}
-          className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pr-10 pl-10 text-sm outline-none transition-all duration-200 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10 dark:border-white/15 dark:focus:border-brand-400/70"
+          className="min-h-12.5 w-full border-0 bg-transparent py-2.5 text-sm text-[var(--ink)] outline-none placeholder:text-[var(--muted)]"
         />
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
           aria-label={visible ? "Hide password" : "Show password"}
-          className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-200"
+          className="flex h-11 w-11 flex-none items-center justify-center rounded-[10px] text-[var(--muted)] transition-colors hover:text-[var(--ink)]"
         >
           {visible ? <EyeOffIcon /> : <EyeIcon />}
         </button>
@@ -63,7 +63,7 @@ function EyeIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-4.5 w-4.5"
+      className="h-5 w-5"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.75"
@@ -80,7 +80,7 @@ function EyeOffIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-4.5 w-4.5"
+      className="h-5 w-5"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.75"

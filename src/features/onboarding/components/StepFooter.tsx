@@ -26,7 +26,7 @@ export function StepFooter({
       {backHref && (
         <Link
           href={backHref}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 px-4 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-black/5 max-sm:flex-1 max-sm:justify-center dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/10"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--line)] px-4 py-2.5 text-sm font-medium text-[var(--muted)] transition-colors hover:bg-black/5 max-sm:flex-1 max-sm:justify-center"
         >
           <ArrowLeftIcon className="h-4 w-4" />
           Back
@@ -36,10 +36,15 @@ export function StepFooter({
       <button
         type="submit"
         disabled={!canContinue || pending}
-        className="brand-gradient inline-flex items-center justify-center gap-1.5 rounded-xl px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition-transform duration-200 hover:scale-[1.02] active:scale-[0.99] disabled:opacity-45 disabled:shadow-none disabled:hover:scale-100 max-sm:flex-1"
+        className="ha-btn inline-flex items-center justify-center gap-1.5 rounded-xl px-6 py-2.5 text-sm font-semibold text-white shadow-lg disabled:pointer-events-none disabled:opacity-45 disabled:shadow-none max-sm:flex-1"
+        style={{ background: "var(--accent)" }}
       >
         {pending ? "Saving…" : label}
-        {!pending && <ArrowRightIcon className="h-4 w-4" />}
+        {!pending && (
+          <span className="ha-arr inline-flex">
+            <ArrowRightIcon className="h-4 w-4" />
+          </span>
+        )}
       </button>
     </div>
   );

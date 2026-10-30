@@ -424,3 +424,10 @@ entrypoint = "./functions/instagram-webhook/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/instagram-webhook/*.html" ]
+
+# Called only by the refresh-instagram-tokens pg_cron job, which
+# authenticates with the x-cron-secret header instead of a user JWT.
+[functions.refresh-instagram-tokens]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/refresh-instagram-tokens/index.ts"

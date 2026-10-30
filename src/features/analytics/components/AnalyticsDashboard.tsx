@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { SelectField } from "@/components/ui/controls";
-import { StatCard } from "@/components/ui/StatCard";
+import { PillSelect } from "@/components/ui/PillSelect";
 import {
   AlertIcon,
   CalendarIcon,
@@ -14,7 +13,7 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import { BarList } from "@/features/analytics/components/BarList";
-import { ChartCard } from "@/features/analytics/components/chart-primitives";
+import { ChartCard, StatTile } from "@/features/analytics/components/chart-primitives";
 import { PerformanceTrendChart } from "@/features/analytics/components/PerformanceTrendChart";
 import { RuleLeaderboard } from "@/features/analytics/components/RuleLeaderboard";
 import { TopRulesChart } from "@/features/analytics/components/TopRulesChart";
@@ -77,26 +76,19 @@ export function AnalyticsDashboard({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <SelectField
-          value={range}
-          onChange={(event) => setRange(event.target.value)}
-          aria-label="Filter by date range"
-          icon={<CalendarIcon className="h-4 w-4" />}
-          className="sm:w-48"
-        >
+        <PillSelect value={range} onChange={setRange} icon={<CalendarIcon className="h-4 w-4" />} ariaLabel="Filter by date range">
           {Object.entries(RANGES).map(([value, option]) => (
             <option key={value} value={value}>
               {option.label}
             </option>
           ))}
-        </SelectField>
+        </PillSelect>
 
-        <SelectField
+        <PillSelect
           value={accountId}
-          onChange={(event) => setAccountId(event.target.value)}
-          aria-label="Filter by account"
+          onChange={setAccountId}
           icon={<InstagramIcon className="h-4 w-4" />}
-          className="sm:w-56"
+          ariaLabel="Filter by account"
         >
           <option value="all">All accounts</option>
           {rollup.accounts.map((account) => (
@@ -104,39 +96,39 @@ export function AnalyticsDashboard({
               @{account.handle}
             </option>
           ))}
-        </SelectField>
+        </PillSelect>
 
-        <p className="text-xs text-zinc-400 sm:ml-auto">
+        <p className="m-0 text-xs font-semibold text-[var(--muted-soft)] sm:ml-auto">
           {compactNumber(totals.triggers)} comments picked up {rangeLabel}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
+        <StatTile
           label="DMs sent"
           value={compactNumber(totals.dmsSent)}
-          tone="indigo"
+          tone="violet"
           icon={<SendIcon className="h-5 w-5" />}
           trend={trendFor(totals.dmsSent, previousTotals.dmsSent)}
         />
-        <StatCard
+        <StatTile
           label="Emails collected"
           value={compactNumber(totals.emails)}
           tone="amber"
           icon={<MailIcon className="h-5 w-5" />}
           trend={trendFor(totals.emails, previousTotals.emails)}
         />
-        <StatCard
+        <StatTile
           label="Followers gained"
           value={compactNumber(totals.followers)}
           tone="green"
           icon={<UsersIcon className="h-5 w-5" />}
           trend={trendFor(totals.followers, previousTotals.followers)}
         />
-        <StatCard
+        <StatTile
           label="Delivery success rate"
           value={`${totals.successRate}%`}
-          tone="blue"
+          tone="pink"
           icon={<TrendingIcon className="h-5 w-5" />}
           trend={trendFor(totals.successRate, previousTotals.successRate)}
         />
@@ -159,10 +151,7 @@ export function AnalyticsDashboard({
         </ChartCard>
 
         <div className="flex flex-col gap-4">
-          <ChartCard
-            title="What happened"
-            description="Every outcome a matching comment reached."
-          >
+          <ChartCard title="What happened" description="Every outcome a matching comment reached.">
             <BarList
               emptyMessage="No AutoDM fired in this period."
               rows={view.statuses.map((row) => ({
@@ -172,7 +161,7 @@ export function AnalyticsDashboard({
                 tone: row.status === "failed" ? "critical" : "default",
                 icon:
                   row.status === "failed" ? (
-                    <AlertIcon className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+                    <AlertIcon className="h-3.5 w-3.5 shrink-0 text-[var(--primary)]" />
                   ) : undefined,
               }))}
             />
@@ -200,7 +189,7 @@ export function AnalyticsDashboard({
 
       <RuleLeaderboard rows={view.rules} />
 
-      <p className="flex items-start gap-1.5 text-xs text-zinc-400">
+      <p className="m-0 flex items-start gap-1.5 text-xs text-[var(--muted-soft)]">
         <ChartIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span>
           Days are bucketed in UTC. &ldquo;Followers gained&rdquo; counts

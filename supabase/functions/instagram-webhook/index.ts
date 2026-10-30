@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { describeGraphError, isInvalidTokenError } from "../_shared/instagramToken.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 
@@ -79,7 +80,7 @@ interface InstagramWebhookPayload {
   }>;
 }
 
-type AttachmentType = "image" | "video" | "audio";
+type AttachmentType = "image" | "video" | "audio" | "file";
 
 interface RuleButton {
   label: string;
@@ -221,12 +222,17 @@ function cardCopy(
 
   if (message.length <= CARD_TITLE_MAX_LENGTH + CARD_SUBTITLE_MAX_LENGTH) {
     // Break on whitespace so a word isn't cut in half across the two lines.
+    // No whitespace before the limit (one long word, a bare URL) forces a
+    // hard cut — add an ellipsis there so it reads as truncated, not broken.
     const breakAt = message.lastIndexOf(" ", CARD_TITLE_MAX_LENGTH);
-    const splitAt = breakAt > 0 ? breakAt : CARD_TITLE_MAX_LENGTH;
+    const forcedBreak = breakAt <= 0;
+    const splitAt = forcedBreak ? CARD_TITLE_MAX_LENGTH - 1 : breakAt;
 
     return {
-      title: message.slice(0, splitAt).trim(),
-      subtitle: message.slice(splitAt).trim().slice(0, CARD_SUBTITLE_MAX_LENGTH),
+      title: forcedBreak
+        ? `${message.slice(0, splitAt).trim()}…`
+        : message.slice(0, splitAt).trim(),
+      subtitle: message.slice(forcedBreak ? splitAt : breakAt).trim().slice(0, CARD_SUBTITLE_MAX_LENGTH),
       sendTextSeparately: false,
     };
   }
@@ -234,18 +240,54 @@ function cardCopy(
   return { title: fallbackTitle, subtitle: null, sendTextSeparately: true };
 }
 
+/**
+ * A private reply to a comment opens no messaging window: Instagram accepts
+ * ONE message for it, and any second send fails with "outside of allowed
+ * window" (error_subcode 2534022) until the commenter replies. So a comment-
+ * triggered DM has to be a single message — reshape the content so the
+ * existing text/card/attachment sequence produces exactly one:
+ *  - buttons: the card carries everything. A message too long to fit on it
+ *    goes out as plain text with the links appended (Instagram makes them
+ *    tappable); a non-image attachment is dropped.
+ *  - attachment without buttons: it goes out alone, the text is dropped.
+ */
+function collapseToSingleMessage<
+  T extends {
+    text: string;
+    buttons: RuleButton[];
+    cardTitle?: string | null;
+    cardSubtitle?: string | null;
+    attachmentUrl: string | null;
+    attachmentType: AttachmentType | null;
+  },
+>(input: T): T {
+  if (input.buttons.length) {
+    const copy = cardCopy(input.text, input.cardTitle ?? null, input.cardSubtitle);
+
+    if (copy.sendTextSeparately && input.text.trim()) {
+      return {
+        ...input,
+        text: `${input.text.trim()}\n\n${buttonLinksText(input.buttons)}`,
+        buttons: [],
+        cardSubtitle: null,
+        attachmentUrl: null,
+        attachmentType: null,
+      };
+    }
+
+    const isImage = (input.attachmentType ?? "image") === "image";
+    return isImage
+      ? input
+      : { ...input, attachmentUrl: null, attachmentType: null };
+  }
+
+  return input.attachmentUrl ? { ...input, text: "" } : input;
+}
+
 /** The Instagram message objects a delayed send is queued as: the text, the
  *  button card, then the attachment — the same sequence sendRuleOrStepMessage
  *  sends live. */
-function scheduledMessagePayloads({
-  text,
-  buttons,
-  cardTitle,
-  cardSubtitle,
-  defaultActionUrl,
-  attachmentUrl,
-  attachmentType,
-}: {
+function scheduledMessagePayloads(input: {
   text: string;
   buttons: RuleButton[];
   cardTitle: string | null;
@@ -253,7 +295,20 @@ function scheduledMessagePayloads({
   defaultActionUrl?: string | null;
   attachmentUrl: string | null;
   attachmentType: AttachmentType | null;
+  /** Comment-triggered: only one message may be sent — see
+   *  collapseToSingleMessage. */
+  singleMessage?: boolean;
 }): Record<string, unknown>[] {
+  const {
+    text,
+    buttons,
+    cardTitle,
+    cardSubtitle,
+    defaultActionUrl,
+    attachmentUrl,
+    attachmentType,
+  } = input.singleMessage ? collapseToSingleMessage(input) : input;
+
   const cardImage =
     attachmentUrl && (attachmentType ?? "image") === "image" ? attachmentUrl : null;
 
@@ -426,10 +481,20 @@ function optionRetryMessage(options: DmFlowStepOption[]) {
 // Appends the numbered list a step's options describe, since the reply text
 // typed in the flow builder never includes it — the list is generated here
 // so it's always in sync with what matchOption() actually matches against.
+// Instagram rejects (not truncates) a text message over ~1000 characters —
+// message_text is capped at that in the UI, but the options list is appended
+// on top at send time, so the combined text needs its own budget check or a
+// step near the cap plus a few options could push the whole send into an
+// outright failure instead of just a long message.
+const MESSAGE_SEND_MAX_LENGTH = 1000;
+
 function withOptionsList(messageText: string, options: DmFlowStepOption[]) {
   if (options.length === 0) return messageText;
   const list = options.map((option, i) => `${i + 1}. ${option.label}`).join("\n");
-  return `${messageText}\n\n${list}`;
+  const separator = "\n\n";
+  const budget = MESSAGE_SEND_MAX_LENGTH - separator.length - list.length;
+  const text = budget > 0 ? messageText.slice(0, budget) : "";
+  return `${text}${separator}${list}`;
 }
 
 // Deliberately permissive (no lookahead/backtracking risk): local@domain.tld.
@@ -938,6 +1003,7 @@ async function handleCommentChange(
           defaultActionUrl: isPrompt ? null : matchedRule.dm_default_action_url,
           attachmentUrl: isPrompt ? null : matchedRule.attachment_url,
           attachmentType: isPrompt ? null : matchedRule.attachment_type,
+          singleMessage: true,
         }).map((payload, index) => ({
           instagram_account_id: instagramAccount.id,
           automation_rule_id: matchedRule.id,
@@ -991,6 +1057,8 @@ async function handleCommentChange(
     instagramUserId: instagramAccount.instagram_user_id,
     accessToken: instagramAccount.access_token,
     recipient: { comment_id: commentId },
+    recipientIgId: commenterId,
+    singleMessage: true,
     text: outgoingMessage,
     buttons,
     cardTitle: matchedRule.dm_button_card_title,
@@ -1362,6 +1430,8 @@ async function startDmFlow({
     instagramUserId: instagramAccount.instagram_user_id,
     accessToken: instagramAccount.access_token,
     recipient: { comment_id: commentId },
+    recipientIgId: senderId,
+    singleMessage: true,
     text: withOptionsList(
       (firstStep as DmFlowStep).message_text,
       (firstStep as DmFlowStep).options ?? []
@@ -2347,6 +2417,7 @@ async function checkUserFollowsBusiness(
 
     if (!response.ok) {
       console.error("Follow-check API error:", JSON.stringify(data));
+      await flagInvalidToken(accessToken, data, response.status);
       return false;
     }
 
@@ -2391,6 +2462,37 @@ async function recordApiUsage(header: string | null) {
 
   if (error) {
     console.error("Failed to record api_usage:", error.message);
+  }
+}
+
+/**
+ * ============================================
+ * FLAG A TOKEN META REJECTED
+ * Code 190 means the token is dead (expired, revoked, password changed)
+ * and only the owner reconnecting fixes it. Marking it expired stops the
+ * cron sweeps from firing sends that can't land, and puts the reconnect
+ * prompt on the dashboard. Matched on the token itself, so a reconnect
+ * that already replaced it is never undone.
+ * ============================================
+ */
+
+async function flagInvalidToken(
+  accessToken: string,
+  responseBody: unknown,
+  httpStatus: number
+) {
+  if (!isInvalidTokenError(responseBody)) return;
+
+  const { error } = await supabaseAdmin
+    .from("instagram_accounts")
+    .update({
+      token_status: "expired",
+      token_error: describeGraphError(responseBody, httpStatus),
+    })
+    .eq("access_token", accessToken);
+
+  if (error) {
+    console.error("Failed to flag expired Instagram token:", error.message);
   }
 }
 
@@ -2529,6 +2631,7 @@ async function sendMessagePayload({
   }
 
   if (!response.ok) {
+    await flagInvalidToken(accessToken, responseBody, response.status);
     return {
       success: false,
       error: `Instagram API ${response.status}: ${JSON.stringify(responseBody)}`,
@@ -2605,6 +2708,7 @@ async function sendInstagramAttachment({
   }
 
   if (!response.ok) {
+    await flagInvalidToken(accessToken, responseBody, response.status);
     return {
       success: false,
       error: `Instagram API ${response.status}: ${JSON.stringify(responseBody)}`,
@@ -2630,21 +2734,16 @@ async function sendInstagramAttachment({
  * ============================================
  */
 
-async function sendRuleOrStepMessage({
-  instagramUserId,
-  accessToken,
-  recipient,
-  text,
-  buttons = [],
-  cardTitle,
-  cardSubtitle,
-  defaultActionUrl,
-  attachmentUrl,
-  attachmentType,
-}: {
+async function sendRuleOrStepMessage(input: {
   instagramUserId: string;
   accessToken: string;
   recipient: { comment_id: string } | { id: string };
+  /** The commenter's IGSID. A {comment_id} recipient is Instagram's one-shot
+   *  private-reply allowance — reusing it for every bubble in a multi-part
+   *  send re-triggers the "X messaged you about a comment" banner before
+   *  each one. Once it's spent on the first successful bubble, later bubbles
+   *  address this id directly instead. */
+  recipientIgId?: string;
   text: string;
   buttons?: RuleButton[];
   cardTitle?: string | null;
@@ -2652,7 +2751,26 @@ async function sendRuleOrStepMessage({
   defaultActionUrl?: string | null;
   attachmentUrl: string | null;
   attachmentType: AttachmentType | null;
+  /** The recipient is a {comment_id}: Instagram allows one message for it,
+   *  so the content is collapsed into a single send. */
+  singleMessage?: boolean;
 }): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
+  const {
+    instagramUserId,
+    accessToken,
+    recipient,
+    recipientIgId,
+    text,
+    buttons = [],
+    cardTitle,
+    cardSubtitle,
+    defaultActionUrl,
+    attachmentUrl,
+    attachmentType,
+  } = input.singleMessage
+    ? collapseToSingleMessage({ ...input, buttons: input.buttons ?? [] })
+    : input;
+
   // With an authored subtitle, the card carries its own title + subtitle and
   // the DM text always goes out separately. Otherwise, the DM text rides on
   // the card itself whenever it fits, so the recipient gets one bubble
@@ -2663,17 +2781,23 @@ async function sendRuleOrStepMessage({
     success: true,
   };
 
+  let activeRecipient: { comment_id: string } | { id: string } = recipient;
+  function spendRecipient() {
+    if (recipientIgId) activeRecipient = { id: recipientIgId };
+  }
+
   // Buttons with no separate message (the card carries the whole thing)
   // leave nothing to send as its own bubble.
   if (text.trim() && (!copy || copy.sendTextSeparately)) {
     lastResult = await sendInstagramMessage({
       instagramUserId,
       accessToken,
-      recipient,
+      recipient: activeRecipient,
       message: text,
     });
 
     if (!lastResult.success) return lastResult;
+    spendRecipient();
   }
 
   // An image shown on the card isn't sent again as a separate attachment.
@@ -2686,7 +2810,7 @@ async function sendRuleOrStepMessage({
     const cardResult = await sendInstagramButtonTemplate({
       instagramUserId,
       accessToken,
-      recipient,
+      recipient: activeRecipient,
       title: copy.title,
       subtitle: copy.subtitle,
       imageUrl: cardImage,
@@ -2697,6 +2821,7 @@ async function sendRuleOrStepMessage({
     if (cardResult.success) {
       lastResult = cardResult;
       imageSentOnCard = Boolean(cardImage);
+      spendRecipient();
     } else {
       // Templates aren't accepted on every account — send the links as text
       // so the DM still carries them.
@@ -2705,7 +2830,7 @@ async function sendRuleOrStepMessage({
       const linksResult = await sendInstagramMessage({
         instagramUserId,
         accessToken,
-        recipient,
+        recipient: activeRecipient,
         // The card never went out, so its copy has to come along as text.
         message: copy.sendTextSeparately
           ? buttonLinksText(buttons)
@@ -2714,6 +2839,7 @@ async function sendRuleOrStepMessage({
 
       if (!linksResult.success) return linksResult;
       lastResult = linksResult;
+      spendRecipient();
     }
   }
 
@@ -2724,7 +2850,7 @@ async function sendRuleOrStepMessage({
   return await sendInstagramAttachment({
     instagramUserId,
     accessToken,
-    recipient,
+    recipient: activeRecipient,
     attachmentUrl,
     attachmentType: attachmentType ?? "image",
   });
@@ -2778,6 +2904,8 @@ async function postPublicCommentReply({
     } catch {
       // non-JSON body; fall through with an empty object
     }
+
+    await flagInvalidToken(accessToken, responseBody, response.status);
 
     return {
       success: false,

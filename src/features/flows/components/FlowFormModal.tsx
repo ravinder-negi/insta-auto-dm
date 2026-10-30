@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { CloseIcon, InstagramIcon, PlusIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { primaryButtonClass } from "@/components/ui/styles";
 import { WizardShellSkeleton } from "@/components/ui/WizardShell";
 import {
   createFlow,
@@ -90,13 +89,16 @@ export function FlowFormModal({
           {data.status === "loading" && <WizardShellSkeleton stepCount={4} />}
 
           {data.status === "error" && (
-            <div className="rounded-3xl border border-rose-200 bg-rose-50 px-5 py-6 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400">
+            <div
+              className="rounded-[30px] border px-5 py-6 text-sm font-semibold"
+              style={{ borderColor: "var(--danger-border)", backgroundColor: "var(--danger-tint-faint)", color: "var(--danger-deep)" }}
+            >
               {data.message}
             </div>
           )}
 
           {data.status === "ready" && data.accounts.length === 0 && (
-            <div className="rounded-3xl border border-black/6 bg-white p-6 dark:border-white/8 dark:bg-white/4">
+            <div className="rounded-[30px] border p-6" style={{ borderColor: "var(--line)", backgroundColor: "#fff" }}>
               <EmptyState
                 icon={<InstagramIcon className="h-6 w-6" />}
                 title="Connect an account first"
@@ -104,7 +106,8 @@ export function FlowFormModal({
                 action={
                   <Link
                     href="/dashboard/accounts"
-                    className={`${primaryButtonClass} mt-2`}
+                    className="mt-2 inline-flex min-h-[48px] items-center gap-2 rounded-full px-6 text-sm font-bold text-white"
+                    style={{ backgroundColor: "var(--primary)" }}
                   >
                     <PlusIcon className="h-4 w-4" />
                     Connect Instagram account

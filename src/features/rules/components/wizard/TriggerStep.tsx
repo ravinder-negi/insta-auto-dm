@@ -12,35 +12,40 @@ import type { TriggerType } from "./shared";
 const TRIGGERS: {
   value: TriggerType;
   icon: typeof BoltIcon;
-  tone: string;
+  bg: string;
+  fg: string;
   title: string;
   description: string;
 }[] = [
   {
     value: "comment_keyword",
     icon: BoltIcon,
-    tone: "bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300",
+    bg: "var(--tint)",
+    fg: "var(--primary)",
     title: "Comments on your Post or Reel",
     description: "Reply with a DM whenever someone comments your keyword.",
   },
   {
     value: "story_reply",
     icon: CameraIcon,
-    tone: "bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300",
+    bg: "var(--tint2)",
+    fg: "var(--violet)",
     title: "Replies to your Story",
     description: "Reply with a DM whenever someone replies to your story.",
   },
   {
     value: "post_share",
     icon: ShareIcon,
-    tone: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300",
+    bg: "var(--success-tint)",
+    fg: "var(--success-text)",
     title: "Shares your Post or Reel",
     description: "Reply with a DM whenever someone shares your post or reel to you.",
   },
   {
     value: "live_comment",
     icon: VideoCameraIcon,
-    tone: "bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-300",
+    bg: "var(--warning-tint)",
+    fg: "var(--warning-text)",
     title: "Comments on your Live",
     description: "Reply with a DM whenever someone comments on your Live.",
   },
@@ -49,13 +54,24 @@ const TRIGGERS: {
 export function TriggerStep({
   value,
   onChange,
+  locked = false,
 }: {
   value: TriggerType;
   onChange: (triggerType: TriggerType) => void;
+  /** Editing: the trigger can't change once the rule exists. */
+  locked?: boolean;
 }) {
   return (
     <fieldset>
-      <legend className="text-sm font-semibold">Trigger AutoDM when someone…</legend>
+      <legend className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
+        Trigger AutoDM when someone…
+      </legend>
+      {locked && (
+        <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+          Can&apos;t be changed after creating — to use another trigger, create
+          a new AutoDM.
+        </p>
+      )}
 
       <div className="mt-3 flex flex-col gap-2.5">
         {TRIGGERS.map((trigger) => {
@@ -66,26 +82,34 @@ export function TriggerStep({
               key={trigger.value}
               type="button"
               aria-pressed={active}
+              disabled={locked}
               onClick={() => onChange(trigger.value)}
-              className={`flex items-start gap-3.5 rounded-2xl border p-4 text-left transition-all duration-200 ${
+              className={`${locked && !active ? "opacity-50" : ""} ${locked ? "cursor-not-allowed" : ""} flex items-start gap-3.5 rounded-2xl border p-4 text-left transition-all duration-200 hover:border-[var(--secondary-border)] hover:bg-[var(--secondary-faint-bg)]`}
+              style={
                 active
-                  ? "border-brand-500 bg-brand-50/70 ring-2 ring-brand-500/15 dark:border-brand-400/70 dark:bg-brand-500/10"
-                  : "border-black/8 bg-white hover:border-brand-300 hover:bg-brand-50/40 dark:border-white/10 dark:bg-white/5 dark:hover:border-brand-400/40 dark:hover:bg-white/10"
-              }`}
+                  ? { borderColor: "var(--primary)", backgroundColor: "var(--tint-faint)", boxShadow: "0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent)" }
+                  : { borderColor: "var(--line)", backgroundColor: "#fff" }
+              }
             >
               <span
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${trigger.tone}`}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+                style={{ backgroundColor: trigger.bg, color: trigger.fg }}
               >
                 <trigger.icon className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold">{trigger.title}</span>
-                <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="block text-sm font-semibold" style={{ color: "var(--ink)" }}>
+                  {trigger.title}
+                </span>
+                <span className="mt-1 block text-xs" style={{ color: "var(--muted)" }}>
                   {trigger.description}
                 </span>
               </span>
               {active && (
-                <span className="brand-gradient mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white">
+                <span
+                  className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white"
+                  style={{ backgroundColor: "var(--primary)" }}
+                >
                   <CheckIcon className="h-3.5 w-3.5" />
                 </span>
               )}

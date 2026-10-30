@@ -112,7 +112,9 @@ export function KeywordStep({
     <div className="flex flex-col gap-6">
       {!isShare && (
         <fieldset>
-          <legend className="text-sm font-semibold">{copy.legend}</legend>
+          <legend className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
+            {copy.legend}
+          </legend>
 
           <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             {matches.map((option) => {
@@ -124,11 +126,12 @@ export function KeywordStep({
                   type="button"
                   aria-pressed={active}
                   onClick={() => update("keyword_match", option.value)}
-                  className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                  className="rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all duration-200 hover:border-[var(--secondary-border)] hover:bg-[var(--secondary-faint-bg)]"
+                  style={
                     active
-                      ? "border-brand-500 bg-brand-50/70 text-brand-700 ring-2 ring-brand-500/15 dark:border-brand-400/70 dark:bg-brand-500/10 dark:text-brand-300"
-                      : "border-black/8 bg-white hover:border-brand-300 hover:bg-brand-50/40 dark:border-white/10 dark:bg-white/5 dark:hover:border-brand-400/40 dark:hover:bg-white/10"
-                  }`}
+                      ? { borderColor: "var(--primary)", backgroundColor: "var(--tint-faint)", color: "var(--primary-strong)", boxShadow: "0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent)" }
+                      : { borderColor: "var(--line)", backgroundColor: "#fff", color: "var(--ink)" }
+                  }
                 >
                   {option.label}
                 </button>
@@ -139,7 +142,10 @@ export function KeywordStep({
       )}
 
       {isShare ? (
-        <p className="flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+        <p
+          className="flex items-start gap-2.5 rounded-2xl border px-3.5 py-3 text-xs"
+          style={{ borderColor: "#F0D9A6", backgroundColor: "var(--warning-tint)", color: "var(--warning-text)" }}
+        >
           <InfoIcon className="mt-0.5 h-4 w-4 shrink-0" />
           {copy.anyNotice}
         </p>
@@ -165,7 +171,8 @@ export function KeywordStep({
             <button
               type="button"
               onClick={() => setShowExcluded(true)}
-              className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-brand-600 underline-offset-2 hover:underline dark:text-brand-400"
+              className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold underline-offset-2 hover:underline"
+              style={{ color: "var(--primary)" }}
             >
               Add excluded keywords?
               <InfoIcon className="h-4 w-4" />
@@ -173,16 +180,19 @@ export function KeywordStep({
           )}
         </div>
       ) : (
-        <p className="flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+        <p
+          className="flex items-start gap-2.5 rounded-2xl border px-3.5 py-3 text-xs"
+          style={{ borderColor: "#F0D9A6", backgroundColor: "var(--warning-tint)", color: "var(--warning-text)" }}
+        >
           <InfoIcon className="mt-0.5 h-4 w-4 shrink-0" />
           {copy.anyNotice}
         </p>
       )}
 
       {!isStory && !isShare && (
-        <div className="rounded-2xl border border-black/8 bg-zinc-50 p-4 dark:border-white/10 dark:bg-white/5">
+        <div className="rounded-2xl border p-4" style={{ borderColor: "var(--line)", backgroundColor: "var(--bg)" }}>
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold">
+            <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
               {isLive ? "Auto-Reply to comments on the Live" : "Auto-Reply to comments on the post"}
             </p>
             <label className="relative inline-flex shrink-0 cursor-pointer items-center">
@@ -194,14 +204,14 @@ export function KeywordStep({
                 }
                 className="peer sr-only"
               />
-              <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-emerald-500 dark:bg-zinc-700" />
+              <div className="h-6 w-11 rounded-full bg-[var(--secondary-pale)] transition-colors peer-checked:bg-[var(--success)]" />
               <div className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
             </label>
           </div>
 
           {values.send_public_reply && (
             <div className="animate-fade-in-up mt-3 flex flex-col gap-3.5">
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs" style={{ color: "var(--muted)" }}>
                 Write up to {PUBLIC_REPLY_SLOTS} replies — one is picked at random
                 per comment so your replies don&apos;t look like a bot. Automating
                 comment replies carries risk; keep them varied and human.
@@ -215,10 +225,11 @@ export function KeywordStep({
                     <label
                       htmlFor={`public_reply_${index}`}
                       className="mb-1.5 text-sm font-semibold"
+                      style={{ color: "var(--ink)" }}
                     >
                       Comment response {index + 1}
                       {index === 0 && (
-                        <span className="text-rose-500" aria-hidden="true">
+                        <span style={{ color: "var(--primary)" }} aria-hidden="true">
                           {" "}
                           *
                         </span>
@@ -233,7 +244,10 @@ export function KeywordStep({
                         placeholder="Thanks! Please see DMs."
                         className={`${fieldClass} pr-16`}
                       />
-                      <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-zinc-400">
+                      <span
+                        className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs"
+                        style={{ color: "var(--muted-soft)" }}
+                      >
                         {value.length}/{PUBLIC_REPLY_MAX_LENGTH}
                       </span>
                     </div>
@@ -279,7 +293,9 @@ function ChipInput({
 
   return (
     <div className="flex flex-col">
-      <p className="text-sm font-semibold">{label}</p>
+      <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
+        {label}
+      </p>
 
       <div className="relative mt-2">
         <input
@@ -300,7 +316,8 @@ function ChipInput({
           type="button"
           onClick={add}
           disabled={!draft.trim() || full}
-          className="absolute top-1/2 right-1.5 inline-flex -translate-y-1/2 items-center gap-1 rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-xs font-semibold transition-colors hover:bg-zinc-50 disabled:opacity-40 dark:border-white/15 dark:bg-white/10 dark:hover:bg-white/15"
+          className="absolute top-1/2 right-1.5 inline-flex -translate-y-1/2 items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition-colors hover:bg-[var(--secondary-soft-bg)] disabled:opacity-40"
+          style={{ borderColor: "var(--line)", backgroundColor: "#fff", color: "var(--ink)" }}
         >
           <PlusIcon className="h-3.5 w-3.5" />
           Add
@@ -312,7 +329,8 @@ function ChipInput({
           {values.map((value) => (
             <span
               key={value}
-              className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 py-1 pr-1.5 pl-3 text-xs font-semibold text-brand-700 dark:border-brand-400/40 dark:bg-brand-500/10 dark:text-brand-300"
+              className="inline-flex items-center gap-1.5 rounded-full py-1 pr-1.5 pl-3 text-xs font-bold"
+              style={{ backgroundColor: "var(--tint2)", color: "var(--violet)" }}
             >
               {value}
               <button
@@ -321,7 +339,7 @@ function ChipInput({
                 onClick={() =>
                   onChange(values.filter((existing) => existing !== value))
                 }
-                className="flex h-4.5 w-4.5 items-center justify-center rounded-full text-brand-500 transition-colors hover:bg-brand-500/15"
+                className="flex h-4.5 w-4.5 items-center justify-center rounded-full transition-colors hover:bg-[var(--violet)]/15"
               >
                 <CloseIcon className="h-3 w-3" />
               </button>
@@ -331,7 +349,9 @@ function ChipInput({
       )}
 
       {hint && (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>
+        <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+          {hint}
+        </p>
       )}
     </div>
   );

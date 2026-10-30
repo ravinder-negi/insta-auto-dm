@@ -145,7 +145,7 @@ export default function PrivacyPolicyPage() {
             Request deletion of your account and associated data — see our{" "}
             <Link
               href="/data-deletion"
-              className="font-medium text-zinc-900 underline hover:no-underline dark:text-zinc-50"
+              className="font-medium text-[var(--accent)] underline hover:no-underline"
             >
               data deletion instructions
             </Link>
@@ -181,7 +181,7 @@ export default function PrivacyPolicyPage() {
           our{" "}
           <Link
             href="/contact"
-            className="font-medium text-zinc-900 underline hover:no-underline dark:text-zinc-50"
+            className="font-medium text-[var(--accent)] underline hover:no-underline"
           >
             contact page
           </Link>

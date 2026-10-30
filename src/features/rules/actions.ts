@@ -8,7 +8,7 @@ import type { RuleWizardInitialValues } from "@/features/rules/components/wizard
 
 export type RuleFormState = { error: string } | { ok: true } | undefined;
 
-const ATTACHMENT_TYPES = ["image", "video", "audio"] as const;
+const ATTACHMENT_TYPES = ["image", "video", "audio", "file"] as const;
 
 const KEYWORD_MATCHES = ["specific", "any"] as const;
 
@@ -25,7 +25,9 @@ const MAX_KEYWORDS = 20;
 const MAX_PUBLIC_REPLIES = 3;
 const PUBLIC_REPLY_MAX_LENGTH = 140;
 const MAX_BUTTONS = 3;
-const BUTTON_LABEL_MAX_LENGTH = 60;
+// Meta's URL-button title cap is 20 chars — a longer label risks truncation
+// or rejection by Instagram's generic-template API.
+const BUTTON_LABEL_MAX_LENGTH = 20;
 const CARD_TITLE_MAX_LENGTH = 80;
 const CARD_SUBTITLE_MAX_LENGTH = 80;
 const MAX_FOLLOWUPS = 3;
@@ -260,7 +262,12 @@ function readRuleFields(
 
   // With buttons, the card itself can carry the whole message (title +
   // subtitle) — the separate DM text becomes optional extra copy.
-  if (!instagramAccountId || !name || (!dmMessage && buttons.length === 0)) {
+  // An attachment goes out on its own, so it can stand in for the text too.
+  if (
+    !instagramAccountId ||
+    !name ||
+    (!dmMessage && buttons.length === 0 && !attachmentUrl)
+  ) {
     return {
       ok: false,
       error: "Account, name, and DM message are required.",
@@ -461,10 +468,17 @@ async function updateRuleCore(
   const parsed = readRuleFields(formData);
   if (!parsed.ok) return { error: parsed.error };
 
+  // Account and trigger type are fixed once a rule exists — its executions,
+  // leads and stats belong to them. The edit form locks both; this keeps a
+  // hand-built request from changing them anyway.
+  const editableFields: Partial<typeof parsed.fields> = { ...parsed.fields };
+  delete editableFields.instagram_account_id;
+  delete editableFields.trigger_type;
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("automation_rules")
-    .update({ ...parsed.fields, updated_at: new Date().toISOString() })
+    .update({ ...editableFields, updated_at: new Date().toISOString() })
     .eq("id", id);
 
   if (error) {
@@ -600,6 +614,19 @@ function mapRuleFormAccounts(
 export async function deleteRule(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("automation_rules").delete().eq("id", id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard/rules");
+}
+
+export async function deleteRules(ids: string[]) {
+  if (ids.length === 0) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("automation_rules").delete().in("id", ids);
 
   if (error) {
     throw new Error(error.message);

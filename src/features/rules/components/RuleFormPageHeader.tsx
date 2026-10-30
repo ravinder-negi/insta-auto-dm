@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowLeftIcon, InstagramIcon } from "@/components/icons";
-import { PageHeader } from "@/components/ui/PageHeader";
 
 export function RuleFormPageHeader({
   eyebrow,
@@ -12,41 +11,46 @@ export function RuleFormPageHeader({
   description: string;
 }) {
   return (
-    <div className="flex flex-col gap-5">
-      <Link
-        href="/dashboard/rules"
-        className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-200"
-      >
-        <ArrowLeftIcon className="h-4 w-4" />
-        Back to AutoDMs
-      </Link>
+    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
+      <div className="flex min-w-0 flex-col gap-3">
+        <Link
+          href="/dashboard/rules"
+          className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold transition-colors hover:opacity-70"
+          style={{ color: "var(--muted)" }}
+        >
+          <ArrowLeftIcon className="h-4 w-4" />
+          Back to AutoDMs
+        </Link>
 
-      <PageHeader
-        eyebrow={eyebrow}
-        title={
-          <span className="inline-flex items-center gap-2">
+        <div>
+          <p className="text-[11px] font-bold tracking-[0.14em] uppercase" style={{ color: "var(--muted-soft)" }}>
+            {eyebrow}
+          </p>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-[2rem]" style={{ color: "var(--ink)" }}>
             {title}
-            <span aria-hidden="true">🚀</span>
-          </span>
-        }
-        description={description}
-        aside={
-          <div className="hidden items-center gap-3.5 rounded-2xl bg-gradient-to-r from-brand-50 to-brand-100 p-4 lg:flex dark:from-brand-500/10 dark:to-brand-600/10">
-            <span className="ig-gradient flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-[0_8px_18px_-8px_rgba(220,39,67,0.7)]">
-              <InstagramIcon className="h-6 w-6" />
-            </span>
-            <div className="max-w-64">
-              <p className="text-sm font-semibold">
-                Turn comments into conversations
-              </p>
-              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                Automatically reply to Instagram comments and engage your audience
-                24/7.
-              </p>
-            </div>
-          </div>
-        }
-      />
+          </h1>
+          <p className="mt-2 max-w-xl text-sm" style={{ color: "var(--muted)" }}>
+            {description}
+          </p>
+        </div>
+      </div>
+
+      <div
+        className="hidden shrink-0 items-center gap-3.5 rounded-2xl p-4 lg:flex"
+        style={{ backgroundImage: "linear-gradient(120deg,var(--tint) 0%,var(--tint2) 100%)" }}
+      >
+        <span className="ig-gradient flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-[0_8px_18px_-8px_rgba(220,39,67,0.7)]">
+          <InstagramIcon className="h-6 w-6" />
+        </span>
+        <div className="max-w-64">
+          <p className="text-sm font-bold" style={{ color: "var(--ink)" }}>
+            Turn comments into conversations
+          </p>
+          <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+            Automatically reply to Instagram comments and engage your audience 24/7.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -3,30 +3,40 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useFormStatus } from "react-dom";
-import { ConfirmAction } from "@/components/ui/ConfirmAction";
-import { RowMenu } from "@/components/ui/RowMenu";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/Toast";
-import { SearchField } from "@/components/ui/controls";
-import { primaryButtonClass } from "@/components/ui/styles";
+import { LinkInBioRowMenu } from "@/components/ui/LinkInBioRowMenu";
+import {
+  ActiveToggle,
+  BulkDeleteBar,
+  DeleteConfirmBar,
+  IconCircleButton,
+  SelectBox,
+  StatusBadgePill,
+  StatusChip,
+} from "@/components/ui/LinkInBioCollection";
 import {
   DocumentIcon,
+  GiftIcon,
   GridIcon,
   GripIcon,
   ListIcon,
   PencilIcon,
   PlusIcon,
+  SearchIcon,
   TrashIcon,
 } from "@/components/icons";
 import {
   deleteLeadMagnet,
+  deleteLeadMagnets,
   moveLeadMagnet,
   reorderLeadMagnets,
   toggleLeadMagnetActive,
 } from "@/features/lead-magnets/actions";
+import { displayFont, linkInBioGradientFor } from "@/lib/linkInBioTheme";
 import { LeadMagnetFormModal } from "./LeadMagnetFormModal";
 import { NewLeadMagnetButton } from "./NewLeadMagnetButton";
+import { saveViewPreference } from "@/lib/viewPreference/client";
+import { VIEW_PREFERENCE_KEYS } from "@/lib/viewPreference/keys";
 
 export interface LeadMagnetRow {
   id: string;
@@ -40,11 +50,18 @@ function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
 }
 
-type ViewMode = "card" | "list";
+type ViewMode = "grid" | "list";
+type StatusFilter = "all" | "active" | "hidden";
 
-const VIEW_STORAGE_KEY = "lead-magnets-view";
+const VIEW_STORAGE_KEY = VIEW_PREFERENCE_KEYS.leadMagnets;
 
-export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] }) {
+export function LeadMagnetsList({
+  leadMagnets,
+  initialView = "grid",
+}: {
+  leadMagnets: LeadMagnetRow[];
+  initialView?: ViewMode;
+}) {
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -52,30 +69,20 @@ export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] 
   const toastShown = useRef(false);
 
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [editMagnetId, setEditMagnetId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [localOrder, setLocalOrder] = useState<string[] | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [pendingReorders, setPendingReorders] = useState(0);
   const reorderQueueRef = useRef<Promise<unknown>>(Promise.resolve());
-  const [view, setView] = useState<ViewMode>("list");
+  const [view, setView] = useState<ViewMode>(initialView);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(VIEW_STORAGE_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- synced from browser storage, unavailable during SSR
-      if (stored === "card" || stored === "list") setView(stored);
-    } catch {
-      // ignore unavailable storage
-    }
-  }, []);
 
   function handleViewChange(next: ViewMode) {
     setView(next);
-    try {
-      localStorage.setItem(VIEW_STORAGE_KEY, next);
-    } catch {
-      // ignore unavailable storage
-    }
+    saveViewPreference(VIEW_STORAGE_KEY, next);
   }
 
   const order = useMemo(() => {
@@ -97,11 +104,24 @@ export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  const counts = useMemo(
+    () => ({
+      all: order.length,
+      active: order.filter((magnet) => magnet.is_active).length,
+      hidden: order.filter((magnet) => !magnet.is_active).length,
+    }),
+    [order]
+  );
+
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return order;
-    return order.filter((magnet) => magnet.title.toLowerCase().includes(query));
-  }, [order, search]);
+    return order.filter((magnet) => {
+      if (statusFilter === "active" && !magnet.is_active) return false;
+      if (statusFilter === "hidden" && magnet.is_active) return false;
+      if (!query) return true;
+      return magnet.title.toLowerCase().includes(query);
+    });
+  }, [order, search, statusFilter]);
 
   async function handleToggle(id: string, title: string, nextActive: boolean) {
     try {
@@ -113,11 +133,31 @@ export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] 
   }
 
   async function handleDelete(id: string, title: string) {
+    setDeletingId(null);
     try {
       await deleteLeadMagnet(id);
       toast.success(`"${title}" deleted.`);
     } catch (err) {
       toast.error(errorMessage(err, "Failed to delete lead magnet."));
+    }
+  }
+
+  function toggleSelected(id: string) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkDelete(ids: string[]) {
+    try {
+      await deleteLeadMagnets(ids);
+      toast.success(`${ids.length} lead magnet${ids.length === 1 ? "" : "s"} deleted.`);
+      setSelected(new Set());
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to delete lead magnets."));
     }
   }
 
@@ -155,212 +195,168 @@ export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] 
       .finally(() => setPendingReorders((count) => count - 1));
   }
 
+  // Only lead magnets still on the page count — a filter change or a delete
+  // elsewhere can leave stale ids in the set.
+  const selectedIds = filtered.filter((magnet) => selected.has(magnet.id)).map((magnet) => magnet.id);
+  const allSelected = filtered.length > 0 && selectedIds.length === filtered.length;
+
+  const isEmptyCollection = leadMagnets.length === 0;
+  const isEmptyFiltered = !isEmptyCollection && filtered.length === 0;
+
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-end gap-2.5">
-        {pendingReorders > 0 && (
-          <span className="flex items-center gap-1.5 text-xs text-zinc-500">
-            <span className="h-3 w-3 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-500 dark:border-zinc-600 dark:border-t-zinc-300" />
-            Saving order…
-          </span>
-        )}
-        <SearchField
-          value={search}
-          onChange={setSearch}
-          placeholder="Search lead magnets..."
-        />
-        <div className="flex items-center gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-white/8">
-          <button
-            type="button"
-            aria-label="List view"
-            aria-pressed={view === "list"}
-            onClick={() => handleViewChange("list")}
-            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-              view === "list"
-                ? "bg-white text-brand-600 shadow-sm dark:bg-zinc-800 dark:text-brand-300"
-                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-            }`}
-          >
-            <ListIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Card view"
-            aria-pressed={view === "card"}
-            onClick={() => handleViewChange("card")}
-            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-              view === "card"
-                ? "bg-white text-brand-600 shadow-sm dark:bg-zinc-800 dark:text-brand-300"
-                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-            }`}
-          >
-            <GridIcon className="h-4 w-4" />
-          </button>
+      {/* chips + toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3.5">
+        <div role="group" aria-label="Filter by status" className="flex flex-wrap gap-2.5">
+          <StatusChip
+            label="All"
+            dot="var(--neutral-dot)"
+            count={counts.all}
+            active={statusFilter === "all"}
+            onClick={() => setStatusFilter("all")}
+          />
+          <StatusChip
+            label="Active"
+            dot="var(--success)"
+            count={counts.active}
+            active={statusFilter === "active"}
+            onClick={() => setStatusFilter("active")}
+          />
+          <StatusChip
+            label="Hidden"
+            dot="var(--neutral-dot)"
+            count={counts.hidden}
+            active={statusFilter === "hidden"}
+            onClick={() => setStatusFilter("hidden")}
+          />
         </div>
-        <NewLeadMagnetButton className={primaryButtonClass}>
-          <PlusIcon className="h-4 w-4" />
-          Add lead magnet
-        </NewLeadMagnetButton>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {pendingReorders > 0 && (
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-[var(--line)] border-t-[var(--muted)]" />
+              Saving order…
+            </span>
+          )}
+          <div className="focus-within:border-[var(--accent)] focus-within:ring-4 focus-within:ring-[var(--accent)]/15 flex min-w-[200px] items-center gap-2.5 rounded-full border-[1.5px] border-[var(--line)] bg-white px-4 transition-colors">
+            <SearchIcon className="h-[18px] w-[18px] shrink-0 text-[var(--muted)]" />
+            <input
+              type="search"
+              aria-label="Search lead magnets"
+              placeholder="Search lead magnets"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="min-h-[46px] w-full border-0 bg-transparent outline-none placeholder:text-[var(--muted)]"
+            />
+          </div>
+          <div className="inline-flex rounded-full border-[1.5px] border-[var(--line)] bg-white p-1">
+            <button
+              type="button"
+              aria-label="Grid view"
+              aria-pressed={view === "grid"}
+              onClick={() => handleViewChange("grid")}
+              className={`flex h-[38px] w-[42px] items-center justify-center rounded-full transition-colors ${
+                view === "grid" ? "bg-[var(--ink)] text-white" : "text-[var(--ink)]"
+              }`}
+            >
+              <GridIcon className="h-[18px] w-[18px]" />
+            </button>
+            <button
+              type="button"
+              aria-label="List view"
+              aria-pressed={view === "list"}
+              onClick={() => handleViewChange("list")}
+              className={`flex h-[38px] w-[42px] items-center justify-center rounded-full transition-colors ${
+                view === "list" ? "bg-[var(--ink)] text-white" : "text-[var(--ink)]"
+              }`}
+            >
+              <ListIcon className="h-[18px] w-[18px]" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {view === "card" ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {selectedIds.length > 0 && (
+        <BulkDeleteBar
+          count={selectedIds.length}
+          noun="lead magnet"
+          allSelected={allSelected}
+          onToggleAll={() =>
+            setSelected(allSelected ? new Set() : new Set(filtered.map((magnet) => magnet.id)))
+          }
+          onClear={() => setSelected(new Set())}
+          onDelete={() => handleBulkDelete(selectedIds)}
+        />
+      )}
+
+      {view === "grid" && !isEmptyCollection && !isEmptyFiltered && (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((magnet) => (
-            <div
+            <MagnetCard
               key={magnet.id}
-              className="flex flex-col gap-3 rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
-                    <DocumentIcon className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold">{magnet.title}</p>
-                    <p className="truncate text-xs text-zinc-500">
-                      {magnet.file_name ?? "File"}
-                    </p>
-                  </div>
-                </div>
-                <StatusBadge status={magnet.is_active ? "active" : "inactive"} />
-              </div>
-
-              <Link
-                href={`/dashboard/lead-magnets/${magnet.id}/leads`}
-                className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
-              >
-                {magnet.leadCount} {magnet.leadCount === 1 ? "lead" : "leads"}
-              </Link>
-
-              <div className="mt-auto flex items-center justify-between border-t border-black/6 pt-3 dark:border-white/8">
-                <form action={() => handleToggle(magnet.id, magnet.title, !magnet.is_active)}>
-                  <ToggleSwitchButton isActive={magnet.is_active} />
-                </form>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    title="Edit lead magnet"
-                    aria-label={`Edit ${magnet.title}`}
-                    onClick={() => setEditMagnetId(magnet.id)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-                  >
-                    <PencilIcon className="h-4 w-4" />
-                  </button>
-
-                  <ConfirmAction
-                    action={() => handleDelete(magnet.id, magnet.title)}
-                    title="Delete this lead magnet?"
-                    description={`"${magnet.title}" and its captured leads will be removed.`}
-                    confirmLabel="Delete"
-                    trigger={
-                      <button
-                        type="button"
-                        title="Delete lead magnet"
-                        aria-label={`Delete ${magnet.title}`}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    }
-                  />
-
-                  <RowMenu
-                    items={[
-                      { label: "Move up", onSelect: () => handleMove(magnet.id, "up") },
-                      { label: "Move down", onSelect: () => handleMove(magnet.id, "down") },
-                    ]}
-                  />
-                </div>
-              </div>
-            </div>
+              magnet={magnet}
+              selected={selected.has(magnet.id)}
+              onToggleSelected={() => toggleSelected(magnet.id)}
+              confirmingDelete={deletingId === magnet.id}
+              onAskDelete={() => setDeletingId(magnet.id)}
+              onCancelDelete={() => setDeletingId(null)}
+              onConfirmDelete={() => handleDelete(magnet.id, magnet.title)}
+              onEdit={() => setEditMagnetId(magnet.id)}
+              onToggleActive={() => handleToggle(magnet.id, magnet.title, !magnet.is_active)}
+              onMoveUp={() => handleMove(magnet.id, "up")}
+              onMoveDown={() => handleMove(magnet.id, "down")}
+            />
           ))}
         </div>
-      ) : (
-      <ul className="flex flex-col gap-2.5">
-        {filtered.map((magnet) => (
-          <li
-            key={magnet.id}
-            draggable
-            onDragStart={() => setDraggingId(magnet.id)}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={() => handleDrop(magnet.id)}
-            onDragEnd={() => setDraggingId(null)}
-            className={`flex flex-col gap-3 rounded-2xl border border-black/6 bg-white p-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-opacity sm:flex-row sm:items-center dark:border-white/8 dark:bg-white/4 ${
-              draggingId === magnet.id ? "opacity-40" : ""
-            }`}
-          >
-            <div className="flex min-w-0 items-center gap-3">
-              <span
-                className="hidden h-8 w-5 shrink-0 cursor-grab items-center justify-center text-zinc-300 active:cursor-grabbing sm:flex dark:text-zinc-600"
-                aria-hidden="true"
-              >
-                <GripIcon className="h-4 w-4" />
-              </span>
+      )}
 
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
-                <DocumentIcon className="h-4 w-4" />
-              </span>
+      {view === "list" && !isEmptyCollection && !isEmptyFiltered && (
+        <div className="flex flex-col gap-3">
+          {filtered.map((magnet) => (
+            <MagnetRow
+              key={magnet.id}
+              magnet={magnet}
+              selected={selected.has(magnet.id)}
+              onToggleSelected={() => toggleSelected(magnet.id)}
+              draggable={!search && statusFilter === "all"}
+              dragging={draggingId === magnet.id}
+              onDragStart={() => setDraggingId(magnet.id)}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => handleDrop(magnet.id)}
+              onDragEnd={() => setDraggingId(null)}
+              confirmingDelete={deletingId === magnet.id}
+              onAskDelete={() => setDeletingId(magnet.id)}
+              onCancelDelete={() => setDeletingId(null)}
+              onConfirmDelete={() => handleDelete(magnet.id, magnet.title)}
+              onEdit={() => setEditMagnetId(magnet.id)}
+              onToggleActive={() => handleToggle(magnet.id, magnet.title, !magnet.is_active)}
+              onMoveUp={() => handleMove(magnet.id, "up")}
+              onMoveDown={() => handleMove(magnet.id, "down")}
+            />
+          ))}
+        </div>
+      )}
 
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{magnet.title}</p>
-                <p className="truncate text-xs text-zinc-500">
-                  {magnet.file_name ?? "File"}
-                </p>
-              </div>
-
-              <Link
-                href={`/dashboard/lead-magnets/${magnet.id}/leads`}
-                className="shrink-0 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
-              >
-                {magnet.leadCount} {magnet.leadCount === 1 ? "lead" : "leads"}
-              </Link>
-
-              <StatusBadge status={magnet.is_active ? "active" : "inactive"} />
-            </div>
-
-            <div className="flex shrink-0 items-center justify-end gap-1 sm:ml-auto">
-              <form action={() => handleToggle(magnet.id, magnet.title, !magnet.is_active)}>
-                <ToggleSwitchButton isActive={magnet.is_active} />
-              </form>
-
-              <button
-                type="button"
-                title="Edit lead magnet"
-                aria-label={`Edit ${magnet.title}`}
-                onClick={() => setEditMagnetId(magnet.id)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-              >
-                <PencilIcon className="h-4 w-4" />
-              </button>
-
-              <ConfirmAction
-                action={() => handleDelete(magnet.id, magnet.title)}
-                title="Delete this lead magnet?"
-                description={`"${magnet.title}" and its captured leads will be removed.`}
-                confirmLabel="Delete"
-                trigger={
-                  <button
-                    type="button"
-                    title="Delete lead magnet"
-                    aria-label={`Delete ${magnet.title}`}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                }
-              />
-
-              <RowMenu
-                items={[
-                  { label: "Move up", onSelect: () => handleMove(magnet.id, "up") },
-                  { label: "Move down", onSelect: () => handleMove(magnet.id, "down") },
-                ]}
-              />
-            </div>
-          </li>
-        ))}
-      </ul>
+      {(isEmptyCollection || isEmptyFiltered) && (
+        <div className="flex flex-col items-center gap-4 rounded-[36px] border-[1.5px] border-dashed border-[var(--secondary-border)] bg-[var(--secondary-faint-bg)] px-7 py-14 text-center">
+          <span className="animate-float flex h-[72px] w-[72px] items-center justify-center rounded-[22px] bg-[var(--violet)] text-white">
+            <GiftIcon className="h-[34px] w-[34px]" />
+          </span>
+          <h3 className={`m-0 ${displayFont} text-[28px] font-extrabold tracking-[-0.03em]`}>
+            {isEmptyCollection ? "No lead magnets yet" : "No lead magnets found"}
+          </h3>
+          <p className="m-0 max-w-[380px] text-[var(--muted)]">
+            {isEmptyCollection
+              ? "Offer a PDF, ebook, template, or guide to grow your email list."
+              : "Try a different search term or status filter."}
+          </p>
+          {isEmptyCollection && (
+            <NewLeadMagnetButton className="inline-flex min-h-[52px] cursor-pointer items-center gap-2.5 rounded-full border-0 bg-[var(--accent)] px-7 font-bold text-white">
+              <PlusIcon className="h-[18px] w-[18px]" />
+              Add your first lead magnet
+            </NewLeadMagnetButton>
+          )}
+        </div>
       )}
 
       {editMagnetId && (
@@ -378,30 +374,185 @@ export function LeadMagnetsList({ leadMagnets }: { leadMagnets: LeadMagnetRow[] 
   );
 }
 
-function ToggleSwitchButton({ isActive }: { isActive: boolean }) {
-  const { pending } = useFormStatus();
-
+function Tile({ id, className }: { id: string; className: string }) {
   return (
-    <button
-      type="submit"
-      role="switch"
-      aria-checked={isActive}
-      disabled={pending}
-      aria-label={isActive ? "Hide this lead magnet" : "Show this lead magnet"}
-      title={isActive ? "Hide from profile" : "Show on profile"}
-      className={`relative flex h-6 w-11 items-center rounded-full p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
-        isActive ? "brand-gradient" : "bg-zinc-200 dark:bg-zinc-700"
+    <span
+      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden text-white/90 ${className}`}
+      style={{ background: linkInBioGradientFor(id) }}
+    >
+      <DocumentIcon className="h-7 w-7" />
+    </span>
+  );
+}
+
+function LeadCountLink({ id, leadCount }: { id: string; leadCount: number }) {
+  return (
+    <Link
+      href={`/dashboard/lead-magnets/${id}/leads`}
+      className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[var(--tint2)] px-2.5 py-1 text-xs font-bold text-[#3B3560] hover:underline"
+    >
+      {leadCount} {leadCount === 1 ? "lead" : "leads"}
+    </Link>
+  );
+}
+
+function MagnetCard({
+  magnet,
+  selected,
+  onToggleSelected,
+  confirmingDelete,
+  onAskDelete,
+  onCancelDelete,
+  onConfirmDelete,
+  onEdit,
+  onToggleActive,
+  onMoveUp,
+  onMoveDown,
+}: {
+  magnet: LeadMagnetRow;
+  selected: boolean;
+  onToggleSelected: () => void;
+  confirmingDelete: boolean;
+  onAskDelete: () => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
+  onEdit: () => void;
+  onToggleActive: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3.5 rounded-[30px] border-[1.5px] border-[var(--line)] bg-white p-3.5 transition-[transform,box-shadow,border-color] hover:-translate-y-1 hover:border-[var(--secondary-border)] hover:shadow-[0_28px_46px_-30px_color-mix(in srgb, var(--secondary) 50%, transparent)]">
+      <Tile id={magnet.id} className="h-[120px] w-full rounded-[22px]" />
+
+      <div className="flex flex-col gap-2.5 px-1.5">
+        <h3 className="m-0 [overflow-wrap:anywhere] text-[20px] leading-[1.15] font-extrabold tracking-[-0.02em]">
+          {magnet.title}
+        </h3>
+        <p className="m-0 truncate text-sm text-[var(--muted)]">{magnet.file_name ?? "File"}</p>
+        <LeadCountLink id={magnet.id} leadCount={magnet.leadCount} />
+        <div className="flex items-center justify-between gap-2.5">
+          <span className="flex items-center gap-3">
+            <SelectBox checked={selected} label={`Select ${magnet.title}`} onChange={onToggleSelected} />
+            <StatusBadgePill isActive={magnet.is_active} />
+          </span>
+          <form action={onToggleActive}>
+            <ActiveToggle
+              isActive={magnet.is_active}
+              label={magnet.is_active ? "Hide this lead magnet" : "Show this lead magnet"}
+            />
+          </form>
+        </div>
+      </div>
+
+      {confirmingDelete ? (
+        <DeleteConfirmBar
+          label={`Delete "${magnet.title}"?`}
+          onCancel={onCancelDelete}
+          onConfirm={onConfirmDelete}
+        />
+      ) : (
+        <div className="flex items-center gap-2 border-t border-[var(--line)] px-1.5 pt-3">
+          <IconCircleButton label="Edit lead magnet" onClick={onEdit}>
+            <PencilIcon className="h-[17px] w-[17px]" />
+          </IconCircleButton>
+          <IconCircleButton label="Delete lead magnet" onClick={onAskDelete} tone="red">
+            <TrashIcon className="h-[17px] w-[17px]" />
+          </IconCircleButton>
+          <span className="flex-1" />
+          <LinkInBioRowMenu items={[{ label: "Move up", onSelect: onMoveUp }, { label: "Move down", onSelect: onMoveDown }]} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MagnetRow({
+  magnet,
+  selected,
+  onToggleSelected,
+  draggable,
+  dragging,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  confirmingDelete,
+  onAskDelete,
+  onCancelDelete,
+  onConfirmDelete,
+  onEdit,
+  onToggleActive,
+  onMoveUp,
+  onMoveDown,
+}: {
+  magnet: LeadMagnetRow;
+  selected: boolean;
+  onToggleSelected: () => void;
+  draggable: boolean;
+  dragging: boolean;
+  onDragStart: () => void;
+  onDragOver: (event: React.DragEvent) => void;
+  onDrop: () => void;
+  onDragEnd: () => void;
+  confirmingDelete: boolean;
+  onAskDelete: () => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
+  onEdit: () => void;
+  onToggleActive: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
+  return (
+    <div
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      className={`flex flex-wrap items-center gap-3 rounded-[24px] border-[1.5px] border-[var(--line)] bg-white p-3 pr-4.5 transition-[box-shadow,border-color,opacity] hover:border-[var(--secondary-border)] hover:shadow-[0_20px_36px_-28px_color-mix(in srgb, var(--secondary) 50%, transparent)] ${
+        dragging ? "opacity-40" : ""
       }`}
     >
-      {pending ? (
-        <span className="mx-auto h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/60 border-t-white" />
-      ) : (
-        <span
-          className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${
-            isActive ? "translate-x-5" : "translate-x-0"
-          }`}
-        />
+      <SelectBox checked={selected} label={`Select ${magnet.title}`} onChange={onToggleSelected} />
+
+      {draggable && (
+        <span className="hidden h-8 w-5 shrink-0 cursor-grab items-center justify-center text-[#B9B4C7] active:cursor-grabbing sm:flex" aria-hidden="true">
+          <GripIcon className="h-4 w-4" />
+        </span>
       )}
-    </button>
+
+      <Tile id={magnet.id} className="h-[60px] w-[60px] rounded-[18px]" />
+
+      <div className="flex min-w-[200px] flex-1 flex-col gap-0.5">
+        <span className="[overflow-wrap:anywhere] text-[17px] font-bold">{magnet.title}</span>
+        <span className="truncate text-sm text-[var(--muted)]">{magnet.file_name ?? "File"}</span>
+      </div>
+
+      <LeadCountLink id={magnet.id} leadCount={magnet.leadCount} />
+      <StatusBadgePill isActive={magnet.is_active} />
+
+      <form action={onToggleActive}>
+        <ActiveToggle
+          isActive={magnet.is_active}
+          label={magnet.is_active ? "Hide this lead magnet" : "Show this lead magnet"}
+        />
+      </form>
+
+      {confirmingDelete ? (
+        <DeleteConfirmBar label="Delete?" onCancel={onCancelDelete} onConfirm={onConfirmDelete} compact />
+      ) : (
+        <div className="flex items-center gap-2">
+          <IconCircleButton label="Edit lead magnet" onClick={onEdit}>
+            <PencilIcon className="h-[17px] w-[17px]" />
+          </IconCircleButton>
+          <IconCircleButton label="Delete lead magnet" onClick={onAskDelete} tone="red">
+            <TrashIcon className="h-[17px] w-[17px]" />
+          </IconCircleButton>
+          <LinkInBioRowMenu items={[{ label: "Move up", onSelect: onMoveUp }, { label: "Move down", onSelect: onMoveDown }]} />
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,183 +1,154 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  BoltIcon,
-  ChatIcon,
-  InstagramIcon,
-  SendIcon,
-  TrendingIcon,
-  UsersIcon,
-} from "@/components/icons";
+import { BoltIcon, ChatIcon, SendIcon, TrendingIcon, UsersIcon } from "@/components/icons";
+import { displayFont } from "@/app/(marketing)/_components/home/fonts";
 
 const FEATURES = [
-  { icon: BoltIcon, title: "Auto replies", desc: "Respond instantly" },
-  { icon: UsersIcon, title: "More engagement", desc: "Build real connections" },
-  {
-    icon: TrendingIcon,
-    title: "Grow faster",
-    desc: "Turn comments into customers",
-  },
+  { icon: BoltIcon, title: "Auto replies", desc: "Respond instantly", delay: "ha-d3" },
+  { icon: UsersIcon, title: "More engagement", desc: "Build real connections", delay: "ha-d4" },
+  { icon: TrendingIcon, title: "Grow faster", desc: "Turn comments into customers", delay: "ha-d4" },
+];
+
+const MESSAGES = [
+  "Automate Today. Grow Tomorrow.",
+  "Reply to every comment, day and night.",
+  "Capture leads while you sleep.",
 ];
 
 export function BrandingPanel() {
+  const [slide, setSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setSlide((s) => (s + 1) % MESSAGES.length), 3200);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
-    <div className="relative flex flex-1 overflow-hidden bg-zinc-950 lg:min-h-screen">
-      <div className="animate-gradient-shift absolute inset-0 bg-[linear-gradient(120deg,#0a0a0f,color-mix(in_srgb,var(--color-brand-800)_45%,#0a0a0f),#0a0a0f_60%)]" />
+    <div
+      className="relative flex flex-1 flex-col justify-between gap-10 overflow-hidden bg-[var(--ink)] p-12 text-white"
+      style={{
+        backgroundImage: "radial-gradient(rgba(255,255,255,.07) 1.2px, transparent 1.2px)",
+        backgroundSize: "30px 30px",
+      }}
+    >
+      <div className="ha-blob1 pointer-events-none absolute -top-30 -left-30 h-115 w-115 rounded-full bg-[var(--accent)] opacity-35 blur-[120px]" />
+      <div className="ha-blob2 pointer-events-none absolute -right-30 -bottom-40 h-130 w-130 rounded-full bg-[var(--violet)] opacity-50 blur-[120px]" />
 
-      <div className="absolute top-1/4 -left-20 h-72 w-72 animate-float rounded-full bg-brand-500/25 blur-3xl" />
-      <div className="absolute bottom-0 right-0 h-96 w-96 animate-float-delayed rounded-full bg-brand-500/20 blur-3xl" />
-
-      <svg
-        className="absolute inset-x-0 bottom-0 h-2/5 w-full opacity-80"
-        viewBox="0 0 800 320"
-        preserveAspectRatio="none"
-        fill="none"
-      >
-        <path
-          d="M0 160 C 150 100, 300 220, 480 150 S 700 60, 800 130 V320 H0 Z"
-          fill="url(#waveA)"
-        />
-        <path
-          d="M0 220 C 180 260, 340 170, 520 230 S 680 300, 800 220 V320 H0 Z"
-          fill="url(#waveB)"
-        />
-        <defs>
-          <linearGradient id="waveA" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="var(--color-brand-800)" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="var(--color-brand-900)" stopOpacity="0.3" />
-          </linearGradient>
-          <linearGradient id="waveB" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="var(--color-brand-900)" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="var(--color-brand-800)" stopOpacity="0.4" />
-          </linearGradient>
-        </defs>
-      </svg>
-
-      <div className="relative z-10 flex flex-1 flex-col justify-between p-8 text-white sm:p-12">
-        <Link
-          href="/"
-          className="animate-fade-in-up flex w-fit items-center gap-2.5 transition-opacity hover:opacity-80"
-        >
-          <div className="brand-gradient flex h-10 w-10 items-center justify-center rounded-xl shadow-sm shadow-brand-500/30">
-            <BoltIcon className="h-5 w-5" />
-          </div>
-          <div className="leading-tight">
-            <div className="text-base font-semibold tracking-tight">
-              Auto DM
-            </div>
-            <div className="text-xs text-white/50">
-              Engage. Automate. Grow.
-            </div>
-          </div>
-        </Link>
-
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_280px] xl:items-start">
-          <div className="animate-fade-in-up max-w-md">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold tracking-wide text-white/70 uppercase">
-              <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />
-              Instagram automation
-            </span>
-
-            <h1 className="mt-5 text-4xl leading-[1.05] font-bold tracking-tight sm:text-5xl">
-              Turn conversations
-              <br />
-              into{" "}
-              <span className="bg-[linear-gradient(100deg,var(--color-brand-400),var(--color-brand-gradient-via)_60%,var(--color-brand-gradient-to))] bg-clip-text text-transparent">
-                customers.
-              </span>
-            </h1>
-
-            <p className="mt-4 text-sm leading-relaxed text-white/60 sm:text-base">
-              Automate Instagram comments and DMs, engage your audience, and
-              never miss an opportunity.
-            </p>
-
-            <div
-              className="animate-fade-in-up mt-9 flex flex-col gap-4"
-              style={{ animationDelay: "0.1s" }}
-            >
-              {FEATURES.map((f) => (
-                <div key={f.title} className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/8">
-                    <f.icon className="h-4.5 w-4.5 text-brand-300" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-white">
-                      {f.title}
-                    </p>
-                    <p className="text-xs text-white/50">{f.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div
-            className="animate-fade-in-up relative hidden h-96 xl:block"
-            style={{ animationDelay: "0.2s" }}
-          >
-            <svg
-              className="pointer-events-none absolute inset-0 h-full w-full"
-              viewBox="0 0 280 380"
-              fill="none"
-            >
-              <path
-                d="M85 55 C 130 110, 55 165, 100 210 S 145 290, 195 320"
-                stroke="url(#flowGradient)"
-                strokeWidth="1.5"
-                className="animate-dash-flow"
-              />
-              <defs>
-                <linearGradient id="flowGradient" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="var(--color-brand-400)" />
-                  <stop offset="100%" stopColor="var(--color-brand-gradient-to)" />
-                </linearGradient>
-              </defs>
-              <circle cx="100" cy="210" r="3.5" fill="var(--color-brand-300)" className="animate-pulse-soft" />
-              <circle
-                cx="145"
-                cy="290"
-                r="3.5"
-                fill="var(--color-brand-200)"
-                className="animate-pulse-soft"
-                style={{ animationDelay: "0.5s" }}
-              />
-            </svg>
-
-            <div className="absolute top-0 left-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#f09433,#e6683c_25%,#dc2743_50%,#cc2366_75%,#bc1888_100%)] shadow-[0_0_40px_-4px_rgba(220,39,67,0.6)]">
-              <InstagramIcon className="h-8 w-8 text-white" />
-            </div>
-
-            <div className="absolute top-28 left-22 flex max-w-37.5 items-start gap-2 rounded-2xl rounded-tl-sm bg-white px-3.5 py-2.5 text-zinc-800 shadow-xl">
-              <ChatIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
-              <span className="text-xs leading-snug font-medium">
-                New comment
-                <br />
-                &ldquo;GUIDE&rdquo;
-              </span>
-            </div>
-
-            <div className="brand-gradient absolute top-51 left-2 flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold whitespace-nowrap text-white shadow-lg shadow-brand-500/40">
-              <BoltIcon className="h-3.5 w-3.5" />
-              Auto DM sent
-            </div>
-
-            <SendIcon className="absolute right-6 bottom-8 h-9 w-9 rotate-45 text-brand-300" />
-          </div>
-        </div>
-
-        <div
-          className="animate-fade-in-up flex items-center gap-3"
-          style={{ animationDelay: "0.3s" }}
-        >
-          <div className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-white/90" />
-            <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />
-            <span className="h-1.5 w-1.5 rounded-full bg-white/25" />
-          </div>
-          <span className="text-xs text-white/40">
-            Automate Today. Grow Tomorrow.
+      <Link href="/" className="ha-fadeup relative flex w-fit items-center gap-3.5 transition-opacity hover:opacity-80">
+        <span className="flex h-11 w-11 flex-none items-center justify-center rounded-[13px] bg-[var(--accent)] text-white">
+          <BoltIcon className="h-6 w-6" />
+        </span>
+        <span className="leading-tight">
+          <span className={`${displayFont} block text-[22px] font-extrabold tracking-[-0.02em]`}>
+            Auto DM
           </span>
+          <span className="block text-[13px] text-white/65">Engage. Automate. Grow.</span>
+        </span>
+      </Link>
+
+      <div className="relative flex flex-wrap items-center gap-8">
+        <div className="flex min-w-0 flex-1 basis-75 flex-col items-start gap-6.5">
+          <div className="ha-fadeup ha-d1 inline-flex items-center gap-2.5 rounded-full border border-white/20 px-4 py-1.5 text-xs font-bold tracking-[0.1em] text-[#E4DEF7] uppercase">
+            <span className="ha-pdot h-2 w-2 rounded-full bg-[var(--secondary)]" />
+            <span>Instagram automation</span>
+          </div>
+
+          <h1
+            className={`${displayFont} ha-fadeup ha-d2 m-0 text-[clamp(2.5rem,4.4vw,3.75rem)] leading-[1.04] font-extrabold tracking-[-0.035em]`}
+          >
+            Turn conversations into <span className="text-[var(--secondary)]">customers.</span>
+          </h1>
+
+          <p className="ha-fadeup ha-d3 m-0 max-w-105 text-lg text-white/65">
+            Automate Instagram comments and DMs, engage your audience, and never miss an
+            opportunity.
+          </p>
+
+          <div className="mt-1.5 flex flex-col gap-4.5">
+            {FEATURES.map((f) => (
+              <div key={f.title} className={`ha-fadeup ${f.delay} group flex items-center gap-3.5`}>
+                <span className="flex h-12 w-12 flex-none items-center justify-center rounded-full border border-white/15 bg-white/7 text-[#D9D0FF] transition-colors duration-300 group-hover:border-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white">
+                  <f.icon className="h-5.5 w-5.5" />
+                </span>
+                <span>
+                  <span className="block text-[17px] font-semibold">{f.title}</span>
+                  <span className="block text-sm text-white/65">{f.desc}</span>
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
+
+        <div aria-hidden="true" className="relative hidden min-h-105 flex-1 basis-70 sm:block">
+          <div className="ha-float1 absolute top-0 left-24">
+            <div className="ha-pulsering flex h-18 w-18 items-center justify-center rounded-[22px] bg-[var(--accent)] text-white">
+              <ChatIcon className="h-8.5 w-8.5" />
+            </div>
+          </div>
+
+          <svg className="absolute top-19 left-32" width="20" height="60" viewBox="0 0 20 60">
+            <path
+              className="animate-dash-flow"
+              d="M10 2 C 14 20, 4 38, 10 58"
+              fill="none"
+              stroke="#9C8FD6"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+
+          <div className="au-cardloop absolute top-35 left-15">
+            <div className="ha-float2 flex items-center gap-2.5 rounded-2xl bg-white px-4.5 py-3 text-[var(--ink)] shadow-[0_20px_40px_-16px_rgba(0,0,0,.6)]">
+              <ChatIcon className="h-4.5 w-4.5 text-[var(--violet)]" />
+              <span className="leading-tight">
+                <span className="block text-[13px] font-semibold">New comment</span>
+                <span className="block text-[13px] text-[var(--muted)]">&ldquo;GUIDE&rdquo;</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="au-pillloop absolute top-62.5 left-6">
+            <div className="ha-float3 inline-flex items-center gap-2.5 rounded-full bg-[var(--accent)] px-5.5 py-3 text-[15px] font-semibold text-white shadow-[0_18px_40px_-10px_color-mix(in srgb, var(--primary) 65%, transparent)]">
+              <BoltIcon className="h-4 w-4" />
+              <span>Auto DM sent</span>
+            </div>
+          </div>
+
+          <svg className="au-lineloop absolute top-74 left-30" width="180" height="120" viewBox="0 0 180 120">
+            <path
+              className="animate-dash-flow"
+              d="M4 4 C 40 40, 90 40, 150 96"
+              fill="none"
+              stroke="#9C8FD6"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+
+          <div className="au-planeloop absolute top-87.5 left-37.5">
+            <SendIcon className="h-10 w-10 text-[var(--secondary-border)]" />
+          </div>
+        </div>
+      </div>
+
+      <div className="relative flex min-h-7 items-center gap-4">
+        <div className="flex items-center gap-2">
+          {MESSAGES.map((_, i) => (
+            <span
+              key={i}
+              className="h-2 rounded-full transition-all duration-400"
+              style={{
+                width: i === slide ? 28 : 8,
+                background: i === slide ? "#fff" : "rgba(255,255,255,.35)",
+              }}
+            />
+          ))}
+        </div>
+        <span key={slide} className="ha-pop text-sm text-white/65">
+          {MESSAGES[slide]}
+        </span>
       </div>
     </div>
   );

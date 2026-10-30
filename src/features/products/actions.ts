@@ -178,6 +178,17 @@ export async function deleteProduct(id: string) {
   revalidatePath("/dashboard/products");
 }
 
+export async function deleteProducts(ids: string[]) {
+  if (ids.length === 0) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("products").delete().in("id", ids);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dashboard/products");
+}
+
 export async function toggleProductActive(id: string, isActive: boolean) {
   const supabase = await createClient();
   const { error } = await supabase

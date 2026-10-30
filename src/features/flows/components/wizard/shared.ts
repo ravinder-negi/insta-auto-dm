@@ -19,12 +19,27 @@ export const PUBLIC_REPLY_MAX_LENGTH = 140;
 
 export const ATTACHMENT_TYPES = [
   { value: "image", label: "Image" },
-  // { value: "video", label: "Video" },
-  // { value: "audio", label: "Audio" },
+  { value: "video", label: "Video" },
+  { value: "audio", label: "Audio" },
+  { value: "file", label: "File (PDF)" },
 ] as const;
 
+/** Instagram's own per-type caps — shown as a hint only; attachments are
+ *  linked by URL here, not uploaded, so size isn't checked client-side. */
+export const ATTACHMENT_SIZE_LIMITS: Record<
+  (typeof ATTACHMENT_TYPES)[number]["value"],
+  string
+> = {
+  image: "png or jpeg, up to 8MB",
+  video: "mp4, ogg, avi, mov or webm, up to 25MB",
+  audio: "aac, m4a, wav or mp4, up to 25MB",
+  file: "pdf, up to 25MB",
+};
+
 export const MAX_BUTTONS = 3;
-export const BUTTON_LABEL_MAX_LENGTH = 60;
+// Meta's URL-button title cap is 20 chars — a longer label risks truncation
+// or rejection by Instagram's generic-template API.
+export const BUTTON_LABEL_MAX_LENGTH = 20;
 export const CARD_TITLE_MAX_LENGTH = 80;
 
 export interface FlowWizardAccountOption {

@@ -2,6 +2,7 @@ const SIZES = {
   sm: "h-7 w-7 text-[11px]",
   md: "h-10 w-10 text-sm",
   lg: "h-12 w-12 text-base",
+  xl: "h-23 w-23 text-3xl",
 };
 
 export function Avatar({
@@ -9,21 +10,27 @@ export function Avatar({
   src,
   size = "md",
   muted = false,
+  ring = false,
   className = "",
 }: {
   name: string;
   src?: string | null;
   size?: keyof typeof SIZES;
   muted?: boolean;
+  ring?: boolean;
   className?: string;
 }) {
+  const ringClass = ring
+    ? "ring-[3px] ring-white shadow-[0_2px_10px_rgba(0,0,0,0.18)] dark:ring-zinc-900"
+    : "";
+
   if (src) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL, no next/image domain config
       <img
         src={src}
         alt={name}
-        className={`shrink-0 rounded-full object-cover ${SIZES[size]} ${className}`}
+        className={`shrink-0 rounded-full object-cover ${SIZES[size]} ${ringClass} ${className}`}
       />
     );
   }
@@ -32,7 +39,7 @@ export function Avatar({
     <span
       className={`flex shrink-0 items-center justify-center rounded-full font-semibold ${
         SIZES[size]
-      } ${
+      } ${ringClass} ${
         muted
           ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
           : "brand-gradient text-white shadow-[0_4px_10px_-3px_color-mix(in_srgb,var(--color-brand-500)_60%,transparent)]"

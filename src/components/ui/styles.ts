@@ -1,6 +1,6 @@
 /** Primary call-to-action. The solid `bg-brand-600` sits under the gradient so
  *  the white label always has a dark surface behind it. Gradient stops are
- *  admin-configurable — see /dashboard/admin/appearance and src/lib/utils/color.ts. */
+ *  configurable via app_settings — see src/lib/utils/color.ts. */
 export const primaryButtonClass =
   "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-600 bg-gradient-to-br from-[var(--color-brand-gradient-from)] via-[var(--color-brand-gradient-via)] to-[var(--color-brand-gradient-to)] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition-transform duration-200 hover:scale-[1.02] active:scale-[0.99] disabled:opacity-60 disabled:hover:scale-100";
 

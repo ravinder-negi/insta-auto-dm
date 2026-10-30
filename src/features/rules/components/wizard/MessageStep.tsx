@@ -5,6 +5,7 @@ import { SelectField, fieldClass } from "@/components/ui/controls";
 import {
   ClockIcon,
   EmojiIcon,
+  InfoIcon,
   MailIcon,
   PlusIcon,
   ShieldIcon,
@@ -12,6 +13,8 @@ import {
   UserIcon,
 } from "@/components/icons";
 import {
+  ATTACHMENT_SIZE_LIMITS,
+  ATTACHMENT_TYPES,
   BUTTON_LABEL_MAX_LENGTH,
   CARD_SUBTITLE_MAX_LENGTH,
   CARD_TITLE_MAX_LENGTH,
@@ -26,13 +29,15 @@ import {
 } from "./shared";
 
 const HAS_URL_PATTERN = /https?:\/\/[^\s]+/;
+const LINE = "var(--line)";
+const MUTED = "var(--muted)";
+const INK = "var(--ink)";
+const ACCENT = "var(--primary)";
 
 const QUICK_EMOJI = [
   "😀", "😍", "🔥", "🙌", "🎉", "✨", "👍", "🙏",
   "💜", "📩", "🚀", "💡", "✅", "👀", "💬", "🎁",
 ];
-
-const ATTACHMENT_TYPES = [{ value: "image", label: "Image" }] as const;
 
 export function MessageStep({
   values,
@@ -42,6 +47,7 @@ export function MessageStep({
   update: UpdateValue;
 }) {
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [attachmentInfoOpen, setAttachmentInfoOpen] = useState(false);
   const dmRef = useRef<HTMLTextAreaElement>(null);
 
   function insertEmoji(emoji: string) {
@@ -76,7 +82,43 @@ export function MessageStep({
     );
   }
 
-  const hasButtons = values.dm_buttons.length > 0;
+  // One DM can carry buttons OR a single attachment, never both — this is
+  // an explicit, exclusive choice rather than the attachment field silently
+  // disappearing once a button is added. Derived once from whatever's
+  // already saved, so revisiting the step doesn't reset it.
+  const [contentType, setContentType] = useState<"none" | "buttons" | "attachment">(() =>
+    values.dm_buttons.length > 0
+      ? "buttons"
+      : values.attachment_url.trim()
+        ? "attachment"
+        : "none"
+  );
+  const hasButtons = contentType === "buttons";
+
+  function selectContentType(type: "none" | "buttons" | "attachment") {
+    if (type === "buttons") {
+      update("attachment_url", "");
+      update("attachment_type", "image");
+      if (values.dm_buttons.length === 0) {
+        update("dm_buttons", [{ label: "", url: "" }]);
+      }
+      // The heading field only shows for cards; a text message with buttons
+      // still needs a non-empty one to save.
+      if (!values.dm_button_card_title.trim()) {
+        update("dm_button_card_title", "Tap the button below 👇");
+      }
+    } else {
+      update("dm_buttons", []);
+      update("dm_button_card_title", "");
+      update("dm_card_subtitle", "");
+      update("dm_default_action_url", "");
+      if (type === "none") {
+        update("attachment_url", "");
+        update("attachment_type", "image");
+      }
+    }
+    setContentType(type);
+  }
 
   // Local to this step — purely which fields show. Derived once from
   // whatever's already saved, so revisiting the step doesn't reset it.
@@ -89,21 +131,41 @@ export function MessageStep({
 
   function selectSendMode(mode: "message" | "template") {
     if (mode === "message") {
-      // The card-only fields are meaningless without a real authored card —
+      // Subtitle and tap-link are meaningless without a real authored card —
       // clear them so they don't silently ride along if buttons stay on.
+      // Card image stays: it applies with buttons in either mode.
       update("dm_card_subtitle", "");
       update("dm_default_action_url", "");
-      update("attachment_url", "");
     } else {
       // Template cards carry their text in the subtitle, not a separate
       // DM — clear it so a stale value can't get sent as a duplicate bubble.
       update("dm_message", "");
-      if (!hasButtons) {
-        update("dm_buttons", [{ label: "", url: "" }]);
-      }
     }
     setSendMode(mode);
   }
+
+  // The two states above collapse into one user-facing choice. Text may carry
+  // buttons (hasButtons); a card always does; an attachment excludes buttons.
+  const format: "text" | "card" | "attachment" = isTemplate
+    ? "card"
+    : contentType === "attachment"
+      ? "attachment"
+      : "text";
+
+  function selectFormat(next: "text" | "card" | "attachment") {
+    if (next === format) return;
+    selectSendMode(next === "card" ? "template" : "message");
+    if (next === "attachment") selectContentType("attachment");
+    else if (next === "card") {
+      if (contentType !== "buttons") selectContentType("buttons");
+    } else selectContentType("none");
+  }
+
+  // Buttons ride on a card, which fits a heading plus a subtitle and no more.
+  const messageMax =
+    format === "text" && hasButtons
+      ? CARD_TITLE_MAX_LENGTH + CARD_SUBTITLE_MAX_LENGTH
+      : DM_MAX_LENGTH;
 
   const delayValue = Number(values.send_delay_value);
   const delayLabel = Number.isFinite(delayValue) && delayValue > 0 ? delayValue : 1;
@@ -114,9 +176,9 @@ export function MessageStep({
   return (
     <div className="flex flex-col gap-7">
       <div>
-        <p className="text-sm font-semibold">
+        <p className="text-sm font-semibold" style={{ color: INK }}>
           Set a time delay
-          <span className="text-rose-500" aria-hidden="true">
+          <span style={{ color: ACCENT }} aria-hidden="true">
             {" "}
             *
           </span>
@@ -158,7 +220,7 @@ export function MessageStep({
             </SelectField>
           </div>
         </div>
-        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-1.5 flex items-center gap-1.5 text-xs" style={{ color: MUTED }}>
           <ClockIcon className="h-3.5 w-3.5 shrink-0" />
           {`We'll wait ${delayLabel} ${delayUnitLabel.toLowerCase()}${
             delayLabel === 1 ? "" : "s"
@@ -166,11 +228,11 @@ export function MessageStep({
         </p>
       </div>
 
-      <div className="border-t border-black/8 pt-6 dark:border-white/10">
-        <p className="text-sm font-semibold">
+      <div className="border-t pt-6" style={{ borderColor: LINE }}>
+        <p className="text-sm font-semibold" style={{ color: INK }}>
           Ask for something first (optional)
         </p>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-1 text-xs" style={{ color: MUTED }}>
           Hold the primary DM back until they follow you or hand over their
           email. Leave both off to send it straight away.
         </p>
@@ -186,6 +248,7 @@ export function MessageStep({
             <label
               htmlFor="rule_follow_prompt_message"
               className="mb-1.5 block text-sm font-semibold"
+              style={{ color: INK }}
             >
               Message asking them to follow
             </label>
@@ -199,7 +262,7 @@ export function MessageStep({
               }
               className={fieldClass}
             />
-            <p className="mt-1.5 text-xs text-zinc-500">
+            <p className="mt-1.5 text-xs" style={{ color: MUTED }}>
               Use <code>{"{profile_link}"}</code> to insert a link to your
               profile.
             </p>
@@ -215,6 +278,7 @@ export function MessageStep({
             <label
               htmlFor="rule_email_prompt_message"
               className="mb-1.5 block text-sm font-semibold"
+              style={{ color: INK }}
             >
               Message asking for their email
             </label>
@@ -232,54 +296,75 @@ export function MessageStep({
         </div>
       </div>
 
-      <div className="border-t border-black/8 pt-6 dark:border-white/10">
-        <p className="text-sm font-semibold">The primary DM</p>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          Pick one way to send it. Buttons work either way — a template card
-          also gets its own image, subtitle and tap-through link.
+      <div className="border-t pt-6" style={{ borderColor: LINE }}>
+        <p className="text-sm font-semibold" style={{ color: INK }}>
+          The primary DM
+        </p>
+        <p className="mt-1 text-xs" style={{ color: MUTED }}>
+          Pick how this DM looks. Instagram allows just one message per comment, so each DM is a single format.
         </p>
 
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
           <SendModeOption
-            active={!isTemplate}
-            title="Message"
-            note="Plain text DM. Add buttons below it if you like — a short message rides on the same card."
-            onClick={() => selectSendMode("message")}
+            active={format === "text"}
+            title="Text message"
+            note="A plain DM. Optionally add up to 3 link buttons."
+            onClick={() => selectFormat("text")}
           />
           <SendModeOption
-            active={isTemplate}
-            title="Template card"
-            note="One card with an image, heading, subtitle and up to 3 buttons — like a product card."
-            onClick={() => selectSendMode("template")}
+            active={format === "card"}
+            title="Card"
+            note="Image, heading, subtitle and buttons — like a product card."
+            onClick={() => selectFormat("card")}
+          />
+          <SendModeOption
+            active={format === "attachment"}
+            title="Attachment"
+            note="One image, video, audio clip or file, sent on its own."
+            onClick={() => selectFormat("attachment")}
           />
         </div>
 
-        <div className="mt-4 flex flex-col gap-4 rounded-2xl border border-dashed border-black/12 p-4 dark:border-white/15">
-          {!isTemplate && (
+        {format === "text" && (
+          <label className="mt-3 flex cursor-pointer items-center gap-2.5 text-sm" style={{ color: INK }}>
+            <input
+              type="checkbox"
+              checked={hasButtons}
+              onChange={(event) =>
+                selectContentType(event.target.checked ? "buttons" : "none")
+              }
+              className="h-4 w-4 accent-[var(--primary)]"
+            />
+            Add link buttons under the message
+          </label>
+        )}
+
+        <div className="mt-4 flex flex-col gap-4 rounded-2xl border border-dashed p-4" style={{ borderColor: "var(--secondary-border)" }}>
+          {format === "text" && (
             <div className="flex flex-col">
-              <label
-                htmlFor="rule_dm_message"
-                className="mb-1.5 text-sm font-semibold"
-              >
+              <label htmlFor="rule_dm_message" className="mb-1.5 text-sm font-semibold" style={{ color: INK }}>
                 DM content
                 {hasButtons && (
-                  <span className="font-normal text-zinc-400">
+                  <span className="font-normal" style={{ color: "var(--muted-soft)" }}>
                     {" "}
                     (optional)
                   </span>
                 )}
               </label>
 
-              <div className="rounded-xl border border-black/10 transition-all duration-200 focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-500/10 dark:border-white/12">
+              <div
+                className="rounded-xl border transition-all duration-200 focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_4px_color-mix(in srgb, var(--primary) 14%, transparent)]"
+                style={{ borderColor: LINE }}
+              >
                 <textarea
                   id="rule_dm_message"
                   ref={dmRef}
                   rows={6}
-                  maxLength={DM_MAX_LENGTH}
+                  maxLength={messageMax}
                   value={values.dm_message}
                   onChange={(event) => update("dm_message", event.target.value)}
                   placeholder="Hey there! Thanks for commenting 🙌 Here's the link I mentioned ⬇️"
-                  className="w-full resize-y rounded-t-xl bg-transparent px-3.5 py-2.5 text-sm outline-none placeholder:text-zinc-400"
+                  className="w-full resize-y rounded-t-xl bg-transparent px-3.5 py-2.5 text-sm outline-none placeholder:text-[var(--muted-soft)]"
                 />
                 <div className="relative flex items-center justify-between px-3 py-2">
                   <button
@@ -287,22 +372,26 @@ export function MessageStep({
                     onClick={() => setEmojiOpen((value) => !value)}
                     aria-label="Insert emoji"
                     aria-expanded={emojiOpen}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-black/5"
+                    style={{ color: "var(--muted-soft)" }}
                   >
                     <EmojiIcon className="h-4.5 w-4.5" />
                   </button>
-                  <span className="text-xs text-zinc-400">
-                    {values.dm_message.length}/{DM_MAX_LENGTH}
+                  <span className="text-xs" style={{ color: "var(--muted-soft)" }}>
+                    {values.dm_message.length}/{messageMax}
                   </span>
 
                   {emojiOpen && (
-                    <div className="animate-fade-in-up absolute bottom-10 left-0 z-20 grid w-56 grid-cols-8 gap-1 rounded-xl border border-black/6 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-zinc-900">
+                    <div
+                      className="animate-fade-in-up absolute bottom-10 left-0 z-20 grid w-56 grid-cols-8 gap-1 rounded-xl border bg-white p-2 shadow-xl"
+                      style={{ borderColor: LINE }}
+                    >
                       {QUICK_EMOJI.map((emoji) => (
                         <button
                           key={emoji}
                           type="button"
                           onClick={() => insertEmoji(emoji)}
-                          className="rounded-md py-1 text-base transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                          className="rounded-md py-1 text-base transition-colors hover:bg-black/5"
                         >
                           {emoji}
                         </button>
@@ -313,14 +402,15 @@ export function MessageStep({
               </div>
 
               {hasButtons && (
-                <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                  Short enough and it rides on the card itself, as one bubble.
-                  Longer, and it&apos;s sent first, on its own.
+                <p className="mt-1.5 text-xs" style={{ color: MUTED }}>
+                  With buttons, your message is limited to {messageMax}{" "}
+                  characters — Instagram shows it on a card with the buttons
+                  attached. Longer text can&apos;t carry real buttons.
                 </p>
               )}
 
               {HAS_URL_PATTERN.test(values.dm_message) && (
-                <p className="mt-1.5 text-xs text-zinc-500">
+                <p className="mt-1.5 text-xs" style={{ color: MUTED }}>
                   Links are sent as plain text — Instagram turns them into a
                   tappable link for the recipient.
                 </p>
@@ -328,14 +418,11 @@ export function MessageStep({
             </div>
           )}
 
-          {hasButtons && (
+          {hasButtons && isTemplate && (
             <div className="flex flex-col">
-              <label
-                htmlFor="rule_card_title"
-                className="mb-1.5 text-sm font-semibold"
-              >
+              <label htmlFor="rule_card_title" className="mb-1.5 text-sm font-semibold" style={{ color: INK }}>
                 Card heading
-                <span className="text-rose-500" aria-hidden="true">
+                <span style={{ color: ACCENT }} aria-hidden="true">
                   {" "}
                   *
                 </span>
@@ -351,11 +438,11 @@ export function MessageStep({
                   placeholder="Tap the button below 👇"
                   className={`${fieldClass} pr-16`}
                 />
-                <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-zinc-400">
+                <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs" style={{ color: "var(--muted-soft)" }}>
                   {values.dm_button_card_title.length}/{CARD_TITLE_MAX_LENGTH}
                 </span>
               </div>
-              <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1.5 text-xs" style={{ color: MUTED }}>
                 {isTemplate
                   ? "The card's bold headline, shown above the buttons."
                   : "Instagram shows buttons on a card. A short DM above rides on that card as its heading; a longer one is sent first, and the card below uses this heading instead."}
@@ -364,38 +451,38 @@ export function MessageStep({
           )}
 
           {hasButtons && isTemplate && (
+            <div className="flex flex-col">
+              <label htmlFor="rule_card_image" className="mb-1.5 text-sm font-semibold" style={{ color: INK }}>
+                Card image (optional)
+              </label>
+              <p className="mb-1.5 text-xs" style={{ color: MUTED }}>
+                Shown at the top of the card, above the heading — not sent as
+                a separate message. Applies with buttons either way, even in
+                Message mode.
+              </p>
+              <input
+                id="rule_card_image"
+                value={values.attachment_url}
+                onChange={(event) =>
+                  update("attachment_url", event.target.value)
+                }
+                placeholder="https://... (public image URL)"
+                aria-label="Card image URL"
+                className={fieldClass}
+              />
+            </div>
+          )}
+
+          {hasButtons && isTemplate && (
             <>
               <div className="flex flex-col">
-                <label
-                  htmlFor="rule_card_image"
-                  className="mb-1.5 text-sm font-semibold"
-                >
-                  Card image (optional)
-                </label>
-                <p className="mb-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                  Shown at the top of the card, above the heading — not sent
-                  as a separate message.
-                </p>
-                <input
-                  id="rule_card_image"
-                  value={values.attachment_url}
-                  onChange={(event) =>
-                    update("attachment_url", event.target.value)
-                  }
-                  placeholder="https://... (public image URL)"
-                  aria-label="Card image URL"
-                  className={fieldClass}
-                />
-              </div>
-
-              <div className="flex flex-col">
-                <label
-                  htmlFor="rule_card_subtitle"
-                  className="mb-1.5 text-sm font-semibold"
-                >
+                <label htmlFor="rule_card_subtitle" className="mb-1.5 text-sm font-semibold" style={{ color: INK }}>
                   Card subtitle (optional)
                 </label>
-                <div className="rounded-xl border border-black/10 transition-all duration-200 focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-500/10 dark:border-white/12">
+                <div
+                  className="rounded-xl border transition-all duration-200 focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_4px_color-mix(in srgb, var(--primary) 14%, transparent)]"
+                  style={{ borderColor: LINE }}
+                >
                   <textarea
                     id="rule_card_subtitle"
                     rows={3}
@@ -405,22 +492,19 @@ export function MessageStep({
                     }
                     maxLength={CARD_SUBTITLE_MAX_LENGTH}
                     placeholder="Explore our catalog"
-                    className="w-full resize-y rounded-xl bg-transparent px-3.5 py-2.5 text-sm outline-none placeholder:text-zinc-400"
+                    className="w-full resize-y rounded-xl bg-transparent px-3.5 py-2.5 text-sm outline-none placeholder:text-[var(--muted-soft)]"
                   />
-                  <span className="block px-3.5 pb-2 text-right text-xs text-zinc-400">
+                  <span className="block px-3.5 pb-2 text-right text-xs" style={{ color: "var(--muted-soft)" }}>
                     {values.dm_card_subtitle.length}/{CARD_SUBTITLE_MAX_LENGTH}
                   </span>
                 </div>
-                <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="mt-1.5 text-xs" style={{ color: MUTED }}>
                   Your message, shown as a caption line under the heading.
                 </p>
               </div>
 
               <div className="flex flex-col">
-                <label
-                  htmlFor="rule_default_action_url"
-                  className="mb-1.5 text-sm font-semibold"
-                >
+                <label htmlFor="rule_default_action_url" className="mb-1.5 text-sm font-semibold" style={{ color: INK }}>
                   Open this link when the card is tapped (optional)
                 </label>
                 <input
@@ -432,7 +516,7 @@ export function MessageStep({
                   placeholder="https://your-link.com"
                   className={fieldClass}
                 />
-                <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="mt-1.5 text-xs" style={{ color: MUTED }}>
                   Makes the whole card tappable, not just its buttons. Leave
                   blank to require a button tap.
                 </p>
@@ -440,22 +524,20 @@ export function MessageStep({
             </>
           )}
 
+          {hasButtons && (
           <div className="flex flex-col gap-3">
-            <p className="text-sm font-semibold">
+            <p className="text-sm font-semibold" style={{ color: INK }}>
               Buttons
-              <span className="font-normal text-zinc-400">
+              <span className="font-normal" style={{ color: "var(--muted-soft)" }}>
                 {" "}
                 (up to {MAX_BUTTONS})
               </span>
             </p>
 
             {values.dm_buttons.map((button, index) => (
-              <div
-                key={index}
-                className="rounded-xl border border-black/8 p-3.5 dark:border-white/10"
-              >
+              <div key={index} className="rounded-xl border p-3.5" style={{ borderColor: LINE }}>
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold">
+                  <p className="text-sm font-semibold" style={{ color: INK }}>
                     Button #{index + 1}
                   </p>
                   <button
@@ -469,7 +551,8 @@ export function MessageStep({
                         )
                       )
                     }
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/15"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--danger-tint)] hover:text-[var(--danger-strong)]"
+                    style={{ color: "var(--muted-soft)" }}
                   >
                     <TrashIcon className="h-4 w-4" />
                   </button>
@@ -486,12 +569,12 @@ export function MessageStep({
                     aria-label={`Button ${index + 1} label`}
                     className={`${fieldClass} pr-16`}
                   />
-                  <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-zinc-400">
+                  <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs" style={{ color: "var(--muted-soft)" }}>
                     {button.label.length}/{BUTTON_LABEL_MAX_LENGTH}
                   </span>
                 </div>
 
-                <p className="mt-3 mb-1.5 text-sm font-semibold">
+                <p className="mt-3 mb-1.5 text-sm font-semibold" style={{ color: INK }}>
                   When someone taps this button, open…
                 </p>
                 <input
@@ -515,20 +598,62 @@ export function MessageStep({
                     { label: "", url: "" },
                   ])
                 }
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-black/10 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+                className="inline-flex items-center justify-center gap-1.5 rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-black/4"
+                style={{ borderColor: LINE, color: INK }}
               >
                 <PlusIcon className="h-4 w-4" />
                 Add {values.dm_buttons.length > 0 ? "another " : "a "}button
               </button>
             )}
           </div>
+          )}
 
-          <div className="rounded-xl bg-zinc-50 p-3.5 dark:bg-white/5">
-            <p className="flex items-center gap-1.5 text-sm font-semibold">
+          {contentType === "attachment" && (
+            <div className="flex flex-col">
+              <p className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: INK }}>
+                Attachment
+                <AttachmentInfoTooltip
+                  open={attachmentInfoOpen}
+                  onShow={() => setAttachmentInfoOpen(true)}
+                  onHide={() => setAttachmentInfoOpen(false)}
+                />
+              </p>
+              <p className="mt-1 mb-2 text-xs" style={{ color: MUTED }}>
+                Sent on its own — Instagram can&apos;t send text and an
+                attachment in the same message. To send text, use a Text
+                message instead; links in it are tappable automatically.
+              </p>
+              <div className="flex flex-col gap-2.5 sm:flex-row">
+                <div className="sm:w-32">
+                  <SelectField
+                    value={values.attachment_type}
+                    aria-label="Attachment type"
+                    onChange={(event) => update("attachment_type", event.target.value)}
+                  >
+                    {ATTACHMENT_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </SelectField>
+                </div>
+                <input
+                  value={values.attachment_url}
+                  onChange={(event) => update("attachment_url", event.target.value)}
+                  placeholder="https://... (public URL)"
+                  aria-label="Attachment URL"
+                  className={`${fieldClass} flex-1`}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-xl p-3.5" style={{ backgroundColor: "var(--bg)" }}>
+            <p className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: INK }}>
               <ShieldIcon className="h-4 w-4 shrink-0" />
               Account safety
             </p>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1 text-xs" style={{ color: MUTED }}>
               Auto-replies on comments rotate between the wordings you wrote on
               the previous step, so not everyone sees the same text. Keep your
               DM wording human and your automation inside Instagram&apos;s
@@ -538,21 +663,22 @@ export function MessageStep({
         </div>
       </div>
 
-      <div className="border-t border-black/8 pt-6 dark:border-white/10">
-        <p className="text-sm font-semibold">Send follow-up messages</p>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+      <div className="border-t pt-6" style={{ borderColor: LINE }}>
+        <p className="text-sm font-semibold" style={{ color: INK }}>
+          Send follow-up messages
+        </p>
+        <p className="mt-1 text-xs" style={{ color: MUTED }}>
           Extra DMs sent after the primary one, each timed from when the
           primary DM goes out.
         </p>
 
         <div className="mt-3 flex flex-col gap-3">
           {values.followups.map((followup, index) => (
-            <div
-              key={index}
-              className="rounded-xl border border-black/8 p-3.5 dark:border-white/10"
-            >
+            <div key={index} className="rounded-xl border p-3.5" style={{ borderColor: LINE }}>
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold">Follow-up #{index + 1}</p>
+                <p className="text-sm font-semibold" style={{ color: INK }}>
+                  Follow-up #{index + 1}
+                </p>
                 <button
                   type="button"
                   aria-label={`Remove follow-up ${index + 1}`}
@@ -562,7 +688,8 @@ export function MessageStep({
                       values.followups.filter((_, position) => position !== index)
                     )
                   }
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/15"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--danger-tint)] hover:text-[var(--danger-strong)]"
+                  style={{ color: "var(--muted-soft)" }}
                 >
                   <TrashIcon className="h-4 w-4" />
                 </button>
@@ -623,7 +750,8 @@ export function MessageStep({
                   { delay_value: "1", delay_unit: "hour", message: "" },
                 ])
               }
-              className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-black/10 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              className="inline-flex w-fit items-center gap-1.5 rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-black/4"
+              style={{ borderColor: LINE, color: INK }}
             >
               <PlusIcon className="h-4 w-4" />
               Add a follow-up
@@ -632,37 +760,6 @@ export function MessageStep({
         </div>
       </div>
 
-      {!hasButtons && (
-        <div className="border-t border-black/8 pt-6 dark:border-white/10">
-          <p className="text-sm font-semibold">Attachment (optional)</p>
-          <p className="mt-1 mb-2 text-xs text-zinc-500 dark:text-zinc-400">
-            Sent as a second DM right after the primary one — a real inline
-            image, not just a link.
-          </p>
-          <div className="flex flex-col gap-2.5 sm:flex-row">
-            <div className="sm:w-32">
-              <SelectField
-                value={values.attachment_type}
-                aria-label="Attachment type"
-                onChange={(event) => update("attachment_type", event.target.value)}
-              >
-                {ATTACHMENT_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </SelectField>
-            </div>
-            <input
-              value={values.attachment_url}
-              onChange={(event) => update("attachment_url", event.target.value)}
-              placeholder="https://... (public URL)"
-              aria-label="Attachment URL"
-              className={`${fieldClass} flex-1`}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -685,26 +782,75 @@ function SendModeOption({
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-start gap-1 rounded-2xl border p-3.5 text-left transition-colors ${
-        active
-          ? "border-brand-400 bg-brand-50/60 dark:border-brand-400/60 dark:bg-brand-500/10"
-          : "border-black/10 bg-white hover:bg-black/5 dark:border-white/12 dark:bg-white/5 dark:hover:bg-white/10"
-      }`}
+      className="flex flex-col items-start gap-1 rounded-2xl border p-3.5 text-left transition-colors hover:bg-black/4"
+      style={active ? { borderColor: "var(--primary)", backgroundColor: "var(--tint-faint)" } : { borderColor: "var(--line)", backgroundColor: "#fff" }}
     >
-      <span className="flex items-center gap-2 text-sm font-semibold">
+      <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--ink)" }}>
         <span
-          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
-            active
-              ? "border-brand-600 bg-brand-600"
-              : "border-zinc-300 dark:border-zinc-600"
-          }`}
+          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2"
+          style={active ? { borderColor: "var(--primary)", backgroundColor: "var(--primary)" } : { borderColor: "#C9C3D6" }}
         >
           {active && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
         </span>
         {title}
       </span>
-      <span className="text-xs text-zinc-500 dark:text-zinc-400">{note}</span>
+      <span className="text-xs" style={{ color: "var(--muted)" }}>
+        {note}
+      </span>
     </button>
+  );
+}
+
+/** Info icon next to "Attachment" that pops open every type's format/size
+ *  rule at once, not just the one currently selected. */
+function AttachmentInfoTooltip({
+  open,
+  onShow,
+  onHide,
+}: {
+  open: boolean;
+  onShow: () => void;
+  onHide: () => void;
+}) {
+  return (
+    <span
+      className="relative inline-flex"
+      onMouseEnter={onShow}
+      onMouseLeave={onHide}
+    >
+      <button
+        type="button"
+        onFocus={onShow}
+        onBlur={onHide}
+        aria-label="Attachment format and size rules"
+        aria-expanded={open}
+        className="flex h-4 w-4 items-center justify-center rounded-full transition-colors hover:text-[var(--ink)]"
+        style={{ color: "var(--muted-soft)" }}
+      >
+        <InfoIcon className="h-4 w-4" />
+      </button>
+
+      {open && (
+        <div
+          className="animate-fade-in-up absolute bottom-6 left-0 z-20 w-64 rounded-xl border bg-white p-3 shadow-xl"
+          style={{ borderColor: LINE }}
+        >
+          <p className="mb-1.5 text-xs font-semibold" style={{ color: INK }}>
+            Attachment formats &amp; size limits
+          </p>
+          <ul className="flex flex-col gap-1">
+            {ATTACHMENT_TYPES.map((type) => (
+              <li key={type.value} className="text-xs" style={{ color: MUTED }}>
+                <span className="font-semibold" style={{ color: INK }}>
+                  {type.label}:
+                </span>{" "}
+                {ATTACHMENT_SIZE_LIMITS[type.value]}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </span>
   );
 }
 
@@ -726,15 +872,12 @@ function PreDmCard({
 }) {
   return (
     <div
-      className={`rounded-2xl border p-3.5 transition-colors ${
-        checked
-          ? "border-brand-300 bg-brand-50/60 dark:border-brand-400/50 dark:bg-brand-500/10"
-          : "border-black/8 bg-white dark:border-white/10 dark:bg-white/5"
-      }`}
+      className="rounded-2xl border p-3.5 transition-colors"
+      style={checked ? { borderColor: "var(--secondary-border)", backgroundColor: "var(--secondary-faint-bg)" } : { borderColor: "var(--line)", backgroundColor: "#fff" }}
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="flex items-center gap-2 text-sm font-semibold">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-brand-600 shadow-sm dark:bg-zinc-900 dark:text-brand-300">
+        <p className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--ink)" }}>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm" style={{ color: "var(--primary)" }}>
             {icon}
           </span>
           {title}
@@ -746,12 +889,14 @@ function PreDmCard({
             onChange={(event) => onChange(event.target.checked)}
             className="peer sr-only"
           />
-          <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-brand-600 dark:bg-zinc-700" />
+          <div className="h-6 w-11 rounded-full bg-[var(--secondary-pale)] transition-colors peer-checked:bg-[var(--primary)]" />
           <div className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
         </label>
       </div>
 
-      <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">{note}</p>
+      <p className="mt-1.5 text-xs" style={{ color: "var(--muted)" }}>
+        {note}
+      </p>
 
       {checked && <div className="animate-fade-in-up mt-3">{children}</div>}
     </div>

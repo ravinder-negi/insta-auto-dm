@@ -6,9 +6,12 @@ import {
   INSTAGRAM_OAUTH_BASE_URL,
 } from "@/lib/instagram/config";
 import { ONBOARDING_PATH, pendingOnboardingStep } from "@/lib/auth/onboarding";
+import { grantedScopes, missingScopeLabels } from "@/lib/instagram/scopes";
 
 const STATE_COOKIE = "ig_oauth_state";
 const ACCOUNTS_PATH = "/dashboard/accounts";
+/** Used when Meta's long-lived token response omits expires_in. */
+const DEFAULT_TOKEN_LIFETIME_SECONDS = 60 * 24 * 60 * 60;
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -79,6 +82,17 @@ export async function GET(request: NextRequest) {
       user_id?: string;
     };
 
+    // Each permission is a checkbox the user can untick on Instagram's
+    // consent screen. Without all three the token is valid but sends or
+    // comment events fail later with no visible cause, so refuse up front.
+    const missing = missingScopeLabels(grantedScopes(shortLived));
+    if (missing.length > 0) {
+      throw new Error(
+        `Auto DM needs permission to ${missing.join(", ")}. ` +
+          "Please connect again and keep every permission switched on.",
+      );
+    }
+
     // 2. Exchange the short-lived token for a long-lived one (~60 days).
     const longLivedUrl = new URL(
       `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/access_token`,
@@ -97,7 +111,13 @@ export async function GET(request: NextRequest) {
 
     const longLived = (await longLivedResponse.json()) as {
       access_token: string;
+      expires_in?: number;
     };
+    const issuedAt = new Date();
+    const expiresInSeconds =
+      typeof longLived.expires_in === "number" && longLived.expires_in > 0
+        ? longLived.expires_in
+        : DEFAULT_TOKEN_LIFETIME_SECONDS;
 
     // 3. Fetch the connected Instagram account's identity.
     const meUrl = new URL(`${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/me`);
@@ -117,7 +137,9 @@ export async function GET(request: NextRequest) {
       username?: string;
     };
 
-    // 4. Store the account, owned by the signed-in user.
+    // 4. Store the account, owned by the signed-in user. A reconnect lands
+    // on the same row (same instagram_user_id), so its rules, flows and
+    // sessions carry over, and the token is fresh and active again.
     const { error: upsertError } = await supabase
       .from("instagram_accounts")
       .upsert(
@@ -126,13 +148,27 @@ export async function GET(request: NextRequest) {
           instagram_user_id: me.user_id,
           username: me.username ?? null,
           access_token: longLived.access_token,
+          token_expires_at: new Date(
+            issuedAt.getTime() + expiresInSeconds * 1000,
+          ).toISOString(),
+          token_refreshed_at: issuedAt.toISOString(),
+          token_status: "active",
+          token_error: null,
           is_active: true,
-          updated_at: new Date().toISOString(),
+          updated_at: issuedAt.toISOString(),
         },
         { onConflict: "instagram_user_id" },
       );
 
     if (upsertError) {
+      // RLS only lets the owner update the row, so an account already
+      // connected under another login surfaces as a policy violation.
+      if (upsertError.code === "42501") {
+        throw new Error(
+          `@${me.username ?? me.user_id} is already connected to another Auto DM login. ` +
+            "Disconnect it there first.",
+        );
+      }
       throw new Error(upsertError.message);
     }
 
@@ -183,32 +219,6 @@ export async function GET(request: NextRequest) {
           (metaError?.message ? `: ${metaError.message}` : "") +
           (metaError?.code ? ` (code ${metaError.code})` : ""),
       );
-    }
-
-    // TEMPORARY DIAGNOSTIC — remove once webhook delivery is confirmed working.
-    // Re-fetch the subscription state right after subscribing, to see what
-    // Meta actually recorded (as opposed to what the subscribe call claimed).
-    try {
-      const verifyUrl = new URL(
-        `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${me.user_id}/subscribed_apps`,
-      );
-      verifyUrl.searchParams.set("access_token", longLived.access_token);
-
-      const verifyResponse = await fetch(verifyUrl);
-      const verifyBody = await verifyResponse.json().catch(() => null);
-
-      console.log("[DIAGNOSTIC] subscribed_apps check", {
-        instagramUserId: me.user_id,
-        httpStatus: verifyResponse.status,
-        responseJson: JSON.stringify(verifyBody, null, 2),
-        metaErrorCode: verifyBody?.error?.code,
-        metaErrorMessage: verifyBody?.error?.message,
-      });
-    } catch (diagErr) {
-      console.error("[DIAGNOSTIC] subscribed_apps check failed", {
-        instagramUserId: me.user_id,
-        error: diagErr instanceof Error ? diagErr.message : String(diagErr),
-      });
     }
   } catch (err) {
     console.error("Instagram connect failed:", err);

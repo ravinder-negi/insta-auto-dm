@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { AuthBrandHeader } from "./AuthBrandHeader";
 import { AuthCard } from "./AuthCard";
+import { AuthSubmitButton } from "./AuthSubmitButton";
 import { PasswordField } from "./PasswordField";
 import { ArrowRightIcon } from "@/components/icons";
+import { displayFont } from "@/app/(marketing)/_components/home/fonts";
 import { updatePassword, type ResetPasswordState } from "@/features/auth/actions/reset-password";
 
 export function ResetPasswordForm({ hasSession }: { hasSession: boolean }) {
@@ -18,16 +20,22 @@ export function ResetPasswordForm({ hasSession }: { hasSession: boolean }) {
     return (
       <AuthCard>
         <AuthBrandHeader />
-        <h1 className="text-3xl font-bold tracking-tight">Link expired</h1>
-        <p className="mt-2 text-sm text-zinc-500">
-          This password reset link is invalid or has expired. Request a new
-          one to continue.
-        </p>
+        <div>
+          <h1
+            className={`${displayFont} text-[32px] leading-[1.1] font-extrabold tracking-[-0.03em] text-[var(--ink)]`}
+          >
+            Link expired
+          </h1>
+          <p className="mt-2 text-[var(--muted)]">
+            This password reset link is invalid or has expired. Request a new one to continue.
+          </p>
+        </div>
         <Link
           href="/forgot-password"
-          className="mt-6 inline-block text-sm font-semibold text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+          className="inline-flex w-fit items-center gap-2 text-sm font-bold text-[var(--violet)] hover:underline"
         >
-          Request new link →
+          Request new link
+          <ArrowRightIcon className="h-4 w-4" />
         </Link>
       </AuthCard>
     );
@@ -37,16 +45,16 @@ export function ResetPasswordForm({ hasSession }: { hasSession: boolean }) {
     <AuthCard>
       <AuthBrandHeader />
 
-      <div className="mb-7">
-        <h1 className="text-3xl font-bold tracking-tight">
+      <div>
+        <h1
+          className={`${displayFont} text-[32px] leading-[1.1] font-extrabold tracking-[-0.03em] text-[var(--ink)]`}
+        >
           Set a new password
         </h1>
-        <p className="mt-1.5 text-sm text-zinc-500">
-          Choose a new password for your account.
-        </p>
+        <p className="mt-1.5 text-[var(--muted)]">Choose a new password for your account.</p>
       </div>
 
-      <form action={formAction} className="flex flex-col gap-4">
+      <form action={formAction} className="flex flex-col gap-5">
         <PasswordField
           id="password"
           name="password"
@@ -63,20 +71,9 @@ export function ResetPasswordForm({ hasSession }: { hasSession: boolean }) {
           minLength={6}
         />
 
-        {state?.error && (
-          <p className="animate-fade-in-up text-sm text-red-600 dark:text-red-400">
-            {state.error}
-          </p>
-        )}
+        {state?.error && <p className="animate-fade-in-up text-sm text-red-600">{state.error}</p>}
 
-        <button
-          type="submit"
-          disabled={pending}
-          className="brand-gradient mt-2 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:hover:scale-100"
-        >
-          {pending ? "Updating…" : "Update password"}
-          {!pending && <ArrowRightIcon className="h-4 w-4" />}
-        </button>
+        <AuthSubmitButton pending={pending} idleLabel="Update password" pendingLabel="Updating…" />
       </form>
     </AuthCard>
   );

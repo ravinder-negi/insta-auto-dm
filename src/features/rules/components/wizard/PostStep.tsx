@@ -147,18 +147,16 @@ export function PostStep({
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-2">
         <span className="ig-gradient flex h-16 w-16 items-center justify-center rounded-full">
-          <Avatar
-            name={account?.handle ?? "?"}
-            size="lg"
-            className="h-14 w-14 border-2 border-white dark:border-zinc-900"
-          />
+          <Avatar name={account?.handle ?? "?"} size="lg" className="h-14 w-14 border-2 border-white" />
         </span>
-        <p className="text-sm font-semibold">{account?.label ?? "No account"}</p>
+        <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
+          {account?.label ?? "No account"}
+        </p>
       </div>
 
       {!isLive && (
         <fieldset>
-          <legend className="text-sm font-semibold">
+          <legend className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
             {isStory
               ? "The story reply is on…"
               : isShare
@@ -176,11 +174,12 @@ export function PostStep({
                   type="button"
                   aria-pressed={active}
                   onClick={() => onScopeChange(option.value)}
-                  className={`flex items-center justify-center rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                  className="flex items-center justify-center rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all duration-200 hover:border-[var(--secondary-border)] hover:bg-[var(--secondary-faint-bg)]"
+                  style={
                     active
-                      ? "border-brand-500 bg-brand-50/70 text-brand-700 ring-2 ring-brand-500/15 dark:border-brand-400/70 dark:bg-brand-500/10 dark:text-brand-300"
-                      : "border-black/8 bg-white hover:border-brand-300 hover:bg-brand-50/40 dark:border-white/10 dark:bg-white/5 dark:hover:border-brand-400/40 dark:hover:bg-white/10"
-                  }`}
+                      ? { borderColor: "var(--primary)", backgroundColor: "var(--tint-faint)", color: "var(--primary-strong)", boxShadow: "0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent)" }
+                      : { borderColor: "var(--line)", backgroundColor: "#fff", color: "var(--ink)" }
+                  }
                 >
                   {option.label}
                 </button>
@@ -189,7 +188,7 @@ export function PostStep({
           </div>
 
           {activeScope && (
-            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
               {activeScope.hint}
             </p>
           )}
@@ -199,13 +198,14 @@ export function PostStep({
       {scope === "specific" ? (
         <div>
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold">
+            <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
               {isStory ? "Pick a story" : "Pick a post or reel"}
             </p>
             <button
               type="button"
               onClick={() => onManualEntryChange(!manualEntry)}
-              className="text-xs font-semibold text-brand-600 underline-offset-2 hover:underline dark:text-brand-400"
+              className="text-xs font-semibold underline-offset-2 hover:underline"
+              style={{ color: "var(--primary)" }}
             >
               {manualEntry
                 ? `Pick from your ${isStory ? "stories" : "posts"}`
@@ -231,18 +231,21 @@ export function PostStep({
           ) : loading ? (
             <div className={`mt-3 ${GRID_CLASS}`}>
               {Array.from({ length: 8 }).map((_, index) => (
-                <span
-                  key={index}
-                  className={`${TILE_CLASS} animate-pulse rounded-xl bg-black/6 dark:bg-white/8`}
-                />
+                <span key={index} className={`${TILE_CLASS} animate-pulse rounded-xl`} style={{ backgroundColor: "var(--neutral-tint)" }} />
               ))}
             </div>
           ) : error ? (
-            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+            <p
+              className="mt-3 rounded-xl border px-3.5 py-2.5 text-xs"
+              style={{ borderColor: "#F0D9A6", backgroundColor: "var(--warning-tint)", color: "var(--warning-text)" }}
+            >
               {error}
             </p>
           ) : items.length === 0 ? (
-            <p className="mt-3 rounded-xl border border-dashed border-black/10 px-3.5 py-6 text-center text-xs text-zinc-500 dark:border-white/12 dark:text-zinc-400">
+            <p
+              className="mt-3 rounded-xl border border-dashed px-3.5 py-6 text-center text-xs"
+              style={{ borderColor: "var(--line)", color: "var(--muted)" }}
+            >
               {isStory
                 ? "No stories currently live on this account. Post a story, then come back and pick it here — it only stays listed for 24 hours."
                 : "No posts found on this account yet."}
@@ -261,11 +264,8 @@ export function PostStep({
                     aria-pressed={active}
                     title={item.caption?.trim() || "(no caption)"}
                     onClick={() => selectItem(item)}
-                    className={`group relative ${TILE_CLASS} overflow-hidden rounded-xl border transition-all duration-200 ${
-                      active
-                        ? "border-brand-500 ring-2 ring-brand-500/25"
-                        : "border-black/8 hover:border-brand-300 dark:border-white/10"
-                    }`}
+                    className={`group relative ${TILE_CLASS} overflow-hidden rounded-xl border transition-all duration-200`}
+                    style={active ? { borderColor: "var(--primary)", boxShadow: "0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent)" } : { borderColor: "var(--line)" }}
                   >
                     {item.thumbnail_url ? (
                       // eslint-disable-next-line @next/next/no-img-element -- Instagram CDN URL, no next/image domain config
@@ -275,7 +275,7 @@ export function PostStep({
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : (
-                      <span className="flex h-full w-full items-center justify-center bg-zinc-100 text-zinc-400 dark:bg-zinc-800">
+                      <span className="flex h-full w-full items-center justify-center" style={{ backgroundColor: "var(--neutral-tint)", color: "var(--muted-soft)" }}>
                         <InstagramIcon className="h-5 w-5" />
                       </span>
                     )}
@@ -285,8 +285,8 @@ export function PostStep({
                     </span>
 
                     {active && (
-                      <span className="absolute inset-0 flex items-center justify-center bg-brand-600/35">
-                        <span className="brand-gradient flex h-7 w-7 items-center justify-center rounded-full text-white shadow">
+                      <span className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--primary) 35%, transparent)" }}>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full text-white shadow" style={{ backgroundColor: "var(--primary)" }}>
                           <CheckIcon className="h-4 w-4" />
                         </span>
                       </span>
@@ -305,8 +305,11 @@ export function PostStep({
           )}
         </div>
       ) : (
-        <p className="flex items-start gap-2.5 rounded-2xl border border-black/8 bg-zinc-50 px-3.5 py-3 text-xs text-zinc-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300">
-          <SparkleIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
+        <p
+          className="flex items-start gap-2.5 rounded-2xl border px-3.5 py-3 text-xs"
+          style={{ borderColor: "var(--line)", backgroundColor: "var(--bg)", color: "var(--muted)" }}
+        >
+          <SparkleIcon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--violet)]" />
           {isStory
             ? `Every story reply on ${account?.label ?? "this account"} is checked for your keyword — no story to pick.`
             : isLive

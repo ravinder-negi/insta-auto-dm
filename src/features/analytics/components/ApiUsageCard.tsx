@@ -3,25 +3,10 @@ import { formatRelative } from "@/lib/utils/format";
 
 type UsageStatus = "normal" | "elevated" | "high";
 
-const STATUS_STYLES: Record<
-  UsageStatus,
-  { label: string; bar: string; chip: string }
-> = {
-  normal: {
-    label: "Normal",
-    bar: "bg-emerald-500",
-    chip: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  },
-  elevated: {
-    label: "Elevated",
-    bar: "bg-amber-500",
-    chip: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-  },
-  high: {
-    label: "High",
-    bar: "bg-rose-500",
-    chip: "bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400",
-  },
+const STATUS_STYLES: Record<UsageStatus, { label: string; bar: string; bg: string; fg: string }> = {
+  normal: { label: "Normal", bar: "var(--success)", bg: "var(--success-tint)", fg: "var(--success-text)" },
+  elevated: { label: "Elevated", bar: "var(--warning)", bg: "var(--warning-tint)", fg: "var(--warning-text)" },
+  high: { label: "High", bar: "var(--danger)", bg: "var(--danger-tint)", fg: "var(--danger-deep)" },
 };
 
 // Meta doesn't publish a fixed request cap — these bands are just severity
@@ -45,14 +30,13 @@ export function ApiUsageCard({
 }) {
   if (percent === null || updatedAt === null) {
     return (
-      <div className="rounded-2xl border border-black/6 bg-white p-4 dark:border-white/8 dark:bg-white/4">
-        <p className="flex items-center gap-2 text-sm font-semibold">
-          <ChartIcon className="h-4 w-4 text-zinc-400" />
+      <div className="rounded-[26px] border-[1.5px] border-[var(--line)] bg-white p-5">
+        <p className="m-0 flex items-center gap-2 text-sm font-bold">
+          <ChartIcon className="h-4 w-4 text-[var(--muted-soft)]" />
           Instagram API usage
         </p>
-        <p className="mt-1.5 text-xs text-zinc-500">
-          No usage data yet — this fills in once your first automated reply
-          sends.
+        <p className="m-0 mt-1.5 text-xs text-[var(--muted)]">
+          No usage data yet — this fills in once your first automated reply sends.
         </p>
       </div>
     );
@@ -62,40 +46,39 @@ export function ApiUsageCard({
   const style = STATUS_STYLES[status];
 
   return (
-    <div className="rounded-2xl border border-black/6 bg-white p-4 dark:border-white/8 dark:bg-white/4">
+    <div className="rounded-[26px] border-[1.5px] border-[var(--line)] bg-white p-5">
       <div className="flex items-center justify-between gap-3">
-        <p className="flex items-center gap-2 text-sm font-semibold">
+        <p className="m-0 flex items-center gap-2 text-sm font-bold">
           {status === "high" ? (
-            <AlertIcon className="h-4 w-4 text-rose-500" />
+            <AlertIcon className="h-4 w-4 text-[var(--primary)]" />
           ) : (
-            <ChartIcon className="h-4 w-4 text-zinc-400" />
+            <ChartIcon className="h-4 w-4 text-[var(--muted-soft)]" />
           )}
           Instagram API usage
         </p>
         <span
-          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${style.chip}`}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold"
+          style={{ backgroundColor: style.bg, color: style.fg }}
         >
-          <span className={`h-1.5 w-1.5 rounded-full ${style.bar}`} />
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: style.bar }} />
           {style.label}
         </span>
       </div>
 
-      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[var(--neutral-tint)]">
         <div
-          className={`h-full rounded-full ${style.bar}`}
-          style={{ width: `${Math.min(100, percent)}%` }}
+          className="h-full rounded-full"
+          style={{ width: `${Math.min(100, percent)}%`, backgroundColor: style.bar }}
         />
       </div>
 
-      <p className="mt-2 text-xs text-zinc-500">
-        {percent}% of Meta&apos;s current rate limit used · updated{" "}
-        {formatRelative(updatedAt, now)}
+      <p className="m-0 mt-2 text-xs text-[var(--muted)]">
+        {percent}% of Meta&apos;s current rate limit used · updated {formatRelative(updatedAt, now)}
       </p>
 
       {status === "high" && (
-        <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400">
-          Approaching Instagram&apos;s API limit — new DMs may be delayed or
-          fail until usage drops.
+        <p className="m-0 mt-2 text-xs font-semibold text-[var(--primary)]">
+          Approaching Instagram&apos;s API limit — new DMs may be delayed or fail until usage drops.
         </p>
       )}
     </div>

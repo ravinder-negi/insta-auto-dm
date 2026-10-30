@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import { fieldClass } from "@/components/ui/controls";
 import {
   ArrowRightIcon,
   CheckIcon,
@@ -14,6 +13,9 @@ import {
   type ContactMessageState,
 } from "@/features/contact/actions/submit-contact-message";
 
+const fieldClass =
+  "w-full rounded-xl border border-[var(--line)] bg-white px-3.5 py-2.5 text-sm text-[var(--ink)] outline-none transition-all duration-200 placeholder:text-[var(--muted)] focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent)]/10";
+
 export function ContactForm() {
   const [state, formAction, pending] = useActionState<
     ContactMessageState,
@@ -22,14 +24,14 @@ export function ContactForm() {
 
   if (state && "success" in state) {
     return (
-      <div className="animate-fade-in-up flex flex-col items-center gap-3 rounded-2xl border border-zinc-200/70 bg-white px-6 py-10 text-center dark:border-zinc-800 dark:bg-zinc-900/40">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300">
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-[var(--line)] bg-white px-6 py-10 text-center">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--success-tint)] text-[var(--success-text)]">
           <CheckIcon className="h-5 w-5" />
         </span>
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+        <h2 className="text-lg font-semibold text-[var(--ink)]">
           Message sent
         </h2>
-        <p className="max-w-sm text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="max-w-sm text-sm text-[var(--muted)]">
           Thanks for reaching out — we&apos;ll get back to you by email soon.
         </p>
       </div>
@@ -39,17 +41,14 @@ export function ContactForm() {
   return (
     <form
       action={formAction}
-      className="flex flex-col gap-4 rounded-2xl border border-zinc-200/70 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900/40"
+      className="flex flex-col gap-4 rounded-2xl border border-[var(--line)] bg-white p-6"
     >
       <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="name"
-          className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-        >
+        <label htmlFor="name" className="text-sm font-medium text-[var(--ink)]">
           Name
         </label>
         <div className="relative">
-          <UserIcon className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+          <UserIcon className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
           <input
             id="name"
             name="name"
@@ -63,14 +62,11 @@ export function ContactForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="email"
-          className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-        >
+        <label htmlFor="email" className="text-sm font-medium text-[var(--ink)]">
           Email
         </label>
         <div className="relative">
-          <MailIcon className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+          <MailIcon className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
           <input
             id="email"
             name="email"
@@ -84,14 +80,11 @@ export function ContactForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="phone"
-          className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-        >
+        <label htmlFor="phone" className="text-sm font-medium text-[var(--ink)]">
           Phone
         </label>
         <div className="relative">
-          <PhoneIcon className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+          <PhoneIcon className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
           <input
             id="phone"
             name="phone"
@@ -105,10 +98,7 @@ export function ContactForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="message"
-          className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-        >
+        <label htmlFor="message" className="text-sm font-medium text-[var(--ink)]">
           How can we help?
         </label>
         <textarea
@@ -122,15 +112,13 @@ export function ContactForm() {
       </div>
 
       {state?.error && (
-        <p className="animate-fade-in-up text-sm text-red-600 dark:text-red-400">
-          {state.error}
-        </p>
+        <p className="text-sm text-red-600">{state.error}</p>
       )}
 
       <button
         type="submit"
         disabled={pending}
-        className="brand-gradient mt-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:hover:scale-100"
+        className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:hover:scale-100"
       >
         {pending ? "Sending…" : "Send message"}
         {!pending && <ArrowRightIcon className="h-4 w-4" />}

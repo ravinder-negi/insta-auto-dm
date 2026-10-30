@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/features/auth/actions/login";
-import { isAdmin } from "@/lib/auth/admin";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { ReconnectBanner } from "@/components/layout/ReconnectBanner";
 
 export default async function DashboardLayout({
   children,
@@ -16,21 +16,29 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const admin = await isAdmin();
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", user.id)
-    .single();
+  const [{ data: profile }, { data: expiredAccounts }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("instagram_accounts")
+      .select("username, instagram_user_id")
+      .eq("token_status", "expired"),
+  ]);
 
   return (
     <DashboardShell
       userEmail={user.email ?? ""}
       displayName={profile?.display_name ?? null}
       signOutAction={signOut}
-      isAdmin={admin}
     >
+      <ReconnectBanner
+        handles={(expiredAccounts ?? []).map(
+          (account) => account.username ?? account.instagram_user_id
+        )}
+      />
       {children}
     </DashboardShell>
   );

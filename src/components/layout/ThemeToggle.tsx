@@ -3,14 +3,20 @@
 import { useSyncExternalStore } from "react";
 import { MoonIcon, SunIcon } from "@/components/icons";
 
-/** The class on <html> is the source of truth (`dark`/`light` = explicit
- *  choice, neither = follow the OS), so watch it rather than mirroring it. */
+/** The class on `.dashboard-theme` (DashboardShell's root) is the source of
+ *  truth (`dark`/`light` = explicit choice, neither = follow the OS), so
+ *  watch it rather than mirroring it. This toggle only ever renders inside
+ *  that subtree, post-login. */
+function getShell() {
+  return document.querySelector(".dashboard-theme");
+}
+
 function subscribe(onChange: () => void) {
+  const shell = getShell();
   const observer = new MutationObserver(onChange);
-  observer.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["class"],
-  });
+  if (shell) {
+    observer.observe(shell, { attributes: true, attributeFilter: ["class"] });
+  }
 
   const media = window.matchMedia("(prefers-color-scheme: dark)");
   media.addEventListener("change", onChange);
@@ -22,7 +28,8 @@ function subscribe(onChange: () => void) {
 }
 
 function isDarkNow() {
-  const classes = document.documentElement.classList;
+  const classes = getShell()?.classList;
+  if (!classes) return false;
   if (classes.contains("dark")) return true;
   if (classes.contains("light")) return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -32,9 +39,11 @@ export function ThemeToggle() {
   const isDark = useSyncExternalStore(subscribe, isDarkNow, () => false);
 
   function toggle() {
+    const shell = getShell();
+    if (!shell) return;
     const next = isDarkNow() ? "light" : "dark";
-    document.documentElement.classList.remove("dark", "light");
-    document.documentElement.classList.add(next);
+    shell.classList.remove("dark", "light");
+    shell.classList.add(next);
     try {
       localStorage.setItem("theme", next);
     } catch {

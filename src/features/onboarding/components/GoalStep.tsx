@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { displayFont } from "@/app/(marketing)/_components/home/fonts";
 import { CheckIcon } from "@/components/icons";
 import { OnboardingCard } from "./OnboardingLayout";
 import { StepFooter } from "./StepFooter";
@@ -20,11 +21,13 @@ export function GoalStep({ initialGoal }: { initialGoal: string | null }) {
   return (
     <OnboardingCard>
       <form action={formAction} className="flex flex-1 flex-col">
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-          Great! What&apos;s your <span className="text-rose-500">#1 goal</span>{" "}
-          right now?
+        <h1
+          className={`${displayFont} text-xl font-extrabold tracking-tight text-[var(--ink)] sm:text-2xl`}
+        >
+          Great! What&apos;s your{" "}
+          <span style={{ color: "var(--accent)" }}>#1 goal</span> right now?
         </h1>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-[var(--muted)]">
           Helps us tailor your dashboard so everything you need is in one place.
           Nothing is locked — switch any time in Settings.
         </p>
@@ -43,19 +46,25 @@ export function GoalStep({ initialGoal }: { initialGoal: string | null }) {
                   type="button"
                   aria-pressed={active}
                   onClick={() => setGoal(option.value)}
-                  className={`flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-left text-sm font-medium transition-all duration-200 ${
+                  className="flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-left text-sm font-medium text-[var(--ink)] transition-all duration-200"
+                  style={
                     active
-                      ? "border-brand-500 bg-brand-50/70 ring-2 ring-brand-500/15 dark:border-brand-400/70 dark:bg-brand-500/10"
-                      : "border-black/8 bg-white hover:border-brand-300 hover:bg-brand-50/40 dark:border-white/10 dark:bg-white/5 dark:hover:border-brand-400/40 dark:hover:bg-white/10"
-                  }`}
+                      ? {
+                          borderColor: "var(--accent)",
+                          background: "color-mix(in srgb, var(--accent) 7%, white)",
+                          boxShadow: "0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent)",
+                        }
+                      : { borderColor: "var(--line)", background: "#fff" }
+                  }
                 >
                   <span
                     aria-hidden="true"
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors"
+                    style={
                       active
-                        ? "brand-gradient border-transparent text-white"
-                        : "border-black/15 text-zinc-300 dark:border-white/25 dark:text-zinc-600"
-                    }`}
+                        ? { background: "var(--accent)", borderColor: "transparent", color: "#fff" }
+                        : { borderColor: "rgba(21,19,28,.15)", color: "#C7C2D6" }
+                    }
                   >
                     <CheckIcon className="h-3.5 w-3.5" />
                   </span>
@@ -67,9 +76,7 @@ export function GoalStep({ initialGoal }: { initialGoal: string | null }) {
         </fieldset>
 
         {state?.error && (
-          <p className="animate-fade-in-up mt-4 text-sm text-red-600 dark:text-red-400">
-            {state.error}
-          </p>
+          <p className="animate-fade-in-up mt-4 text-sm text-red-600">{state.error}</p>
         )}
 
         <StepFooter

@@ -1,42 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import type { InstagramAccount } from "@/types";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { currentTimestamp } from "@/lib/utils/format";
-import { StatCard } from "@/components/ui/StatCard";
-import {
-  ChatIcon,
-  CheckIcon,
-  DotsIcon,
-  LayersIcon,
-  PauseIcon,
-  SendIcon,
-  TrendingIcon,
-  UsersIcon,
-} from "@/components/icons";
 import { AccountsHero } from "@/features/accounts/components/AccountsHero";
 import { AccountsList, type AccountRow } from "@/features/accounts/components/AccountsList";
 import { fetchInstagramProfileStats } from "@/lib/instagram/profile";
-
-const HIGHLIGHTS = [
-  {
-    icon: ChatIcon,
-    tone: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300",
-    title: "Auto reply",
-    description: "Respond instantly",
-  },
-  {
-    icon: UsersIcon,
-    tone: "bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300",
-    title: "Save time",
-    description: "Focus on what matters",
-  },
-  {
-    icon: TrendingIcon,
-    tone: "bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300",
-    title: "Grow faster",
-    description: "Turn comments into customers",
-  },
-];
 
 export default async function AccountsPage(
   props: PageProps<"/dashboard/accounts">
@@ -47,11 +14,11 @@ export default async function AccountsPage(
 
   const supabase = await createClient();
 
-  const [{ data, error }, { data: activity }, { count: repliesSent }] =
+  const [{ data, error }, { data: activity }, { count: repliesSent }, { data: ruleRows }, { data: flowRows }] =
     await Promise.all([
       supabase
         .from("instagram_accounts")
-        .select("id, instagram_user_id, username, is_active, created_at, access_token")
+        .select("id, instagram_user_id, username, is_active, token_status, created_at, access_token")
         .order("created_at", { ascending: false }),
       // Newest first, so the first row seen for an account is its last activity.
       supabase
@@ -63,6 +30,8 @@ export default async function AccountsPage(
         .from("automation_executions")
         .select("id", { count: "exact", head: true })
         .eq("status", "sent"),
+      supabase.from("automation_rules").select("instagram_account_id, is_active"),
+      supabase.from("dm_flows").select("instagram_account_id, is_active"),
     ]);
 
   const lastActivity = new Map<string, string>();
@@ -72,9 +41,24 @@ export default async function AccountsPage(
     }
   }
 
+  function countByAccount(rows: { instagram_account_id: string | null; is_active: boolean }[] | null) {
+    const counts = new Map<string, { total: number; active: number }>();
+    for (const row of rows ?? []) {
+      if (!row.instagram_account_id) continue;
+      const entry = counts.get(row.instagram_account_id) ?? { total: 0, active: 0 };
+      entry.total += 1;
+      if (row.is_active) entry.active += 1;
+      counts.set(row.instagram_account_id, entry);
+    }
+    return counts;
+  }
+
+  const ruleCounts = countByAccount(ruleRows);
+  const flowCounts = countByAccount(flowRows);
+
   const rows = (data ?? []) as Pick<
     InstagramAccount,
-    "id" | "instagram_user_id" | "username" | "is_active" | "created_at" | "access_token"
+    "id" | "instagram_user_id" | "username" | "is_active" | "token_status" | "created_at" | "access_token"
   >[];
 
   const profileStats = await Promise.all(
@@ -83,94 +67,48 @@ export default async function AccountsPage(
 
   const accounts: AccountRow[] = rows.map((account, index) => {
     const stats = profileStats[index];
+    const rules = ruleCounts.get(account.id) ?? { total: 0, active: 0 };
+    const flows = flowCounts.get(account.id) ?? { total: 0, active: 0 };
     return {
       id: account.id,
       instagram_user_id: account.instagram_user_id,
       username: account.username,
       is_active: account.is_active,
+      tokenExpired: account.token_status === "expired",
       created_at: account.created_at,
       lastActivityAt: lastActivity.get(account.id) ?? null,
       profilePictureUrl: stats?.profilePictureUrl ?? null,
       followersCount: stats?.followersCount ?? null,
       followsCount: stats?.followsCount ?? null,
       mediaCount: stats?.mediaCount ?? null,
+      ruleCount: rules.total,
+      activeRuleCount: rules.active,
+      flowCount: flows.total,
+      activeFlowCount: flows.active,
     };
   });
 
-  const activeCount = accounts.filter((account) => account.is_active).length;
-  const activeShare =
-    accounts.length > 0 ? Math.round((activeCount / accounts.length) * 100) : 0;
+  const activeCount = accounts.filter(
+    (account) => account.is_active && !account.tokenExpired
+  ).length;
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col max-[1070px]:gap-6">
-        <PageHeader
-          eyebrow="Instagram accounts"
-          title={
-            <>
-              Manage your <span className="brand-text-gradient">Instagram accounts</span>
-            </>
-          }
-          description="Connect the accounts you want to automate comment replies for."
-          aside={<AccountsHero />}
-        />
-
-        <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
-          {HIGHLIGHTS.map((highlight, index) => (
-            <div key={highlight.title} className="flex items-center gap-3">
-              {index > 0 && (
-                <span className="mr-5 hidden h-10 w-px bg-black/8 sm:block dark:bg-white/10" />
-              )}
-              <span
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${highlight.tone}`}
-              >
-                <highlight.icon className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold">{highlight.title}</p>
-                <p className="text-xs text-zinc-500">{highlight.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <AccountsHero
+        total={accounts.length}
+        active={activeCount}
+        paused={accounts.length - activeCount}
+        repliesSent={repliesSent ?? 0}
+      />
 
       {(connectError || error) && (
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400">
+        <p
+          className="rounded-xl border px-4 py-3 text-sm font-semibold"
+          style={{ borderColor: "var(--danger-border)", backgroundColor: "var(--danger-tint-faint)", color: "var(--danger-deep)" }}
+        >
           {connectError ?? error?.message}
         </p>
       )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Connected accounts"
-          value={accounts.length}
-          tone="indigo"
-          icon={<LayersIcon className="h-5 w-5" />}
-          corner={<UsersIcon className="h-4 w-4" />}
-        />
-        <StatCard
-          label="Active accounts"
-          value={activeCount}
-          tone="green"
-          icon={<CheckIcon className="h-5 w-5" />}
-          trend={{ label: `↑ ${activeShare}%`, caption: "of connected" }}
-        />
-        <StatCard
-          label="Paused accounts"
-          value={accounts.length - activeCount}
-          tone="amber"
-          icon={<PauseIcon className="h-5 w-5" />}
-          corner={<DotsIcon className="h-4 w-4 rotate-90" />}
-        />
-        <StatCard
-          label="Total replies sent"
-          value={repliesSent ?? 0}
-          tone="blue"
-          icon={<UsersIcon className="h-5 w-5" />}
-          corner={<SendIcon className="h-4 w-4" />}
-        />
-      </div>
 
       <AccountsList accounts={accounts} now={currentTimestamp()} />
     </div>

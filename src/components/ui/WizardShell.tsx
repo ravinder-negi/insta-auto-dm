@@ -9,6 +9,11 @@ export interface WizardStepMeta {
   description: string;
 }
 
+const LINE = "var(--line)";
+const INK = "var(--ink)";
+const MUTED = "var(--muted)";
+const ACCENT = "var(--primary)";
+
 /** Card chrome shared by every wizard step: the step rail on top, the step's
  *  own body in the middle, Back/Next pinned to the bottom. */
 export function WizardShell({
@@ -22,6 +27,8 @@ export function WizardShell({
   cancelHref,
   onCancel,
   error,
+  stepValid,
+  onStepSelect,
   children,
 }: {
   steps: WizardStepMeta[];
@@ -39,18 +46,35 @@ export function WizardShell({
   /** Renders cancel as a button — used when the wizard runs inside a modal. */
   onCancel?: () => void;
   error?: string;
+  /** Per-step completeness, same order as `steps`. Enables clicking the rail:
+   *  a step is reachable only once every step before it is valid, so a user
+   *  can't jump ahead past unfinished info. Going back is always allowed. */
+  stepValid?: boolean[];
+  onStepSelect?: (index: number) => void;
   children: ReactNode;
 }) {
   const meta = steps[current];
   const percent = Math.round(((current + 1) / steps.length) * 100);
 
+  // Reachable: a past/current step always, a future step only when every step
+  // before it is complete.
+  function canGoTo(index: number) {
+    if (!onStepSelect || index === current) return false;
+    if (index < current) return true;
+    return (stepValid ?? []).slice(0, index).every(Boolean);
+  }
+
   return (
-    <div className="flex flex-col rounded-3xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05),0_24px_60px_-40px_rgba(80,60,160,0.35)] dark:border-white/8 dark:bg-white/4">
-      <div className="border-b border-black/6 px-5 py-4 sm:px-7 sm:py-5 dark:border-white/8">
+    <div
+      className="flex flex-col rounded-[30px] border bg-white shadow-[0_24px_60px_-40px_color-mix(in srgb, var(--ink) 35%, transparent)]"
+      style={{ borderColor: LINE }}
+    >
+      <div className="border-b px-5 py-4 sm:px-7 sm:py-5" style={{ borderColor: LINE }}>
         <ol className="flex items-center gap-2 sm:gap-3">
           {steps.map((step, index) => {
             const done = index < current;
             const active = index === current;
+            const reachable = canGoTo(index);
 
             return (
               <li
@@ -58,32 +82,37 @@ export function WizardShell({
                 aria-current={active ? "step" : undefined}
                 className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3"
               >
-                <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${
-                    done
-                      ? "bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300"
-                      : active
-                        ? "brand-gradient text-white shadow-sm shadow-brand-500/30"
-                        : "border border-black/10 text-zinc-400 dark:border-white/15 dark:text-zinc-500"
-                  }`}
+                <button
+                  type="button"
+                  disabled={!reachable}
+                  onClick={reachable ? () => onStepSelect?.(index) : undefined}
+                  aria-label={`Go to step ${index + 1}: ${step.title}`}
+                  className={`flex min-w-0 items-center gap-2 rounded-full text-left sm:gap-3 ${reachable ? "cursor-pointer" : "cursor-default"}`}
                 >
-                  {done ? <CheckIcon className="h-3.5 w-3.5" /> : index + 1}
-                </span>
-                <span
-                  className={`hidden min-w-0 truncate text-xs font-semibold sm:block ${
-                    active || done ? "" : "text-zinc-400 dark:text-zinc-500"
-                  }`}
-                >
-                  {step.title}
-                </span>
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all ${reachable ? "hover:ring-2 hover:ring-[color-mix(in_srgb,var(--primary)_35%,transparent)]" : ""}`}
+                    style={
+                      done
+                        ? { backgroundColor: "var(--tint2)", color: "var(--violet)" }
+                        : active
+                          ? { backgroundColor: ACCENT, color: "#fff" }
+                          : { border: `1px solid ${LINE}`, color: "var(--muted-soft)" }
+                    }
+                  >
+                    {done ? <CheckIcon className="h-3.5 w-3.5" /> : index + 1}
+                  </span>
+                  <span
+                    className={`hidden min-w-0 truncate text-xs font-semibold sm:block ${reachable ? "hover:underline" : ""}`}
+                    style={{ color: active || done ? INK : "var(--muted-soft)" }}
+                  >
+                    {step.title}
+                  </span>
+                </button>
                 {index < steps.length - 1 && (
                   <span
                     aria-hidden="true"
-                    className={`h-px flex-1 ${
-                      done
-                        ? "bg-brand-300 dark:bg-brand-500/50"
-                        : "bg-black/10 dark:bg-white/12"
-                    }`}
+                    className="h-px flex-1"
+                    style={{ backgroundColor: done ? "#CFC6F5" : LINE }}
                   />
                 )}
               </li>
@@ -97,18 +126,21 @@ export function WizardShell({
           aria-valuemin={0}
           aria-valuemax={100}
           aria-label="AutoDM setup progress"
-          className="mt-4 block h-1.5 overflow-hidden rounded-full bg-black/8 sm:hidden dark:bg-white/12"
+          className="mt-4 block h-1.5 overflow-hidden rounded-full sm:hidden"
+          style={{ backgroundColor: "var(--neutral-tint)" }}
         >
           <span
-            className="brand-gradient block h-full rounded-full transition-all duration-500"
-            style={{ width: `${percent}%` }}
+            className="block h-full rounded-full transition-all duration-500"
+            style={{ width: `${percent}%`, backgroundColor: ACCENT }}
           />
         </span>
       </div>
 
       <div className="px-5 py-6 sm:px-7 sm:py-7">
-        <h2 className="text-lg font-bold tracking-tight">{meta.title}</h2>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+        <h2 className="text-lg font-bold tracking-tight" style={{ color: INK }}>
+          {meta.title}
+        </h2>
+        <p className="mt-1 text-sm" style={{ color: MUTED }}>
           {meta.description}
         </p>
 
@@ -117,14 +149,17 @@ export function WizardShell({
         </div>
 
         {error && (
-          <p className="animate-fade-in-up mt-5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400">
+          <p
+            className="animate-fade-in-up mt-5 rounded-xl border px-3.5 py-2.5 text-sm font-semibold"
+            style={{ borderColor: "var(--danger-border)", backgroundColor: "var(--danger-tint-faint)", color: "var(--danger-deep)" }}
+          >
             {error}
           </p>
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-black/6 px-5 py-4 sm:px-7 dark:border-white/8">
-        <span className="hidden text-xs font-medium text-zinc-500 sm:block dark:text-zinc-400">
+      <div className="flex items-center justify-between gap-3 border-t px-5 py-4 sm:px-7" style={{ borderColor: LINE }}>
+        <span className="hidden text-xs font-medium sm:block" style={{ color: MUTED }}>
           Step {current + 1} of {steps.length}
         </span>
 
@@ -133,7 +168,8 @@ export function WizardShell({
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 px-4 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-black/5 max-sm:flex-1 max-sm:justify-center dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/10"
+              className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-black/4 max-sm:flex-1 max-sm:justify-center"
+              style={{ borderColor: LINE, color: INK }}
             >
               <ArrowLeftIcon className="h-4 w-4" />
               Back
@@ -142,14 +178,16 @@ export function WizardShell({
             <button
               type="button"
               onClick={onCancel}
-              className="inline-flex items-center rounded-xl border border-black/10 px-4 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-black/5 max-sm:flex-1 max-sm:justify-center dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/10"
+              className="inline-flex items-center rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-black/4 max-sm:flex-1 max-sm:justify-center"
+              style={{ borderColor: LINE, color: INK }}
             >
               Cancel
             </button>
           ) : (
             <Link
               href={cancelHref ?? "/dashboard/rules"}
-              className="inline-flex items-center rounded-xl border border-black/10 px-4 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-black/5 max-sm:flex-1 max-sm:justify-center dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/10"
+              className="inline-flex items-center rounded-full border px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-black/4 max-sm:flex-1 max-sm:justify-center"
+              style={{ borderColor: LINE, color: INK }}
             >
               Cancel
             </Link>
@@ -164,7 +202,8 @@ export function WizardShell({
               onNext ? onNext() : event.currentTarget.form?.requestSubmit()
             }
             disabled={!canContinue || pending}
-            className="brand-gradient inline-flex items-center justify-center gap-1.5 rounded-xl px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition-transform duration-200 hover:scale-[1.02] active:scale-[0.99] disabled:opacity-45 disabled:shadow-none disabled:hover:scale-100 max-sm:flex-1"
+            className="inline-flex items-center justify-center gap-1.5 rounded-full px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-transform duration-200 hover:scale-[1.02] active:scale-[0.99] disabled:opacity-45 disabled:hover:scale-100 max-sm:flex-1"
+            style={{ backgroundColor: ACCENT, boxShadow: "0 16px 30px -12px color-mix(in srgb, var(--primary) 60%, transparent)" }}
           >
             {pending ? "Saving…" : nextLabel}
             {!pending && onNext && <ArrowRightIcon className="h-4 w-4" />}
@@ -180,44 +219,44 @@ export function WizardShell({
  *  the modal doesn't jump in size once the real step rail and content mount. */
 export function WizardShellSkeleton({ stepCount }: { stepCount: number }) {
   return (
-    <div className="flex flex-col rounded-3xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05),0_24px_60px_-40px_rgba(80,60,160,0.35)] dark:border-white/8 dark:bg-white/4">
-      <div className="border-b border-black/6 px-5 py-4 sm:px-7 sm:py-5 dark:border-white/8">
+    <div
+      className="flex flex-col rounded-[30px] border bg-white shadow-[0_24px_60px_-40px_color-mix(in srgb, var(--ink) 35%, transparent)]"
+      style={{ borderColor: LINE }}
+    >
+      <div className="border-b px-5 py-4 sm:px-7 sm:py-5" style={{ borderColor: LINE }}>
         <ol className="flex items-center gap-2 sm:gap-3">
           {Array.from({ length: stepCount }).map((_, index) => (
             <li key={index} className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-              <span className="h-7 w-7 shrink-0 animate-pulse rounded-full bg-black/8 dark:bg-white/10" />
-              <span className="hidden h-3 w-16 min-w-0 animate-pulse rounded-full bg-black/8 sm:block dark:bg-white/10" />
+              <span className="h-7 w-7 shrink-0 animate-pulse rounded-full" style={{ backgroundColor: "var(--neutral-tint)" }} />
+              <span className="hidden h-3 w-16 min-w-0 animate-pulse rounded-full sm:block" style={{ backgroundColor: "var(--neutral-tint)" }} />
               {index < stepCount - 1 && (
-                <span
-                  aria-hidden="true"
-                  className="h-px flex-1 bg-black/10 dark:bg-white/12"
-                />
+                <span aria-hidden="true" className="h-px flex-1" style={{ backgroundColor: LINE }} />
               )}
             </li>
           ))}
         </ol>
 
-        <span className="mt-4 block h-1.5 overflow-hidden rounded-full bg-black/8 sm:hidden dark:bg-white/12">
-          <span className="block h-full w-1/4 animate-pulse rounded-full bg-black/15 dark:bg-white/20" />
+        <span className="mt-4 block h-1.5 overflow-hidden rounded-full sm:hidden" style={{ backgroundColor: "var(--neutral-tint)" }}>
+          <span className="block h-full w-1/4 animate-pulse rounded-full" style={{ backgroundColor: "#E1D9FB" }} />
         </span>
       </div>
 
       <div className="px-5 py-6 sm:px-7 sm:py-7">
-        <div className="h-5 w-40 animate-pulse rounded-full bg-black/10 dark:bg-white/12" />
-        <div className="mt-2.5 h-3.5 w-64 max-w-full animate-pulse rounded-full bg-black/8 dark:bg-white/10" />
+        <div className="h-5 w-40 animate-pulse rounded-full" style={{ backgroundColor: "var(--neutral-tint)" }} />
+        <div className="mt-2.5 h-3.5 w-64 max-w-full animate-pulse rounded-full" style={{ backgroundColor: "var(--neutral-tint)" }} />
 
         <div className="mt-6 flex flex-col gap-3">
-          <div className="h-24 animate-pulse rounded-2xl bg-black/6 dark:bg-white/8" />
-          <div className="h-11 animate-pulse rounded-xl bg-black/6 dark:bg-white/8" />
-          <div className="h-11 w-2/3 animate-pulse rounded-xl bg-black/6 dark:bg-white/8" />
+          <div className="h-24 animate-pulse rounded-2xl" style={{ backgroundColor: "var(--bg)" }} />
+          <div className="h-11 animate-pulse rounded-xl" style={{ backgroundColor: "var(--bg)" }} />
+          <div className="h-11 w-2/3 animate-pulse rounded-xl" style={{ backgroundColor: "var(--bg)" }} />
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-black/6 px-5 py-4 sm:px-7 dark:border-white/8">
-        <span className="hidden h-3 w-16 animate-pulse rounded-full bg-black/8 sm:block dark:bg-white/10" />
+      <div className="flex items-center justify-between gap-3 border-t px-5 py-4 sm:px-7" style={{ borderColor: LINE }}>
+        <span className="hidden h-3 w-16 animate-pulse rounded-full sm:block" style={{ backgroundColor: "var(--neutral-tint)" }} />
         <div className="flex flex-1 items-center justify-end gap-2.5 max-sm:flex-row-reverse">
-          <span className="h-10 w-20 shrink-0 animate-pulse rounded-xl bg-black/6 dark:bg-white/8" />
-          <span className="h-10 w-28 shrink-0 animate-pulse rounded-xl bg-black/10 dark:bg-white/12" />
+          <span className="h-10 w-20 shrink-0 animate-pulse rounded-full" style={{ backgroundColor: "var(--bg)" }} />
+          <span className="h-10 w-28 shrink-0 animate-pulse rounded-full" style={{ backgroundColor: "var(--neutral-tint)" }} />
         </div>
       </div>
     </div>

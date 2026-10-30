@@ -1,13 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { INSTAGRAM_AUTHORIZE_BASE_URL } from "@/lib/instagram/config";
+import { INSTAGRAM_SCOPES } from "@/lib/instagram/scopes";
 
 const STATE_COOKIE = "ig_oauth_state";
-const SCOPES = [
-  "instagram_business_basic",
-  "instagram_business_manage_messages",
-  "instagram_business_manage_comments",
-].join(",");
+const SCOPES = INSTAGRAM_SCOPES.join(",");
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();

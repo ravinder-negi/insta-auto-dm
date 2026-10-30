@@ -150,6 +150,17 @@ export async function deleteLeadMagnet(id: string) {
   revalidatePath("/dashboard/lead-magnets");
 }
 
+export async function deleteLeadMagnets(ids: string[]) {
+  if (ids.length === 0) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("lead_magnets").delete().in("id", ids);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dashboard/lead-magnets");
+}
+
 export async function toggleLeadMagnetActive(id: string, isActive: boolean) {
   const supabase = await createClient();
   const { error } = await supabase

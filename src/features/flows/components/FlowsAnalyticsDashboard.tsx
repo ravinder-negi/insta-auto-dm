@@ -1,9 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { SelectField } from "@/components/ui/controls";
-import { StatCard } from "@/components/ui/StatCard";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { PillSelect } from "@/components/ui/PillSelect";
 import {
   CalendarIcon,
   ChartIcon,
@@ -12,6 +10,8 @@ import {
   InstagramIcon,
   MailIcon,
 } from "@/components/icons";
+import { StatTile } from "@/features/analytics/components/chart-primitives";
+import { displayFont } from "@/lib/linkInBioTheme";
 import { FlowStepFunnel } from "@/features/flows/components/FlowStepFunnel";
 import { FlowLeaderboard, type FlowPerformance } from "@/features/flows/components/FlowLeaderboard";
 
@@ -163,26 +163,19 @@ export function FlowsAnalyticsDashboard({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <SelectField
-          value={range}
-          onChange={(event) => setRange(event.target.value)}
-          aria-label="Filter by date range"
-          icon={<CalendarIcon className="h-4 w-4" />}
-          className="sm:w-48"
-        >
+        <PillSelect value={range} onChange={setRange} icon={<CalendarIcon className="h-4 w-4" />} ariaLabel="Filter by date range">
           {Object.entries(RANGES).map(([value, option]) => (
             <option key={value} value={value}>
               {option.label}
             </option>
           ))}
-        </SelectField>
+        </PillSelect>
 
-        <SelectField
+        <PillSelect
           value={accountId}
-          onChange={(event) => setAccountId(event.target.value)}
-          aria-label="Filter by account"
+          onChange={setAccountId}
           icon={<InstagramIcon className="h-4 w-4" />}
-          className="sm:w-56"
+          ariaLabel="Filter by account"
         >
           <option value="all">All accounts</option>
           {accounts.map((account) => (
@@ -190,43 +183,34 @@ export function FlowsAnalyticsDashboard({
               @{account.handle}
             </option>
           ))}
-        </SelectField>
+        </PillSelect>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Conversations started"
-          value={view.total}
-          tone="indigo"
-          icon={<ChartIcon className="h-5 w-5" />}
-        />
-        <StatCard
+        <StatTile label="Conversations started" value={view.total} tone="violet" icon={<ChartIcon className="h-5 w-5" />} />
+        <StatTile
           label="Completed"
           value={view.completed}
           tone="green"
           icon={<CheckIcon className="h-5 w-5" />}
           corner={view.completionRate !== null ? `${view.completionRate}%` : undefined}
         />
-        <StatCard
-          label="Still active"
-          value={view.active}
-          tone="amber"
-          icon={<ClockIcon className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Emails collected"
-          value={view.emails}
-          tone="blue"
-          icon={<MailIcon className="h-5 w-5" />}
-        />
+        <StatTile label="Still active" value={view.active} tone="amber" icon={<ClockIcon className="h-5 w-5" />} />
+        <StatTile label="Emails collected" value={view.emails} tone="pink" icon={<MailIcon className="h-5 w-5" />} />
       </div>
 
       {view.total === 0 ? (
-        <EmptyState
-          icon={<ChartIcon className="h-6 w-6" />}
-          title="Nothing to chart in this period"
-          description="Try a wider date range, or check back once your DM flows start replying to comments."
-        />
+        <div className="flex flex-col items-center gap-4 rounded-[36px] border-[1.5px] border-dashed border-[var(--secondary-border)] bg-[var(--secondary-faint-bg)] px-7 py-14 text-center">
+          <span className="animate-float flex h-[72px] w-[72px] items-center justify-center rounded-[22px] bg-[var(--violet)] text-white">
+            <ChartIcon className="h-[34px] w-[34px]" />
+          </span>
+          <h3 className={`m-0 ${displayFont} text-[28px] font-extrabold tracking-[-0.03em]`}>
+            Nothing to chart in this period
+          </h3>
+          <p className="m-0 max-w-[380px] text-[var(--muted)]">
+            Try a wider date range, or check back once your DM flows start replying to comments.
+          </p>
+        </div>
       ) : (
         <>
           <FlowStepFunnel funnel={view.funnel} total={view.total} />

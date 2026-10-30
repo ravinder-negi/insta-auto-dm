@@ -1,14 +1,17 @@
 @import "tailwindcss";
 
-/* Three theme states on <html>: `dark` and `light` are explicit choices made
-   with the header switch, and no class at all follows the OS preference — so
-   the page paints correctly even before the theme script runs. */
+/* The dark/light toggle only exists post-login (dashboard header + settings),
+   so it only ever applies inside `.dashboard-theme` (the DashboardShell root)
+   — landing and auth pages never get a `.dark`/`.light` class and always stay
+   on the :root defaults below, regardless of OS preference. `dark` and
+   `light` are explicit choices made with the toggle; no class on
+   `.dashboard-theme` follows the OS preference. */
 @custom-variant dark {
-  &:where(.dark, .dark *) {
+  &:where(.dashboard-theme.dark, .dashboard-theme.dark *) {
     @slot;
   }
   @media (prefers-color-scheme: dark) {
-    &:where(:root:not(.light), :root:not(.light) *) {
+    &:where(.dashboard-theme:not(.light), .dashboard-theme:not(.light) *) {
       @slot;
     }
   }
@@ -22,18 +25,106 @@
   --color-brand-gradient-from: #6366f1;
   --color-brand-gradient-via: #7c3aed;
   --color-brand-gradient-to: #a855f7;
+
+  /* ============================================================
+     BRAND IDENTITY PALETTE
+     Single source of truth for the app's accent colors — marketing
+     pages, dashboard UI and the public link-in-bio pages all read
+     from these custom properties instead of hardcoding hex. Fixed:
+     does not participate in dark mode or the per-tenant admin accent
+     ramp (--color-brand-*, set by buildBrandCssVars in lib/utils/color.ts).
+
+     TO SWITCH THE WHOLE APP'S THEME: edit --primary / --secondary
+     below (everything else in the primary/secondary family derives
+     from them via color-mix). To keep the old theme on hand, move its
+     --primary/--secondary line into a comment and swap which block is
+     active — see the "Indigo Pop" example below.
+     ============================================================ */
+  /* ---- Theme: Pink/Violet (retired — kept here in case we go back) ----
+  --primary: #d61f5c;
+  --secondary: #5b3fe0; */
+
+  /* ---- Active theme: Indigo Pop — values copied verbatim from the design
+     team's reference exports (Accounts-html, Creator profile-html,
+     Products-html, Public page-html, AutoDMs-html: "--accent:{{accent}}"
+     resolves to #4F46E5 in every one of them). ---- */
+  --primary: #4f46e5;
+  --secondary: #f59e0b;
+
+  /* Derived shades — auto-follow whichever --primary is active above. Used
+     for CTA/selected-state emphasis (buttons, selected cards, focus rings) —
+     see the reference exports' `bd: isSel ? accent : line, bg: isSel ?
+     '#F5F6FF' : white` pattern, which this reproduces almost exactly. */
+  --tint: color-mix(in srgb, var(--primary) 10%, white);
+  --tint-faint: color-mix(in srgb, var(--primary) 6%, white);
+
+  /* Violet is its OWN fixed brand color in the reference exports
+     ("--violet:#5B3FE0", present in every export, never templated) — not a
+     shade of --primary and not swapped when the theme is. Icon fills, the
+     spinning-ring gradient (conic-gradient(accent, violet, accent)) and the
+     violet-tinted cards/borders below all read from it directly. */
+  --violet: #5b3fe0;
+  --tint2: color-mix(in srgb, var(--violet) 10%, white);
+  --secondary-border: color-mix(in srgb, var(--violet) 35%, white);
+  --secondary-pale-border: color-mix(in srgb, var(--violet) 25%, white);
+  --secondary-pale: color-mix(in srgb, var(--violet) 30%, white);
+  --secondary-soft-bg: color-mix(in srgb, var(--violet) 6%, white);
+  --secondary-faint-bg: color-mix(in srgb, var(--violet) 4%, white);
+
+  /* Danger/destructive — also fixed in the reference exports (literal
+     #B3174A/#F2B8CB border+text on the "Disconnect account" button, etc).
+     This is what D61F5C/its shades actually mean now that accent is no
+     longer pink: a dedicated error/destructive color, independent of theme,
+     for delete/remove/disconnect actions, failed/disabled status and form
+     validation errors. */
+  --danger: #d61f5c;
+  --danger-tint: #ffe9f0;
+  --danger-tint-faint: #fff1f6;
+  --danger-border: #f2b8cb;
+  --danger-ring: #e58aa8;
+  --danger-strong: #b3174a;
+  --danger-deep: #7a0f32;
+
+  /* Fixed — same across every theme (not hue-derived). */
+  --success: #12a06f;
+  --success-tint: color-mix(in srgb, var(--success) 10%, white);
+  --success-text: color-mix(in srgb, var(--success) 75%, black);
+
+  --warning: #c98a00;
+  --warning-tint: color-mix(in srgb, var(--warning) 12%, white);
+  --warning-text: color-mix(in srgb, var(--warning) 70%, black);
+
+  --neutral-tint: #f1eef8;
+  --neutral-text: #4a4658;
+  --neutral-dot: #8e889e;
+
+  --ink: #15131c;
+  --muted: #5a5666;
+  --muted-soft: #9a94aa;
+  --muted-faint: #b9b5c6;
+  --line: #e7e3dc;
+  --bg: #fbfaf8;
+}
+
+/* Dashboard-only theme surface — see the custom-variant comment above. */
+.dashboard-theme {
+  --background: #fbfaf8;
+  --foreground: #171717;
+  --dash-border: #e7e3dc;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not(.light) {
+  .dashboard-theme:not(.light) {
     --background: #09090b;
     --foreground: #ededed;
+    --dash-border: #27272a;
   }
 }
 
-.dark {
+.dashboard-theme.dark {
   --background: #09090b;
   --foreground: #ededed;
+  --dash-border: #27272a;
 }
 
 @theme inline {
@@ -43,6 +134,7 @@
   --font-sans: var(--font-app-sans), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-app-serif), ui-serif, Georgia, serif;
   --font-mono: var(--font-app-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-display: var(--font-app-display), var(--font-app-sans), ui-sans-serif, sans-serif;
 }
 
 /* Plain @theme, not @theme inline: these are literal values (not var()
@@ -68,6 +160,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  /* On body, not on a wrapper div further down the tree — overflow-x on an
+     ancestor turns it into a scroll container and breaks position:sticky
+     for anything inside it (e.g. the home page header). */
+  overflow-x: hidden;
 }
 
 button:not(:disabled),
@@ -100,40 +196,6 @@ input[type="reset"]:disabled {
   );
 }
 
-/* Tinted backdrop behind the scrolling content area. Colours live in custom
-   properties so the dark variants only have to restate the three tints. */
-.app-surface {
-  --surface-base: color-mix(in srgb, var(--color-brand-500) 2%, white);
-  --surface-tint-a: color-mix(in srgb, var(--color-brand-gradient-via) 14%, transparent);
-  --surface-tint-b: color-mix(in srgb, var(--color-brand-gradient-from) 10%, transparent);
-  --surface-tint-c: color-mix(in srgb, var(--color-brand-gradient-to) 9%, transparent);
-
-  background-color: var(--surface-base);
-  background-image:
-    radial-gradient(900px 420px at 88% -8%, var(--surface-tint-a), transparent 62%),
-    radial-gradient(760px 380px at -6% 8%, var(--surface-tint-b), transparent 58%),
-    radial-gradient(820px 460px at 40% 112%, var(--surface-tint-c), transparent 60%);
-  /* `scroll` pins the tints to the pane itself, so they stay behind the
-     header area instead of sliding away with the content. */
-  background-attachment: scroll;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) .app-surface {
-    --surface-base: #09090b;
-    --surface-tint-a: color-mix(in srgb, var(--color-brand-gradient-via) 16%, transparent);
-    --surface-tint-b: color-mix(in srgb, var(--color-brand-gradient-from) 12%, transparent);
-    --surface-tint-c: color-mix(in srgb, var(--color-brand-gradient-to) 10%, transparent);
-  }
-}
-
-.dark .app-surface {
-  --surface-base: #09090b;
-  --surface-tint-a: color-mix(in srgb, var(--color-brand-gradient-via) 16%, transparent);
-  --surface-tint-b: color-mix(in srgb, var(--color-brand-gradient-from) 12%, transparent);
-  --surface-tint-c: color-mix(in srgb, var(--color-brand-gradient-to) 10%, transparent);
-}
-
 .brand-text-gradient {
   background-image: linear-gradient(
     100deg,
@@ -162,23 +224,30 @@ input[type="reset"]:disabled {
 
    Series hues are assigned in fixed slot order and never cycled. The dark
    column is a *selected* set of steps for the dark card surface, not an
-   automatic flip of the light one. Both columns were validated against the
-   surfaces they actually paint on — light #ffffff, dark ≈ #131315 (white/4
-   over #09090b) — for lightness band, chroma floor, CVD separation and
-   normal-vision separation. Light slot 3 (aqua) sits at 2.8:1 on white,
-   under the 3:1 bar: the leaderboard table and the direct value labels are
-   the required relief, so no value is reachable by hue alone.
+   automatic flip of the light one.
+
+   Light column matches the Link-in-bio brand palette (violet/amber/green,
+   pink reserved for critical) and was re-validated against it (node
+   scripts/validate_palette.js from the dataviz skill, surface #ffffff):
+   slots 1/3/2 (violet/green/amber) clear every all-pairs gate — worst CVD
+   ΔE 8.0 (protan), worst normal-vision ΔE 19.5 — and --viz-critical (pink)
+   clears the only pair it's ever shown beside, series-1 violet (CVD ΔE
+   21.7). Slot 2 (amber) sits at 2.95:1 on white, under the 3:1 bar: the
+   leaderboard table and the chart's own legend/tooltip are the required
+   relief, so no value is reachable by hue alone. Dark column is untouched
+   and still validated on its own terms — this page no longer participates
+   in dark mode, but the app-wide theme toggle still applies to it.
 
    Slot 1 is the brand violet so the primary series matches the rest of the UI.
    ------------------------------------------------------------------ */
 .viz {
-  --viz-series-1: #6d5ef6; /* DMs sent */
-  --viz-series-2: #eb6834; /* Emails collected */
-  --viz-series-3: #1baf7a; /* Followers gained */
-  --viz-critical: #d03b3b; /* reserved: failures only, always with a label */
-  --viz-grid: #e4e4e7;
-  --viz-axis: #d4d4d8;
-  --viz-muted: #898781;
+  --viz-series-1: #5b3fe0; /* DMs sent */
+  --viz-series-2: #c98a00; /* Emails collected */
+  --viz-series-3: #12a06f; /* Followers gained */
+  --viz-critical: #d61f5c; /* reserved: failures only, always with a label */
+  --viz-grid: #e7e3dc;
+  --viz-axis: #b9b2a3;
+  --viz-muted: #5a5666;
   --viz-surface: #ffffff;
 }
 
@@ -284,6 +353,26 @@ input[type="reset"]:disabled {
   }
 }
 
+@keyframes float-pill {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes float-pill-delayed {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(8px);
+  }
+}
+
 @keyframes fade-in-up {
   from {
     opacity: 0;
@@ -334,6 +423,43 @@ input[type="reset"]:disabled {
   }
 }
 
+/* Public creator page (app/(public)/[username]) decorative background + avatar ring. */
+@keyframes pp-drift-1 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(50px, 36px) scale(1.14);
+  }
+}
+
+@keyframes pp-drift-2 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1.05);
+  }
+  50% {
+    transform: translate(-46px, 40px) scale(0.92);
+  }
+}
+
+@keyframes pp-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes pp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .animate-gradient-shift {
   background-size: 200% 200%;
   animation: gradient-shift 16s ease infinite;
@@ -345,6 +471,18 @@ input[type="reset"]:disabled {
 
 .animate-float-delayed {
   animation: float-delayed 11s ease-in-out infinite;
+}
+
+.animate-float-pill {
+  animation: float-pill 4s ease-in-out infinite;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+.animate-float-pill-delayed {
+  animation: float-pill-delayed 4.5s ease-in-out infinite;
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 .animate-fade-in-up {
@@ -392,6 +530,8 @@ input[type="reset"]:disabled {
 
   .animate-float,
   .animate-float-delayed,
+  .animate-float-pill,
+  .animate-float-pill-delayed,
   .animate-pulse-soft,
   .animate-badge-pulse,
   .animate-dash-flow,

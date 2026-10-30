@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { fieldClass } from "@/components/ui/controls";
-import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/styles";
 import { useToast } from "@/components/ui/Toast";
-import { DocumentIcon, TrashIcon } from "@/components/icons";
+import { DocumentIcon, TrashIcon, UploadIcon } from "@/components/icons";
 import type { LeadMagnetFormState } from "@/features/lead-magnets/actions";
 
 const FILE_MAX_BYTES = 20 * 1024 * 1024;
+
+const fieldWrapClass =
+  "flex items-center gap-2 rounded-[14px] border-[1.5px] border-[var(--line)] bg-[var(--bg)] px-3.5 transition-colors focus-within:border-[var(--primary)] focus-within:bg-white focus-within:ring-4 focus-within:ring-[var(--primary)]/15";
+const fieldInputClass = "min-h-[50px] w-full border-0 bg-transparent outline-none";
 
 export interface LeadMagnetFormInitialValues {
   title: string;
@@ -94,67 +96,80 @@ export function LeadMagnetForm({
   }
 
   return (
-    <form
-      action={formAction}
-      className="flex flex-col gap-5 rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] sm:p-5 dark:border-white/8 dark:bg-white/4"
-    >
+    <form action={formAction} className="flex flex-col gap-4.5">
+      {state && "error" in state && (
+        <p
+          role="alert"
+          className="rounded-2xl border-[1.5px] border-[var(--danger-border)] bg-[var(--danger-tint-faint)] px-3.5 py-2.5 text-sm font-semibold text-[var(--danger-deep)]"
+        >
+          {state.error}
+        </p>
+      )}
+
       <Field label="Title" htmlFor="title">
-        <input
-          id="title"
-          name="title"
-          required
-          defaultValue={initialValues?.title}
-          placeholder="e.g. Free social media planner"
-          maxLength={80}
-          className={fieldClass}
-        />
+        <div className={fieldWrapClass}>
+          <input
+            id="title"
+            name="title"
+            required
+            defaultValue={initialValues?.title}
+            placeholder="e.g. Free social media planner"
+            maxLength={80}
+            className={fieldInputClass}
+          />
+        </div>
       </Field>
 
       <Field label="Description (optional)" htmlFor="description">
-        <textarea
-          id="description"
-          name="description"
-          defaultValue={initialValues?.description ?? ""}
-          placeholder="What's inside, and why it's useful."
-          maxLength={280}
-          rows={3}
-          className={`${fieldClass} resize-none`}
-        />
+        <div className={fieldWrapClass}>
+          <textarea
+            id="description"
+            name="description"
+            defaultValue={initialValues?.description ?? ""}
+            placeholder="What's inside, and why it's useful."
+            maxLength={280}
+            rows={3}
+            className={`${fieldInputClass} resize-none py-3`}
+          />
+        </div>
       </Field>
 
-      <div>
-        <span className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          File
-        </span>
-
-        {fileUrl ? (
-          <div className="flex items-center gap-3 rounded-xl border border-black/8 p-3 dark:border-white/10">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
-              <DocumentIcon className="h-4 w-4" />
-            </span>
-            <p className="min-w-0 flex-1 truncate text-sm font-medium">
-              {fileName || "Uploaded file"}
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setFileUrl("");
-                setFileName("");
-              }}
-              aria-label="Remove file"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
-            >
-              <TrashIcon className="h-4 w-4" />
-            </button>
+      <div className="flex flex-col gap-2">
+        <span className="font-semibold">File</span>
+        <div className="flex items-center gap-4">
+          <span className="relative flex h-[84px] w-[84px] shrink-0 items-center justify-center overflow-hidden rounded-[24px] bg-[linear-gradient(135deg,var(--violet)_0%,var(--primary)_100%)] text-white/90">
+            <DocumentIcon className="h-8 w-8" />
+          </span>
+          <div className="flex min-w-0 flex-col gap-2">
+            {fileUrl ? (
+              <div className="flex items-center gap-2">
+                <p className="m-0 min-w-0 flex-1 truncate font-semibold">
+                  {fileName || "Uploaded file"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFileUrl("");
+                    setFileName("");
+                  }}
+                  aria-label="Remove file"
+                  className="flex h-[44px] w-[44px] shrink-0 cursor-pointer items-center justify-center rounded-full border-[1.5px] border-[var(--danger-border)] text-[var(--danger-strong)] transition-colors hover:bg-[var(--danger-tint)]"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <label
+                htmlFor={fileInputId}
+                className="inline-flex w-fit min-h-[44px] cursor-pointer items-center gap-2 rounded-full border-[1.5px] border-[var(--line)] bg-white px-4.5 font-semibold"
+              >
+                <UploadIcon className="h-4 w-4" />
+                {uploading ? "Uploading…" : "Upload file"}
+              </label>
+            )}
+            <p className="m-0 text-xs text-[var(--muted)]">PDF, ZIP, DOC, or EPUB, up to 20MB.</p>
           </div>
-        ) : (
-          <label
-            htmlFor={fileInputId}
-            className={`${secondaryButtonClass} w-fit cursor-pointer`}
-          >
-            {uploading ? "Uploading..." : "Upload file"}
-          </label>
-        )}
+        </div>
         <input
           ref={fileInputRef}
           id={fileInputId}
@@ -164,56 +179,70 @@ export function LeadMagnetForm({
           onChange={handleFileChange}
           disabled={uploading}
         />
-        <p className="mt-1.5 text-xs text-zinc-500">PDF, ZIP, DOC, or EPUB, up to 20MB.</p>
         <input type="hidden" name="file_url" value={fileUrl} />
         <input type="hidden" name="file_name" value={fileName} />
       </div>
 
-      <div className="flex items-center justify-between rounded-xl border border-black/8 px-3.5 py-3 dark:border-white/10">
-        <div>
-          <p className="text-sm font-medium">Show on profile</p>
-          <p className="mt-0.5 text-xs text-zinc-500">
-            Make this available to visitors on your public profile.
-          </p>
+      <div className="flex flex-col gap-2">
+        <span className="font-semibold">Status</span>
+        <div role="group" aria-label="Status" className="flex gap-2">
+          <StatusSegment label="Active" selected={isActive} onClick={() => setIsActive(true)} />
+          <StatusSegment label="Hidden" selected={!isActive} onClick={() => setIsActive(false)} />
         </div>
-        <label className="relative inline-flex shrink-0 cursor-pointer items-center">
-          <input
-            type="checkbox"
-            name="is_active"
-            checked={isActive}
-            onChange={(event) => setIsActive(event.target.checked)}
-            className="peer sr-only"
-          />
-          <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-brand-600 dark:bg-zinc-700" />
-          <div className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
-        </label>
+        <input type="hidden" name="is_active" value={isActive ? "on" : ""} />
       </div>
 
-      {state && "error" in state && (
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400">
-          {state.error}
-        </p>
-      )}
-
-      <div className="flex items-center justify-end gap-2.5">
-        {onCancel ? (
-          <button type="button" onClick={onCancel} className={secondaryButtonClass}>
-            Cancel
-          </button>
-        ) : (
-          <Link href="/dashboard/lead-magnets" className={secondaryButtonClass}>
-            Cancel
-          </Link>
-        )}
+      <div className="mt-1 flex flex-wrap gap-2.5">
         <button
           type="submit"
           disabled={pending || uploading}
-          className={primaryButtonClass}
+          className="min-h-[54px] flex-1 basis-[200px] cursor-pointer rounded-full border-0 bg-[var(--primary)] font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {pending ? "Saving…" : submitLabel}
         </button>
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-[54px] cursor-pointer rounded-full border-[1.5px] border-[var(--line)] bg-white px-6 font-semibold"
+          >
+            Cancel
+          </button>
+        ) : (
+          <Link
+            href="/dashboard/lead-magnets"
+            className="inline-flex min-h-[54px] items-center rounded-full border-[1.5px] border-[var(--line)] bg-white px-6 font-semibold"
+          >
+            Cancel
+          </Link>
+        )}
       </div>
     </form>
+  );
+}
+
+function StatusSegment({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={`min-h-[44px] cursor-pointer rounded-full border-[1.5px] px-4.5 font-bold transition-colors ${
+        selected
+          ? "border-[var(--ink)] bg-[var(--ink)] text-white"
+          : "border-[var(--line)] bg-white text-[var(--ink)]"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -227,10 +256,8 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label htmlFor={htmlFor} className="block">
-      <span className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        {label}
-      </span>
+    <label htmlFor={htmlFor} className="flex flex-col gap-2">
+      <span className="font-semibold">{label}</span>
       {children}
     </label>
   );

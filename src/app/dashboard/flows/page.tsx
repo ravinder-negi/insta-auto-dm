@@ -2,20 +2,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { DmFlow, InstagramAccount } from "@/types";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { StatCard } from "@/components/ui/StatCard";
-import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/styles";
-import {
-  ChartIcon,
-  CheckIcon,
-  ClockIcon,
-  CloseIcon,
-  LayersIcon,
-  PauseIcon,
-  PlusIcon,
-} from "@/components/icons";
+import { AutomationHero } from "@/components/ui/AutomationHero";
+import { primaryButtonClass } from "@/components/ui/styles";
+import { ChartIcon, ClockIcon, LayersIcon, PlusIcon } from "@/components/icons";
 import { FlowsTable, type FlowTableRow } from "@/features/flows/components/FlowsTable";
 import { NewFlowButton } from "@/features/flows/components/NewFlowButton";
+import { getViewPreference } from "@/lib/viewPreference/server";
+import { VIEW_PREFERENCE_KEYS } from "@/lib/viewPreference/keys";
 
 type FlowQueryRow = Pick<
   DmFlow,
@@ -33,17 +26,18 @@ type FlowQueryRow = Pick<
     InstagramAccount,
     "username" | "instagram_user_id" | "is_active"
   > | null;
-  dm_flow_steps: { id: string }[] | null;
+  dm_flow_steps: { id: string; step_order: number; message_text: string }[] | null;
 };
 
 export default async function FlowsPage() {
+  const initialView = await getViewPreference(VIEW_PREFERENCE_KEYS.flows, ["card", "list"] as const, "card");
   const supabase = await createClient();
 
   const [{ data, error }, { data: accountsData }] = await Promise.all([
     supabase
       .from("dm_flows")
       .select(
-        "id, name, keyword_match, keywords, trigger_keyword, instagram_media_id, is_active, created_at, instagram_account_id, instagram_accounts(username, instagram_user_id, is_active), dm_flow_steps(id)"
+        "id, name, keyword_match, keywords, trigger_keyword, instagram_media_id, is_active, created_at, instagram_account_id, instagram_accounts(username, instagram_user_id, is_active), dm_flow_steps(id, step_order, message_text)"
       )
       .order("created_at", { ascending: false }),
     supabase
@@ -65,6 +59,9 @@ export default async function FlowsPage() {
           : [],
       instagram_media_id: flow.instagram_media_id,
       step_count: flow.dm_flow_steps?.length ?? 0,
+      firstMessage:
+        flow.dm_flow_steps?.slice().sort((a, b) => a.step_order - b.step_order)[0]
+          ?.message_text ?? null,
       is_active: flow.is_active,
       created_at: flow.created_at,
       accountId: flow.instagram_account_id,
@@ -81,28 +78,28 @@ export default async function FlowsPage() {
     handle: (account.username ?? account.instagram_user_id) as string,
   }));
 
-  const activeCount = flows.filter(
-    (flow) => flow.is_active && flow.accountActive
-  ).length;
-  const pausedCount = flows.filter(
-    (flow) => !flow.is_active && flow.accountActive
-  ).length;
-  const disabledCount = flows.filter((flow) => !flow.accountActive).length;
-
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader
-        eyebrow="Automation"
-        title="DM flows"
+      <AutomationHero
+        titlePlain="DM "
+        titleAccent="Flows"
         description="Send a sequence of DMs that branch on how the recipient replies."
         actions={
           <>
-            <Link href="/dashboard/flows/analytics" className={secondaryButtonClass}>
-              <ChartIcon className="h-4 w-4" />
+            <Link
+              href="/dashboard/flows/analytics"
+              className="inline-flex min-h-[50px] items-center gap-2.5 rounded-full border px-5.5 font-semibold"
+              style={{ borderColor: "var(--line)", backgroundColor: "#fff", color: "var(--ink)" }}
+            >
+              <ChartIcon className="h-4.5 w-4.5" />
               Analytics
             </Link>
-            <Link href="/dashboard/flows/executions" className={secondaryButtonClass}>
-              <ClockIcon className="h-4 w-4" />
+            <Link
+              href="/dashboard/flows/executions"
+              className="inline-flex min-h-[50px] items-center gap-2.5 rounded-full border px-5.5 font-semibold"
+              style={{ borderColor: "var(--line)", backgroundColor: "#fff", color: "var(--ink)" }}
+            >
+              <ClockIcon className="h-4.5 w-4.5" />
               Execution log
             </Link>
           </>
@@ -110,37 +107,13 @@ export default async function FlowsPage() {
       />
 
       {error && (
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400">
+        <p
+          className="rounded-xl border px-4 py-3 text-sm font-semibold"
+          style={{ borderColor: "var(--danger-border)", backgroundColor: "var(--danger-tint-faint)", color: "var(--danger-deep)" }}
+        >
           {error.message}
         </p>
       )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Total flows"
-          value={flows.length}
-          tone="indigo"
-          icon={<LayersIcon className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Active"
-          value={activeCount}
-          tone="green"
-          icon={<CheckIcon className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Paused"
-          value={pausedCount}
-          tone="amber"
-          icon={<PauseIcon className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Disabled"
-          value={disabledCount}
-          tone="red"
-          icon={<CloseIcon className="h-5 w-5" />}
-        />
-      </div>
 
       {flows.length === 0 ? (
         <EmptyState
@@ -155,7 +128,7 @@ export default async function FlowsPage() {
           }
         />
       ) : (
-        <FlowsTable flows={flows} accounts={accounts} />
+        <FlowsTable flows={flows} accounts={accounts} initialView={initialView} />
       )}
     </div>
   );

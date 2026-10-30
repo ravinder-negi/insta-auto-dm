@@ -59,51 +59,58 @@ export function LinkFormModal({
   const isEdit = Boolean(linkId);
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[var(--ink)]/55 p-5">
       <button
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 cursor-default border-0 bg-transparent"
       />
 
-      <div className="animate-fade-in-up relative flex max-h-[90vh] w-full max-w-xl flex-col gap-3">
-        <div className="flex items-center justify-between px-1">
-          <h2 className="text-base font-semibold tracking-tight text-white">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={isEdit ? "Edit link" : "Add link"}
+        className="relative my-auto flex w-full max-w-xl flex-col gap-4.5 rounded-[32px] bg-white p-8 shadow-[0_50px_100px_-30px_rgba(0,0,0,.6)]"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="m-0 text-[28px] font-extrabold tracking-[-0.03em]">
             {isEdit ? "Edit link" : "Add link"}
-          </h2>
+          </h3>
           <button
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex h-[42px] w-[42px] cursor-pointer items-center justify-center rounded-full border-[1.5px] border-[var(--line)] bg-white text-[var(--ink)] transition-colors hover:border-[var(--secondary-border)] hover:bg-[var(--secondary-soft-bg)]"
           >
-            <CloseIcon className="h-4 w-4" />
+            <CloseIcon className="h-[18px] w-[18px]" />
           </button>
         </div>
 
-        <div className="thin-scrollbar overflow-y-auto">
-          {data.status === "loading" && <LinkFormSkeleton />}
+        {data.status === "loading" && <LinkFormSkeleton />}
 
-          {data.status === "error" && (
-            <div className="rounded-3xl border border-rose-200 bg-rose-50 px-5 py-6 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400">
-              {data.message}
-            </div>
-          )}
+        {data.status === "error" && (
+          <div
+            role="alert"
+            className="rounded-2xl border-[1.5px] border-[var(--danger-border)] bg-[var(--danger-tint-faint)] px-4 py-3 text-sm font-semibold text-[var(--danger-deep)]"
+          >
+            {data.message}
+          </div>
+        )}
 
-          {data.status === "ready" && (
-            <LinkForm
-              action={isEdit ? updateLink.bind(null, linkId as string) : createLink}
-              initialValues={data.initialValues}
-              submitLabel={isEdit ? "Save changes" : "Add link"}
-              userId={data.userId}
-              profile={data.profile}
-              onCancel={onClose}
-              onSuccess={onSaved}
-              showPreview={false}
-            />
-          )}
-        </div>
+        {data.status === "ready" && (
+          <LinkForm
+            action={isEdit ? updateLink.bind(null, linkId as string) : createLink}
+            initialValues={data.initialValues}
+            submitLabel={isEdit ? "Save changes" : "Add link"}
+            userId={data.userId}
+            profile={data.profile}
+            onCancel={onClose}
+            onSuccess={onSaved}
+            showPreview={false}
+            bare
+          />
+        )}
       </div>
     </div>,
     document.body
@@ -115,31 +122,28 @@ export function LinkFormModal({
  *  here) finishes loading. */
 function LinkFormSkeleton() {
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] sm:p-5 dark:border-white/8 dark:bg-white/4">
+    <div className="flex flex-col gap-4.5">
       <SkeletonField labelWidth="w-10" />
       <SkeletonField labelWidth="w-24" />
       <SkeletonField labelWidth="w-8" />
       <SkeletonField labelWidth="w-10" />
 
       <div>
-        <span className="mb-1.5 block h-3.5 w-24 animate-pulse rounded-full bg-black/8 dark:bg-white/10" />
+        <span className="mb-1.5 block h-3.5 w-24 animate-pulse rounded-full bg-[var(--neutral-tint)]" />
         <div className="flex flex-wrap items-center gap-2">
           {Array.from({ length: 5 }).map((_, index) => (
-            <span
-              key={index}
-              className="h-10 w-10 animate-pulse rounded-xl bg-zinc-100 dark:bg-white/8"
-            />
+            <span key={index} className="h-10 w-10 animate-pulse rounded-xl bg-[var(--neutral-tint)]" />
           ))}
-          <span className="h-9 w-36 animate-pulse rounded-xl bg-zinc-100 dark:bg-white/8" />
+          <span className="h-9 w-36 animate-pulse rounded-full bg-[var(--neutral-tint)]" />
         </div>
       </div>
 
-      <span className="h-16 animate-pulse rounded-xl border border-black/8 bg-black/4 dark:border-white/10 dark:bg-white/6" />
-      <span className="h-16 animate-pulse rounded-xl border border-black/8 bg-black/4 dark:border-white/10 dark:bg-white/6" />
+      <span className="h-16 animate-pulse rounded-2xl bg-[var(--neutral-tint)]" />
+      <span className="h-16 animate-pulse rounded-2xl bg-[var(--neutral-tint)]" />
 
       <div className="flex items-center justify-end gap-2.5">
-        <span className="h-10 w-20 animate-pulse rounded-xl bg-black/6 dark:bg-white/8" />
-        <span className="h-10 w-28 animate-pulse rounded-xl bg-black/10 dark:bg-white/12" />
+        <span className="h-10 w-20 animate-pulse rounded-full bg-[var(--neutral-tint)]" />
+        <span className="h-10 w-28 animate-pulse rounded-full bg-[var(--neutral-tint)]" />
       </div>
     </div>
   );
@@ -148,10 +152,8 @@ function LinkFormSkeleton() {
 function SkeletonField({ labelWidth }: { labelWidth: string }) {
   return (
     <div>
-      <span
-        className={`mb-1.5 block h-3.5 ${labelWidth} animate-pulse rounded-full bg-black/8 dark:bg-white/10`}
-      />
-      <span className="block h-11 animate-pulse rounded-xl bg-black/6 dark:bg-white/8" />
+      <span className={`mb-1.5 block h-3.5 ${labelWidth} animate-pulse rounded-full bg-[var(--neutral-tint)]`} />
+      <span className="block h-11 animate-pulse rounded-2xl bg-[var(--neutral-tint)]" />
     </div>
   );
 }

@@ -131,7 +131,7 @@ export default function TermsOfServicePage() {
           Questions about these Terms can be sent to us through our{" "}
           <Link
             href="/contact"
-            className="font-medium text-zinc-900 underline hover:no-underline dark:text-zinc-50"
+            className="font-medium text-[var(--accent)] underline hover:no-underline"
           >
             contact page
           </Link>

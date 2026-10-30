@@ -1,5 +1,6 @@
-import { LandingHeader } from "./LandingHeader";
-import { LandingFooter } from "./LandingFooter";
+import { HomeHeader } from "./home/HomeHeader";
+import { HomeFooter } from "./home/HomeFooter";
+import { displayFont, homeCssVars, homeWrapperClass } from "./home/fonts";
 
 export function LegalPage({
   title,
@@ -11,25 +12,25 @@ export function LegalPage({
   children: React.ReactNode;
 }) {
   return (
-    <div className="app-surface flex min-h-screen flex-col">
-      <LandingHeader />
+    <div className={homeWrapperClass} style={homeCssVars}>
+      <HomeHeader />
 
-      <main className="w-full flex-1 px-6 sm:px-10 lg:px-25">
-        <div className="mx-auto max-w-3xl py-12 lg:py-16">
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
-            {title}
-          </h1>
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            Last updated: {updated}
-          </p>
+      <main className="mx-auto max-w-[760px] px-6 py-16 sm:px-8 sm:py-20">
+        <h1
+          className={`${displayFont} m-0 text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl`}
+        >
+          {title}
+        </h1>
+        <p className="mt-2.5 text-sm text-[var(--muted)]">
+          Last updated: {updated}
+        </p>
 
-          <div className="prose-legal mt-10 space-y-8 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-            {children}
-          </div>
+        <div className="mt-10 space-y-8 text-[15px] leading-relaxed text-[var(--muted)]">
+          {children}
         </div>
       </main>
 
-      <LandingFooter />
+      <HomeFooter />
     </div>
   );
 }
@@ -43,7 +44,7 @@ export function LegalSection({
 }) {
   return (
     <section>
-      <h2 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+      <h2 className={`${displayFont} text-lg font-bold tracking-tight text-[var(--ink)]`}>
         {heading}
       </h2>
       <div className="mt-3 space-y-3">{children}</div>

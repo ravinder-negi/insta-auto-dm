@@ -272,8 +272,10 @@ export function RuleWizard({
 
   const messageStepValid =
     // With buttons, the card can carry the whole message — the separate DM
-    // text becomes optional extra copy.
-    (values.dm_message.trim().length > 0 || values.dm_buttons.length > 0) &&
+    // text becomes optional extra copy. An attachment is sent on its own.
+    (values.dm_message.trim().length > 0 ||
+      values.dm_buttons.length > 0 ||
+      values.attachment_url.trim().length > 0) &&
     (!values.require_follow || values.follow_prompt_message.trim().length > 0) &&
     (!values.collect_email || values.email_prompt_message.trim().length > 0) &&
     delaySeconds > 0 &&
@@ -451,6 +453,8 @@ export function RuleWizard({
         onBack={step > 0 ? () => setStep((value) => value - 1) : undefined}
         onNext={isLastStep ? undefined : () => setStep((value) => value + 1)}
         canContinue={stepValid[step]}
+        stepValid={stepValid}
+        onStepSelect={setStep}
         pending={pending}
         nextLabel={isLastStep ? submitLabel : "Next"}
         cancelHref={onCancel ? undefined : "/dashboard/rules"}
@@ -458,7 +462,11 @@ export function RuleWizard({
         error={state && "error" in state ? state.error : undefined}
       >
         {steps[step]?.kind === "trigger" && (
-          <TriggerStep value={values.trigger_type} onChange={selectTriggerType} />
+          <TriggerStep
+            value={values.trigger_type}
+            onChange={selectTriggerType}
+            locked={Boolean(initialValues)}
+          />
         )}
 
         {steps[step]?.kind === "account" && (
@@ -468,6 +476,7 @@ export function RuleWizard({
             onSelectAccount={selectAccount}
             name={values.name}
             onNameChange={(value) => update("name", value)}
+            locked={Boolean(initialValues)}
           />
         )}
 

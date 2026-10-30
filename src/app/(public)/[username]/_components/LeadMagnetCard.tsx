@@ -3,13 +3,7 @@
 import { useActionState } from "react";
 import { submitLeadMagnetEmail, type LeadMagnetSubmitState } from "../actions";
 import { TrackedLink } from "./TrackedLink";
-import {
-  CheckIcon,
-  DownloadIcon,
-  GiftIcon,
-  InstagramIcon,
-  MailIcon,
-} from "@/components/icons";
+import { CheckIcon, DownloadIcon, GiftIcon, InstagramIcon, MailIcon } from "@/components/icons";
 
 export function LeadMagnetCard({
   id,
@@ -18,6 +12,7 @@ export function LeadMagnetCard({
   description,
   brandColor,
   buttonRadiusClass,
+  tone = "light",
 }: {
   id: string;
   profileId: string;
@@ -25,6 +20,10 @@ export function LeadMagnetCard({
   description: string | null;
   brandColor: string;
   buttonRadiusClass: string;
+  /** "dark" renders on a solid brand-gradient card with white text, for templates
+   *  (e.g. Noir) whose page background is dark — the default card relies on
+   *  var(--ink)/var(--muted), which are near-black and unreadable there. */
+  tone?: "light" | "dark";
 }) {
   const boundAction = submitLeadMagnetEmail.bind(null, id);
   const [state, formAction, pending] = useActionState<LeadMagnetSubmitState, FormData>(
@@ -33,55 +32,78 @@ export function LeadMagnetCard({
   );
 
   const unlocked = state && "success" in state;
+  const dark = tone === "dark";
 
   return (
     <div
-      className={`overflow-hidden p-6 text-left sm:p-7 ${buttonRadiusClass}`}
-      style={{
-        background: `linear-gradient(120deg, ${brandColor}1a, ${brandColor}0f 55%, ${brandColor}1f)`,
-      }}
+      className={`overflow-hidden border p-6 text-left sm:p-7 ${buttonRadiusClass}`}
+      style={
+        dark
+          ? {
+              borderColor: "rgba(255,255,255,0.2)",
+              background: `linear-gradient(135deg, color-mix(in srgb, ${brandColor} 72%, black) 0%, ${brandColor} 100%)`,
+            }
+          : {
+              borderColor: `${brandColor}33`,
+              background: `linear-gradient(120deg, ${brandColor}1a, ${brandColor}0f 55%, ${brandColor}1f)`,
+            }
+      }
     >
-      <div className="flex items-center gap-6">
+      <div className="flex flex-wrap items-center gap-6">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2" style={{ color: brandColor }}>
+          <div
+            className="inline-flex items-center gap-2"
+            style={{ color: dark ? "rgba(255,255,255,0.85)" : `color-mix(in srgb, ${brandColor} 72%, black)` }}
+          >
             <GiftIcon className="h-5 w-5" />
             <span className="text-xs font-bold tracking-[0.12em] uppercase">Free resource</span>
           </div>
 
-          <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">
+          <h2
+            className={`mt-2 font-display text-2xl font-extrabold tracking-tight ${dark ? "text-white" : "text-[var(--ink)]"}`}
+          >
             {title}
           </h2>
 
           {description && (
-            <p className="mt-2 text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-300">
+            <p className={`mt-2 text-[15px] leading-relaxed ${dark ? "text-white/85" : "text-[var(--muted)]"}`}>
               {description}
             </p>
           )}
 
           {unlocked ? (
-            <TrackedLink
-              profileId={profileId}
-              targetType="lead_magnet"
-              targetId={id}
-              href={state.fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`mt-5 inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.99] ${buttonRadiusClass}`}
-              style={{ backgroundColor: brandColor }}
-            >
-              <DownloadIcon className="h-4 w-4" />
-              Download now
-            </TrackedLink>
+            <div className="mt-5 flex flex-wrap items-center gap-4 rounded-2xl border border-emerald-200 bg-white p-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+                <CheckIcon className="h-5 w-5" />
+              </span>
+              <p className="min-w-0 flex-1 text-sm leading-tight text-[var(--muted)]">
+                <strong className="block text-[var(--ink)]">It&apos;s ready</strong>
+                Your download link is below.
+              </p>
+              <TrackedLink
+                profileId={profileId}
+                targetType="lead_magnet"
+                targetId={id}
+                href={state.fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex shrink-0 items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.99] ${buttonRadiusClass}`}
+                style={{ backgroundColor: brandColor }}
+              >
+                <DownloadIcon className="h-4 w-4" />
+                Download now
+              </TrackedLink>
+            </div>
           ) : (
             <form action={formAction} className="mt-5 flex flex-col gap-2.5 sm:flex-row">
               <div className="relative min-w-0 flex-1">
-                <MailIcon className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                <MailIcon className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
                 <input
                   type="email"
                   name="email"
                   required
                   placeholder="Enter your email address"
-                  className={`w-full border border-black/5 bg-white py-3 pr-4 pl-10 text-sm text-zinc-900 shadow-sm outline-none transition-shadow placeholder:text-zinc-400 focus:ring-4 focus:ring-black/5 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-100 ${buttonRadiusClass}`}
+                  className={`w-full border border-black/5 bg-white py-3 pr-4 pl-10 text-sm text-[var(--ink)] shadow-sm outline-none transition-shadow placeholder:text-[var(--muted)] focus:ring-4 focus:ring-black/5 ${buttonRadiusClass}`}
                 />
               </div>
               <button
@@ -97,11 +119,13 @@ export function LeadMagnetCard({
           )}
 
           {state && "error" in state && (
-            <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">{state.error}</p>
+            <p className="mt-2 text-xs text-rose-600">{state.error}</p>
           )}
 
           {!unlocked && (
-            <p className="mt-3 text-xs text-zinc-400">No spam. Unsubscribe anytime.</p>
+            <p className={`mt-3 text-xs ${dark ? "text-white/70" : "text-[var(--muted)]"}`}>
+              No spam. Unsubscribe anytime.
+            </p>
           )}
         </div>
 
@@ -115,8 +139,8 @@ export function LeadMagnetCard({
 function ChecklistArtwork({ title, brandColor }: { title: string; brandColor: string }) {
   return (
     <div className="relative hidden h-48 w-60 shrink-0 lg:block" aria-hidden="true">
-      <div className="absolute top-4 right-2 h-44 w-44 rotate-6 rounded-2xl bg-white/70 shadow-md dark:bg-white/10" />
-      <div className="absolute top-0 right-8 h-44 w-44 -rotate-3 rounded-2xl bg-white p-4 shadow-lg dark:bg-zinc-900">
+      <div className="absolute top-4 right-2 h-44 w-44 rotate-6 rounded-2xl bg-white/70 shadow-md" />
+      <div className="absolute top-0 right-8 h-44 w-44 -rotate-3 rounded-2xl bg-white p-4 shadow-lg">
         <div className="flex items-start gap-2">
           <span
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white"
@@ -124,7 +148,7 @@ function ChecklistArtwork({ title, brandColor }: { title: string; brandColor: st
           >
             <InstagramIcon className="h-4 w-4" />
           </span>
-          <p className="line-clamp-2 text-[11px] leading-tight font-bold text-zinc-900 dark:text-zinc-50">
+          <p className="line-clamp-2 text-[11px] leading-tight font-bold text-[var(--ink)]">
             {title}
           </p>
         </div>
@@ -135,7 +159,7 @@ function ChecklistArtwork({ title, brandColor }: { title: string; brandColor: st
               <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
                 <CheckIcon className="h-2.5 w-2.5" />
               </span>
-              <span className="h-1.5 flex-1 rounded-full bg-zinc-100 dark:bg-white/10" />
+              <span className="h-1.5 flex-1 rounded-full bg-[var(--line)]" />
             </div>
           ))}
         </div>

@@ -2,33 +2,42 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useFormStatus } from "react-dom";
-import { ConfirmAction } from "@/components/ui/ConfirmAction";
-import { RowMenu } from "@/components/ui/RowMenu";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/Toast";
-import { SearchField, SelectField } from "@/components/ui/controls";
-import { primaryButtonClass } from "@/components/ui/styles";
+import { LinkInBioRowMenu } from "@/components/ui/LinkInBioRowMenu";
+import {
+  ActiveToggle,
+  BulkDeleteBar,
+  DeleteConfirmBar,
+  IconCircleButton,
+  SelectBox,
+  StatusBadgePill,
+  StatusChip,
+} from "@/components/ui/LinkInBioCollection";
 import {
   GridIcon,
   GripIcon,
   ListIcon,
   PencilIcon,
   PlusIcon,
+  SearchIcon,
   ShoppingBagIcon,
   StarIcon,
   TrashIcon,
 } from "@/components/icons";
 import {
   deleteProduct,
+  deleteProducts,
   moveProduct,
   reorderProducts,
   toggleProductActive,
   toggleProductFeatured,
 } from "@/features/products/actions";
+import { displayFont, linkInBioGradientFor } from "@/lib/linkInBioTheme";
 import { NewProductButton } from "./NewProductButton";
 import { ProductFormModal } from "./ProductFormModal";
 import type { Product } from "@/types";
+import { saveViewPreference } from "@/lib/viewPreference/client";
+import { VIEW_PREFERENCE_KEYS } from "@/lib/viewPreference/keys";
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
@@ -39,11 +48,18 @@ function formatPrice(price: number | null, currency: string) {
   return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(price);
 }
 
-type ViewMode = "card" | "list";
+type ViewMode = "grid" | "list";
+type StatusFilter = "all" | "active" | "hidden";
 
-const VIEW_STORAGE_KEY = "products-view";
+const VIEW_STORAGE_KEY = VIEW_PREFERENCE_KEYS.products;
 
-export function ProductsList({ products }: { products: Product[] }) {
+export function ProductsList({
+  products,
+  initialView = "grid",
+}: {
+  products: Product[];
+  initialView?: ViewMode;
+}) {
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -51,31 +67,20 @@ export function ProductsList({ products }: { products: Product[] }) {
   const toastShown = useRef(false);
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [editProductId, setEditProductId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [localOrder, setLocalOrder] = useState<string[] | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [pendingReorders, setPendingReorders] = useState(0);
   const reorderQueueRef = useRef<Promise<unknown>>(Promise.resolve());
-  const [view, setView] = useState<ViewMode>("list");
+  const [view, setView] = useState<ViewMode>(initialView);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(VIEW_STORAGE_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- synced from browser storage, unavailable during SSR
-      if (stored === "card" || stored === "list") setView(stored);
-    } catch {
-      // ignore unavailable storage
-    }
-  }, []);
 
   function handleViewChange(next: ViewMode) {
     setView(next);
-    try {
-      localStorage.setItem(VIEW_STORAGE_KEY, next);
-    } catch {
-      // ignore unavailable storage
-    }
+    saveViewPreference(VIEW_STORAGE_KEY, next);
   }
 
   const order = useMemo(() => {
@@ -97,11 +102,20 @@ export function ProductsList({ products }: { products: Product[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  const counts = useMemo(
+    () => ({
+      all: order.length,
+      active: order.filter((product) => product.is_active).length,
+      hidden: order.filter((product) => !product.is_active).length,
+    }),
+    [order]
+  );
+
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return order.filter((product) => {
       if (statusFilter === "active" && !product.is_active) return false;
-      if (statusFilter === "inactive" && product.is_active) return false;
+      if (statusFilter === "hidden" && product.is_active) return false;
       if (!query) return true;
       return product.name.toLowerCase().includes(query);
     });
@@ -126,11 +140,31 @@ export function ProductsList({ products }: { products: Product[] }) {
   }
 
   async function handleDelete(id: string, name: string) {
+    setDeletingId(null);
     try {
       await deleteProduct(id);
       toast.success(`"${name}" deleted.`);
     } catch (err) {
       toast.error(errorMessage(err, "Failed to delete product."));
+    }
+  }
+
+  function toggleSelected(id: string) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkDelete(ids: string[]) {
+    try {
+      await deleteProducts(ids);
+      toast.success(`${ids.length} product${ids.length === 1 ? "" : "s"} deleted.`);
+      setSelected(new Set());
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to delete products."));
     }
   }
 
@@ -168,270 +202,174 @@ export function ProductsList({ products }: { products: Product[] }) {
       .finally(() => setPendingReorders((count) => count - 1));
   }
 
+  // Only products still on the page count — a filter change or a delete
+  // elsewhere can leave stale ids in the set.
+  const selectedIds = filtered.filter((product) => selected.has(product.id)).map((product) => product.id);
+  const allSelected = filtered.length > 0 && selectedIds.length === filtered.length;
+
+  const isEmptyCollection = products.length === 0;
+  const isEmptyFiltered = !isEmptyCollection && filtered.length === 0;
+
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-end gap-2.5">
-        {pendingReorders > 0 && (
-          <span className="flex items-center gap-1.5 text-xs text-zinc-500">
-            <span className="h-3 w-3 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-500 dark:border-zinc-600 dark:border-t-zinc-300" />
-            Saving order…
-          </span>
-        )}
-        <SearchField value={search} onChange={setSearch} placeholder="Search products..." />
-        <SelectField
-          value={statusFilter}
-          onChange={(event) =>
-            setStatusFilter(event.target.value as "all" | "active" | "inactive")
-          }
-          aria-label="Filter by status"
-          className="sm:w-40"
-        >
-          <option value="all">All statuses</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </SelectField>
-        <div className="flex items-center gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-white/8">
-          <button
-            type="button"
-            aria-label="List view"
-            aria-pressed={view === "list"}
-            onClick={() => handleViewChange("list")}
-            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-              view === "list"
-                ? "bg-white text-brand-600 shadow-sm dark:bg-zinc-800 dark:text-brand-300"
-                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-            }`}
-          >
-            <ListIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Card view"
-            aria-pressed={view === "card"}
-            onClick={() => handleViewChange("card")}
-            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-              view === "card"
-                ? "bg-white text-brand-600 shadow-sm dark:bg-zinc-800 dark:text-brand-300"
-                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-            }`}
-          >
-            <GridIcon className="h-4 w-4" />
-          </button>
+      {/* chips + toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3.5">
+        <div role="group" aria-label="Filter by status" className="flex flex-wrap gap-2.5">
+          <StatusChip
+            label="All"
+            dot="var(--neutral-dot)"
+            count={counts.all}
+            active={statusFilter === "all"}
+            onClick={() => setStatusFilter("all")}
+          />
+          <StatusChip
+            label="Active"
+            dot="var(--success)"
+            count={counts.active}
+            active={statusFilter === "active"}
+            onClick={() => setStatusFilter("active")}
+          />
+          <StatusChip
+            label="Hidden"
+            dot="var(--neutral-dot)"
+            count={counts.hidden}
+            active={statusFilter === "hidden"}
+            onClick={() => setStatusFilter("hidden")}
+          />
         </div>
-        <NewProductButton className={primaryButtonClass}>
-          <PlusIcon className="h-4 w-4" />
-          Add product
-        </NewProductButton>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {pendingReorders > 0 && (
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-[var(--line)] border-t-[var(--muted)]" />
+              Saving order…
+            </span>
+          )}
+          <div className="focus-within:border-[var(--accent)] focus-within:ring-4 focus-within:ring-[var(--accent)]/15 flex min-w-[200px] items-center gap-2.5 rounded-full border-[1.5px] border-[var(--line)] bg-white px-4 transition-colors">
+            <SearchIcon className="h-[18px] w-[18px] shrink-0 text-[var(--muted)]" />
+            <input
+              type="search"
+              aria-label="Search products"
+              placeholder="Search products"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="min-h-[46px] w-full border-0 bg-transparent outline-none placeholder:text-[var(--muted)]"
+            />
+          </div>
+          <div className="inline-flex rounded-full border-[1.5px] border-[var(--line)] bg-white p-1">
+            <button
+              type="button"
+              aria-label="Grid view"
+              aria-pressed={view === "grid"}
+              onClick={() => handleViewChange("grid")}
+              className={`flex h-[38px] w-[42px] items-center justify-center rounded-full transition-colors ${
+                view === "grid" ? "bg-[var(--ink)] text-white" : "text-[var(--ink)]"
+              }`}
+            >
+              <GridIcon className="h-[18px] w-[18px]" />
+            </button>
+            <button
+              type="button"
+              aria-label="List view"
+              aria-pressed={view === "list"}
+              onClick={() => handleViewChange("list")}
+              className={`flex h-[38px] w-[42px] items-center justify-center rounded-full transition-colors ${
+                view === "list" ? "bg-[var(--ink)] text-white" : "text-[var(--ink)]"
+              }`}
+            >
+              <ListIcon className="h-[18px] w-[18px]" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {view === "card" ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((product) => {
-            const priceLabel = formatPrice(product.price, product.currency);
+      {selectedIds.length > 0 && (
+        <BulkDeleteBar
+          count={selectedIds.length}
+          noun="product"
+          allSelected={allSelected}
+          onToggleAll={() =>
+            setSelected(allSelected ? new Set() : new Set(filtered.map((product) => product.id)))
+          }
+          onClear={() => setSelected(new Set())}
+          onDelete={() => handleBulkDelete(selectedIds)}
+        />
+      )}
 
-            return (
-              <div
-                key={product.id}
-                className="flex flex-col overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4"
-              >
-                <div className="relative">
-                  {product.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL
-                    <img
-                      src={product.image_url}
-                      alt=""
-                      className="h-40 w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-40 w-full items-center justify-center bg-zinc-100 text-zinc-400 dark:bg-white/10 dark:text-zinc-500">
-                      <ShoppingBagIcon className="h-8 w-8" />
-                    </div>
-                  )}
-                  {product.is_featured && (
-                    <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
-                      <StarIcon className="h-2.5 w-2.5" />
-                      Featured
-                    </span>
-                  )}
-                  <div className="absolute right-3 top-3">
-                    <StatusBadge status={product.is_active ? "active" : "inactive"} />
-                  </div>
-                </div>
-
-                <div className="flex flex-1 flex-col gap-3 p-4">
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold">{product.name}</p>
-                    <p className="truncate text-sm text-zinc-500">
-                      {priceLabel ?? "No price set"}
-                    </p>
-                    {product.description && (
-                      <p className="mt-1 line-clamp-2 text-xs text-zinc-400">
-                        {product.description}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="mt-auto flex items-center justify-between border-t border-black/6 pt-3 dark:border-white/8">
-                    <form
-                      action={() =>
-                        handleToggleActive(product.id, product.name, !product.is_active)
-                      }
-                    >
-                      <ToggleSwitchButton isActive={product.is_active} />
-                    </form>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        title="Edit product"
-                        aria-label={`Edit ${product.name}`}
-                        onClick={() => setEditProductId(product.id)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-
-                      <ConfirmAction
-                        action={() => handleDelete(product.id, product.name)}
-                        title="Delete this product?"
-                        description={`"${product.name}" will be removed from your profile.`}
-                        confirmLabel="Delete"
-                        trigger={
-                          <button
-                            type="button"
-                            title="Delete product"
-                            aria-label={`Delete ${product.name}`}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        }
-                      />
-
-                      <RowMenu
-                        items={[
-                          {
-                            label: product.is_featured ? "Unfeature" : "Feature",
-                            onSelect: () =>
-                              handleToggleFeatured(product.id, product.name, !product.is_featured),
-                          },
-                          { label: "Move up", onSelect: () => handleMove(product.id, "up") },
-                          { label: "Move down", onSelect: () => handleMove(product.id, "down") },
-                        ]}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-      <ul className="flex flex-col gap-2.5">
-        {filtered.map((product) => {
-          const priceLabel = formatPrice(product.price, product.currency);
-
-          return (
-            <li
+      {view === "grid" && !isEmptyCollection && !isEmptyFiltered && (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((product) => (
+            <ProductCard
               key={product.id}
-              draggable
+              product={product}
+              selected={selected.has(product.id)}
+              onToggleSelected={() => toggleSelected(product.id)}
+              confirmingDelete={deletingId === product.id}
+              onAskDelete={() => setDeletingId(product.id)}
+              onCancelDelete={() => setDeletingId(null)}
+              onConfirmDelete={() => handleDelete(product.id, product.name)}
+              onEdit={() => setEditProductId(product.id)}
+              onToggleActive={() => handleToggleActive(product.id, product.name, !product.is_active)}
+              onToggleFeatured={() =>
+                handleToggleFeatured(product.id, product.name, !product.is_featured)
+              }
+              onMoveUp={() => handleMove(product.id, "up")}
+              onMoveDown={() => handleMove(product.id, "down")}
+            />
+          ))}
+        </div>
+      )}
+
+      {view === "list" && !isEmptyCollection && !isEmptyFiltered && (
+        <div className="flex flex-col gap-3">
+          {filtered.map((product) => (
+            <ProductRow
+              key={product.id}
+              product={product}
+              selected={selected.has(product.id)}
+              onToggleSelected={() => toggleSelected(product.id)}
+              draggable={!search && statusFilter === "all"}
+              dragging={draggingId === product.id}
               onDragStart={() => setDraggingId(product.id)}
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => handleDrop(product.id)}
               onDragEnd={() => setDraggingId(null)}
-              className={`flex flex-col gap-3 rounded-2xl border border-black/6 bg-white p-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-opacity sm:flex-row sm:items-center dark:border-white/8 dark:bg-white/4 ${
-                draggingId === product.id ? "opacity-40" : ""
-              }`}
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <span
-                  className="hidden h-8 w-5 shrink-0 cursor-grab items-center justify-center text-zinc-300 active:cursor-grabbing sm:flex dark:text-zinc-600"
-                  aria-hidden="true"
-                >
-                  <GripIcon className="h-4 w-4" />
-                </span>
+              confirmingDelete={deletingId === product.id}
+              onAskDelete={() => setDeletingId(product.id)}
+              onCancelDelete={() => setDeletingId(null)}
+              onConfirmDelete={() => handleDelete(product.id, product.name)}
+              onEdit={() => setEditProductId(product.id)}
+              onToggleActive={() => handleToggleActive(product.id, product.name, !product.is_active)}
+              onToggleFeatured={() =>
+                handleToggleFeatured(product.id, product.name, !product.is_featured)
+              }
+              onMoveUp={() => handleMove(product.id, "up")}
+              onMoveDown={() => handleMove(product.id, "down")}
+            />
+          ))}
+        </div>
+      )}
 
-                {product.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL
-                  <img
-                    src={product.image_url}
-                    alt=""
-                    className="h-9 w-9 shrink-0 rounded-xl object-cover"
-                  />
-                ) : (
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
-                    <ShoppingBagIcon className="h-4 w-4" />
-                  </span>
-                )}
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="truncate text-sm font-semibold">{product.name}</p>
-                    {product.is_featured && (
-                      <span className="flex shrink-0 items-center gap-1 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
-                        <StarIcon className="h-2.5 w-2.5" />
-                        Featured
-                      </span>
-                    )}
-                  </div>
-                  <p className="truncate text-xs text-zinc-500">
-                    {priceLabel ?? "No price set"}
-                  </p>
-                </div>
-
-                <StatusBadge status={product.is_active ? "active" : "inactive"} />
-              </div>
-
-              <div className="flex shrink-0 items-center justify-end gap-1 sm:ml-auto">
-                <form
-                  action={() => handleToggleActive(product.id, product.name, !product.is_active)}
-                >
-                  <ToggleSwitchButton isActive={product.is_active} />
-                </form>
-
-                <button
-                  type="button"
-                  title="Edit product"
-                  aria-label={`Edit ${product.name}`}
-                  onClick={() => setEditProductId(product.id)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-                >
-                  <PencilIcon className="h-4 w-4" />
-                </button>
-
-                <ConfirmAction
-                  action={() => handleDelete(product.id, product.name)}
-                  title="Delete this product?"
-                  description={`"${product.name}" will be removed from your profile.`}
-                  confirmLabel="Delete"
-                  trigger={
-                    <button
-                      type="button"
-                      title="Delete product"
-                      aria-label={`Delete ${product.name}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
-                  }
-                />
-
-                <RowMenu
-                  items={[
-                    {
-                      label: product.is_featured ? "Unfeature" : "Feature",
-                      onSelect: () =>
-                        handleToggleFeatured(product.id, product.name, !product.is_featured),
-                    },
-                    { label: "Move up", onSelect: () => handleMove(product.id, "up") },
-                    { label: "Move down", onSelect: () => handleMove(product.id, "down") },
-                  ]}
-                />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {(isEmptyCollection || isEmptyFiltered) && (
+        <div className="flex flex-col items-center gap-4 rounded-[36px] border-[1.5px] border-dashed border-[var(--secondary-border)] bg-[var(--secondary-faint-bg)] px-7 py-14 text-center">
+          <span className="animate-float flex h-[72px] w-[72px] items-center justify-center rounded-[22px] bg-[var(--violet)] text-white">
+            <ShoppingBagIcon className="h-[34px] w-[34px]" />
+          </span>
+          <h3 className={`m-0 ${displayFont} text-[28px] font-extrabold tracking-[-0.03em]`}>
+            {isEmptyCollection ? "No products yet" : "No products found"}
+          </h3>
+          <p className="m-0 max-w-[380px] text-[var(--muted)]">
+            {isEmptyCollection
+              ? "Showcase products, resources, or offers on your public profile."
+              : "Try a different search term or status filter."}
+          </p>
+          {isEmptyCollection && (
+            <NewProductButton className="inline-flex min-h-[52px] cursor-pointer items-center gap-2.5 rounded-full border-0 bg-[var(--accent)] px-7 font-bold text-white">
+              <PlusIcon className="h-[18px] w-[18px]" />
+              Add product
+            </NewProductButton>
+          )}
+        </div>
       )}
 
       {editProductId && (
@@ -449,30 +387,228 @@ export function ProductsList({ products }: { products: Product[] }) {
   );
 }
 
-function ToggleSwitchButton({ isActive }: { isActive: boolean }) {
-  const { pending } = useFormStatus();
+function Thumb({
+  product,
+  className,
+  children,
+}: {
+  product: Product;
+  className: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <span
+      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden text-white/90 ${className}`}
+      style={{ background: linkInBioGradientFor(product.id) }}
+    >
+      {product.image_url ? (
+        // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL
+        <img src={product.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <ShoppingBagIcon className="h-7 w-7" />
+      )}
+      {children}
+    </span>
+  );
+}
+
+function FeaturedBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-bold text-[#3B3560] ${className}`}
+    >
+      <StarIcon className="h-3 w-3 text-[var(--violet)]" />
+      Featured
+    </span>
+  );
+}
+
+function ProductCard({
+  product,
+  selected,
+  onToggleSelected,
+  confirmingDelete,
+  onAskDelete,
+  onCancelDelete,
+  onConfirmDelete,
+  onEdit,
+  onToggleActive,
+  onToggleFeatured,
+  onMoveUp,
+  onMoveDown,
+}: {
+  product: Product;
+  selected: boolean;
+  onToggleSelected: () => void;
+  confirmingDelete: boolean;
+  onAskDelete: () => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
+  onEdit: () => void;
+  onToggleActive: () => void;
+  onToggleFeatured: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
+  const priceLabel = formatPrice(product.price, product.currency);
 
   return (
-    <button
-      type="submit"
-      role="switch"
-      aria-checked={isActive}
-      disabled={pending}
-      aria-label={isActive ? "Hide this product" : "Show this product"}
-      title={isActive ? "Hide from profile" : "Show on profile"}
-      className={`relative flex h-6 w-11 items-center rounded-full p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
-        isActive ? "brand-gradient" : "bg-zinc-200 dark:bg-zinc-700"
+    <div className="flex flex-col gap-3.5 rounded-[30px] border-[1.5px] border-[var(--line)] bg-white p-3.5 transition-[transform,box-shadow,border-color] hover:-translate-y-1 hover:border-[var(--secondary-border)] hover:shadow-[0_28px_46px_-30px_color-mix(in srgb, var(--secondary) 50%, transparent)]">
+      <Thumb product={product} className="h-[170px] w-full rounded-[22px]">
+        {product.is_featured && <FeaturedBadge className="absolute top-3 left-3" />}
+        <span className="absolute bottom-3 left-3 w-fit rounded-full bg-[var(--ink)] px-3.5 py-1 font-extrabold text-white">
+          {priceLabel ?? "No price"}
+        </span>
+      </Thumb>
+
+      <div className="flex flex-col gap-2.5 px-1.5">
+        <h3 className="m-0 [overflow-wrap:anywhere] text-[22px] leading-[1.15] font-extrabold tracking-[-0.02em]">
+          {product.name}
+        </h3>
+        <div className="flex items-center justify-between gap-2.5">
+          <span className="flex items-center gap-3">
+            <SelectBox checked={selected} label={`Select ${product.name}`} onChange={onToggleSelected} />
+            <StatusBadgePill isActive={product.is_active} />
+          </span>
+          <form action={onToggleActive}>
+            <ActiveToggle
+              isActive={product.is_active}
+              label={product.is_active ? "Hide this product" : "Show this product"}
+            />
+          </form>
+        </div>
+      </div>
+
+      {confirmingDelete ? (
+        <DeleteConfirmBar
+          label={`Delete "${product.name}"?`}
+          onCancel={onCancelDelete}
+          onConfirm={onConfirmDelete}
+        />
+      ) : (
+        <div className="flex items-center gap-2 border-t border-[var(--line)] px-1.5 pt-3">
+          <IconCircleButton label="Edit product" onClick={onEdit}>
+            <PencilIcon className="h-[17px] w-[17px]" />
+          </IconCircleButton>
+          <IconCircleButton
+            label={product.is_featured ? "Unfeature product" : "Feature product"}
+            onClick={onToggleFeatured}
+            tone="star"
+          >
+            <StarIcon className={`h-[17px] w-[17px] ${product.is_featured ? "" : "opacity-40"}`} />
+          </IconCircleButton>
+          <IconCircleButton label="Delete product" onClick={onAskDelete} tone="red">
+            <TrashIcon className="h-[17px] w-[17px]" />
+          </IconCircleButton>
+          <span className="flex-1" />
+          <LinkInBioRowMenu items={[{ label: "Move up", onSelect: onMoveUp }, { label: "Move down", onSelect: onMoveDown }]} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductRow({
+  product,
+  selected,
+  onToggleSelected,
+  draggable,
+  dragging,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  confirmingDelete,
+  onAskDelete,
+  onCancelDelete,
+  onConfirmDelete,
+  onEdit,
+  onToggleActive,
+  onToggleFeatured,
+  onMoveUp,
+  onMoveDown,
+}: {
+  product: Product;
+  selected: boolean;
+  onToggleSelected: () => void;
+  draggable: boolean;
+  dragging: boolean;
+  onDragStart: () => void;
+  onDragOver: (event: React.DragEvent) => void;
+  onDrop: () => void;
+  onDragEnd: () => void;
+  confirmingDelete: boolean;
+  onAskDelete: () => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
+  onEdit: () => void;
+  onToggleActive: () => void;
+  onToggleFeatured: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
+  const priceLabel = formatPrice(product.price, product.currency);
+
+  return (
+    <div
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      className={`flex flex-wrap items-center gap-3 rounded-[24px] border-[1.5px] border-[var(--line)] bg-white p-3 pr-4.5 transition-[box-shadow,border-color,opacity] hover:border-[var(--secondary-border)] hover:shadow-[0_20px_36px_-28px_color-mix(in srgb, var(--secondary) 50%, transparent)] ${
+        dragging ? "opacity-40" : ""
       }`}
     >
-      {pending ? (
-        <span className="mx-auto h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/60 border-t-white" />
-      ) : (
-        <span
-          className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${
-            isActive ? "translate-x-5" : "translate-x-0"
-          }`}
-        />
+      <SelectBox checked={selected} label={`Select ${product.name}`} onChange={onToggleSelected} />
+
+      {draggable && (
+        <span className="hidden h-8 w-5 shrink-0 cursor-grab items-center justify-center text-[#B9B4C7] active:cursor-grabbing sm:flex" aria-hidden="true">
+          <GripIcon className="h-4 w-4" />
+        </span>
       )}
-    </button>
+
+      <Thumb product={product} className="h-[60px] w-[60px] rounded-[18px]" />
+
+      <div className="flex min-w-[200px] flex-1 flex-col gap-0.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="[overflow-wrap:anywhere] text-[17px] font-bold">{product.name}</span>
+          {product.is_featured && <FeaturedBadge />}
+        </div>
+        <span className={`${displayFont} text-[16px] font-extrabold text-[var(--muted)]`}>
+          {priceLabel ?? "No price"}
+        </span>
+      </div>
+
+      <StatusBadgePill isActive={product.is_active} />
+
+      <form action={onToggleActive}>
+        <ActiveToggle
+          isActive={product.is_active}
+          label={product.is_active ? "Hide this product" : "Show this product"}
+        />
+      </form>
+
+      {confirmingDelete ? (
+        <DeleteConfirmBar label="Delete?" onCancel={onCancelDelete} onConfirm={onConfirmDelete} compact />
+      ) : (
+        <div className="flex items-center gap-2">
+          <IconCircleButton label="Edit product" onClick={onEdit}>
+            <PencilIcon className="h-[17px] w-[17px]" />
+          </IconCircleButton>
+          <IconCircleButton
+            label={product.is_featured ? "Unfeature product" : "Feature product"}
+            onClick={onToggleFeatured}
+            tone="star"
+          >
+            <StarIcon className={`h-[17px] w-[17px] ${product.is_featured ? "" : "opacity-40"}`} />
+          </IconCircleButton>
+          <IconCircleButton label="Delete product" onClick={onAskDelete} tone="red">
+            <TrashIcon className="h-[17px] w-[17px]" />
+          </IconCircleButton>
+          <LinkInBioRowMenu items={[{ label: "Move up", onSelect: onMoveUp }, { label: "Move down", onSelect: onMoveDown }]} />
+        </div>
+      )}
+    </div>
   );
 }

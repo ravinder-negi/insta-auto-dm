@@ -214,6 +214,8 @@ export function FlowWizard({
         onBack={step > 0 ? () => setStep((value) => value - 1) : undefined}
         onNext={isLastStep ? undefined : () => setStep((value) => value + 1)}
         canContinue={stepValid[step]}
+        stepValid={stepValid}
+        onStepSelect={setStep}
         pending={pending}
         nextLabel={isLastStep ? submitLabel : "Next"}
         cancelHref={onCancel ? undefined : "/dashboard/flows"}
@@ -227,6 +229,7 @@ export function FlowWizard({
             onSelectAccount={selectAccount}
             name={name}
             onNameChange={setName}
+            locked={Boolean(initialValues)}
           />
         )}
 

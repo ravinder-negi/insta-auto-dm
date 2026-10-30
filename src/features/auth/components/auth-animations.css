@@ -1,0 +1,104 @@
+/* Auth page decorative-illustration motion — ported from the design
+   reference (Sign in and sign up-html/Auth.dc.html). Prefixed `au-` to stay
+   collision-free with the home page's `ha-` animations, which this file is
+   loaded alongside (see AuthLayout). */
+
+@keyframes auCardLoop {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+  8%,
+  86% {
+    opacity: 1;
+    transform: none;
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes auPillLoop {
+  0%,
+  28% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  36%,
+  86% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes auLineLoop {
+  0%,
+  30% {
+    opacity: 0;
+  }
+  40%,
+  86% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes auPlaneLoop {
+  0%,
+  42% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+  }
+  86% {
+    opacity: 1;
+    transform: translate(70px, 52px) rotate(8deg);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: translate(96px, 70px) rotate(8deg);
+  }
+}
+
+.au-cardloop {
+  opacity: 0;
+  animation: auCardLoop 8s ease-out infinite;
+}
+
+.au-pillloop {
+  opacity: 0;
+  animation: auPillLoop 8s ease-out infinite;
+}
+
+.au-lineloop {
+  opacity: 0;
+  animation: auLineLoop 8s ease-out infinite;
+}
+
+.au-planeloop {
+  opacity: 0;
+  animation: auPlaneLoop 8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .au-cardloop,
+  .au-pillloop,
+  .au-lineloop,
+  .au-planeloop {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}

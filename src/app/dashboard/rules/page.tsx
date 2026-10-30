@@ -2,20 +2,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { AutomationRule, InstagramAccount } from "@/types";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { StatCard } from "@/components/ui/StatCard";
-import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/styles";
-import {
-  BoltIcon,
-  ChartIcon,
-  CheckIcon,
-  ClockIcon,
-  CloseIcon,
-  PauseIcon,
-  PlusIcon,
-} from "@/components/icons";
+import { AutomationHero } from "@/components/ui/AutomationHero";
+import { primaryButtonClass } from "@/components/ui/styles";
+import { BoltIcon, ChartIcon, ClockIcon, PlusIcon } from "@/components/icons";
 import { NewRuleButton } from "@/features/rules/components/NewRuleButton";
 import { RulesTable, type RuleTableRow } from "@/features/rules/components/RulesTable";
+import { getViewPreference } from "@/lib/viewPreference/server";
+import { VIEW_PREFERENCE_KEYS } from "@/lib/viewPreference/keys";
 
 type RuleQueryRow = Pick<
   AutomationRule,
@@ -28,6 +21,7 @@ type RuleQueryRow = Pick<
   | "instagram_media_id"
   | "instagram_media_shortcode"
   | "require_follow"
+  | "dm_message"
   | "is_active"
   | "created_at"
   | "instagram_account_id"
@@ -39,13 +33,14 @@ type RuleQueryRow = Pick<
 };
 
 export default async function RulesPage() {
+  const initialView = await getViewPreference(VIEW_PREFERENCE_KEYS.rules, ["card", "list"] as const, "card");
   const supabase = await createClient();
 
   const [{ data, error }, { data: accountsData }] = await Promise.all([
     supabase
       .from("automation_rules")
       .select(
-        "id, name, trigger_type, keyword_match, keywords, keyword, instagram_media_id, instagram_media_shortcode, require_follow, is_active, created_at, instagram_account_id, instagram_accounts(username, instagram_user_id, is_active)"
+        "id, name, trigger_type, keyword_match, keywords, keyword, instagram_media_id, instagram_media_shortcode, require_follow, dm_message, is_active, created_at, instagram_account_id, instagram_accounts(username, instagram_user_id, is_active)"
       )
       .order("created_at", { ascending: false }),
     supabase
@@ -69,6 +64,7 @@ export default async function RulesPage() {
       instagram_media_id: rule.instagram_media_id,
       instagram_media_shortcode: rule.instagram_media_shortcode,
       require_follow: rule.require_follow,
+      dm_message: rule.dm_message,
       is_active: rule.is_active,
       created_at: rule.created_at,
       accountId: rule.instagram_account_id,
@@ -85,29 +81,28 @@ export default async function RulesPage() {
     handle: (account.username ?? account.instagram_user_id) as string,
   }));
 
-  const activeCount = rules.filter(
-    (rule) => rule.is_active && rule.accountActive
-  ).length;
-  const pausedCount = rules.filter(
-    (rule) => !rule.is_active && rule.accountActive
-  ).length;
-  // A rule on a paused/disconnected account can never fire, whatever its own flag.
-  const disabledCount = rules.filter((rule) => !rule.accountActive).length;
-
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader
-        eyebrow="Automation"
-        title="AutoDMs"
+      <AutomationHero
+        titlePlain="Auto"
+        titleAccent="DMs"
         description="Each AutoDM watches for a keyword in your comments and sends the DM you wrote."
         actions={
           <>
-            <Link href="/dashboard/rules/analytics" className={secondaryButtonClass}>
-              <ChartIcon className="h-4 w-4" />
+            <Link
+              href="/dashboard/rules/analytics"
+              className="inline-flex min-h-[50px] items-center gap-2.5 rounded-full border px-5.5 font-semibold"
+              style={{ borderColor: "var(--line)", backgroundColor: "#fff", color: "var(--ink)" }}
+            >
+              <ChartIcon className="h-4.5 w-4.5" />
               Analytics
             </Link>
-            <Link href="/dashboard/rules/executions" className={secondaryButtonClass}>
-              <ClockIcon className="h-4 w-4" />
+            <Link
+              href="/dashboard/rules/executions"
+              className="inline-flex min-h-[50px] items-center gap-2.5 rounded-full border px-5.5 font-semibold"
+              style={{ borderColor: "var(--line)", backgroundColor: "#fff", color: "var(--ink)" }}
+            >
+              <ClockIcon className="h-4.5 w-4.5" />
               Execution log
             </Link>
           </>
@@ -115,37 +110,13 @@ export default async function RulesPage() {
       />
 
       {error && (
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400">
+        <p
+          className="rounded-xl border px-4 py-3 text-sm font-semibold"
+          style={{ borderColor: "var(--danger-border)", backgroundColor: "var(--danger-tint-faint)", color: "var(--danger-deep)" }}
+        >
           {error.message}
         </p>
       )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Total AutoDMs"
-          value={rules.length}
-          tone="indigo"
-          icon={<BoltIcon className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Active"
-          value={activeCount}
-          tone="green"
-          icon={<CheckIcon className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Paused"
-          value={pausedCount}
-          tone="amber"
-          icon={<PauseIcon className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Disabled"
-          value={disabledCount}
-          tone="red"
-          icon={<CloseIcon className="h-5 w-5" />}
-        />
-      </div>
 
       {rules.length === 0 ? (
         <EmptyState
@@ -160,7 +131,7 @@ export default async function RulesPage() {
           }
         />
       ) : (
-        <RulesTable rules={rules} accounts={accounts} />
+        <RulesTable rules={rules} accounts={accounts} initialView={initialView} />
       )}
     </div>
   );

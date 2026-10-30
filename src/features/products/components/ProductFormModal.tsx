@@ -60,49 +60,55 @@ export function ProductFormModal({
   const isEdit = Boolean(productId);
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[var(--ink)]/55 p-5">
       <button
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 cursor-default border-0 bg-transparent"
       />
 
-      <div className="animate-fade-in-up relative flex max-h-[90vh] w-full max-w-xl flex-col gap-3">
-        <div className="flex items-center justify-between px-1">
-          <h2 className="text-base font-semibold tracking-tight text-white">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={isEdit ? "Edit product" : "Add product"}
+        className="relative my-auto flex w-full max-w-[520px] flex-col gap-4.5 rounded-[32px] bg-white p-8 shadow-[0_50px_100px_-30px_rgba(0,0,0,.6)]"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="m-0 text-[28px] font-extrabold tracking-[-0.03em]">
             {isEdit ? "Edit product" : "Add product"}
-          </h2>
+          </h3>
           <button
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex h-[42px] w-[42px] cursor-pointer items-center justify-center rounded-full border-[1.5px] border-[var(--line)] bg-white text-[var(--ink)] transition-colors hover:border-[var(--secondary-border)] hover:bg-[var(--secondary-soft-bg)]"
           >
-            <CloseIcon className="h-4 w-4" />
+            <CloseIcon className="h-[18px] w-[18px]" />
           </button>
         </div>
 
-        <div className="thin-scrollbar overflow-y-auto">
-          {data.status === "loading" && <ProductFormSkeleton />}
+        {data.status === "loading" && <ProductFormSkeleton />}
 
-          {data.status === "error" && (
-            <div className="rounded-3xl border border-rose-200 bg-rose-50 px-5 py-6 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400">
-              {data.message}
-            </div>
-          )}
+        {data.status === "error" && (
+          <div
+            role="alert"
+            className="rounded-2xl border-[1.5px] border-[var(--danger-border)] bg-[var(--danger-tint-faint)] px-4 py-3 text-sm font-semibold text-[var(--danger-deep)]"
+          >
+            {data.message}
+          </div>
+        )}
 
-          {data.status === "ready" && (
-            <ProductForm
-              action={isEdit ? updateProduct.bind(null, productId as string) : createProduct}
-              initialValues={data.initialValues}
-              submitLabel={isEdit ? "Save changes" : "Add product"}
-              userId={data.userId}
-              onCancel={onClose}
-              onSuccess={onSaved}
-            />
-          )}
-        </div>
+        {data.status === "ready" && (
+          <ProductForm
+            action={isEdit ? updateProduct.bind(null, productId as string) : createProduct}
+            initialValues={data.initialValues}
+            submitLabel={isEdit ? "Save changes" : "Add product"}
+            userId={data.userId}
+            onCancel={onClose}
+            onSuccess={onSaved}
+          />
+        )}
       </div>
     </div>,
     document.body
@@ -113,48 +119,26 @@ export function ProductFormModal({
  *  the product's data finishes loading. */
 function ProductFormSkeleton() {
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] sm:p-5 dark:border-white/8 dark:bg-white/4">
-      <div>
-        <span className="mb-1.5 block h-3.5 w-28 animate-pulse rounded-full bg-black/8 dark:bg-white/10" />
-        <div className="flex items-center gap-4">
-          <span className="h-20 w-20 shrink-0 animate-pulse rounded-xl bg-black/6 dark:bg-white/8" />
-          <span className="h-9 w-28 animate-pulse rounded-lg bg-black/6 dark:bg-white/8" />
-        </div>
+    <div className="flex flex-col gap-4.5">
+      <div className="flex items-center gap-4">
+        <span className="h-[84px] w-[84px] shrink-0 animate-pulse rounded-[24px] bg-[var(--neutral-tint)]" />
+        <span className="h-[44px] w-32 animate-pulse rounded-full bg-[var(--neutral-tint)]" />
       </div>
-
-      <SkeletonField labelWidth="w-24" fieldClassName="h-11" />
-      <SkeletonField labelWidth="w-36" fieldClassName="h-20" />
-      <SkeletonField labelWidth="w-32" fieldClassName="h-11" />
-
-      <div className="grid grid-cols-2 gap-4">
-        <SkeletonField labelWidth="w-20" fieldClassName="h-11" />
-        <SkeletonField labelWidth="w-16" fieldClassName="h-11" />
+      <SkeletonField />
+      <div className="flex gap-4">
+        <SkeletonField className="flex-1" />
+        <SkeletonField className="flex-[2]" />
       </div>
-
-      <span className="h-16 animate-pulse rounded-xl border border-black/8 bg-black/4 dark:border-white/10 dark:bg-white/6" />
-      <span className="h-16 animate-pulse rounded-xl border border-black/8 bg-black/4 dark:border-white/10 dark:bg-white/6" />
-
-      <div className="flex items-center justify-end gap-2.5">
-        <span className="h-10 w-20 animate-pulse rounded-xl bg-black/6 dark:bg-white/8" />
-        <span className="h-10 w-28 animate-pulse rounded-xl bg-black/10 dark:bg-white/12" />
-      </div>
+      <span className="h-16 animate-pulse rounded-2xl bg-[var(--neutral-tint)]" />
     </div>
   );
 }
 
-function SkeletonField({
-  labelWidth,
-  fieldClassName,
-}: {
-  labelWidth: string;
-  fieldClassName: string;
-}) {
+function SkeletonField({ className = "" }: { className?: string }) {
   return (
-    <div>
-      <span
-        className={`mb-1.5 block h-3.5 ${labelWidth} animate-pulse rounded-full bg-black/8 dark:bg-white/10`}
-      />
-      <span className={`block animate-pulse rounded-xl bg-black/6 dark:bg-white/8 ${fieldClassName}`} />
+    <div className={className}>
+      <span className="mb-1.5 block h-3.5 w-24 animate-pulse rounded-full bg-[var(--neutral-tint)]" />
+      <span className="block h-[50px] animate-pulse rounded-2xl bg-[var(--neutral-tint)]" />
     </div>
   );
 }

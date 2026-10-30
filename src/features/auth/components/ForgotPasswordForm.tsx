@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { AuthBrandHeader } from "./AuthBrandHeader";
 import { AuthCard } from "./AuthCard";
-import { ArrowRightIcon, MailIcon } from "@/components/icons";
+import { AuthTextField } from "./AuthTextField";
+import { AuthSubmitButton } from "./AuthSubmitButton";
+import { ArrowLeftIcon, MailIcon } from "@/components/icons";
+import { displayFont } from "@/app/(marketing)/_components/home/fonts";
 import { requestPasswordReset, type ForgotPasswordState } from "@/features/auth/actions/forgot-password";
 
 export function ForgotPasswordForm() {
@@ -17,18 +20,22 @@ export function ForgotPasswordForm() {
     return (
       <AuthCard>
         <AuthBrandHeader />
-        <h1 className="text-3xl font-bold tracking-tight">
-          Check your email
-        </h1>
-        <p className="mt-2 text-sm text-zinc-500">
-          If an account exists for that email, we&apos;ve sent a link to
-          reset your password.
-        </p>
+        <div>
+          <h1
+            className={`${displayFont} text-[32px] leading-[1.1] font-extrabold tracking-[-0.03em] text-[var(--ink)]`}
+          >
+            Check your email
+          </h1>
+          <p className="mt-2 text-[var(--muted)]">
+            If an account exists for that email, we&apos;ve sent a link to reset your password.
+          </p>
+        </div>
         <Link
           href="/login"
-          className="mt-6 inline-block text-sm font-semibold text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+          className="inline-flex w-fit items-center gap-2 text-sm font-bold text-[var(--violet)] hover:underline"
         >
-          ← Back to sign in
+          <ArrowLeftIcon className="h-4 w-4" />
+          Back to sign in
         </Link>
       </AuthCard>
     );
@@ -38,55 +45,38 @@ export function ForgotPasswordForm() {
     <AuthCard>
       <AuthBrandHeader />
 
-      <div className="mb-7">
-        <h1 className="text-3xl font-bold tracking-tight">
+      <div>
+        <h1
+          className={`${displayFont} text-[32px] leading-[1.1] font-extrabold tracking-[-0.03em] text-[var(--ink)]`}
+        >
           Forgot password?
         </h1>
-        <p className="mt-1.5 text-sm text-zinc-500">
+        <p className="mt-1.5 text-[var(--muted)]">
           Enter your email and we&apos;ll send you a reset link.
         </p>
       </div>
 
-      <form action={formAction} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="email" className="text-sm font-medium">
-            Email
-          </label>
-          <div className="relative">
-            <MailIcon className="pointer-events-none absolute inset-y-0 left-3.5 my-auto h-4.5 w-4.5 text-zinc-400" />
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="you@example.com"
-              className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pr-3.5 pl-10 text-sm outline-none transition-all duration-200 focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10 dark:border-white/15 dark:focus:border-brand-400/70"
-            />
-          </div>
-        </div>
+      <form action={formAction} className="flex flex-col gap-5">
+        <AuthTextField
+          id="email"
+          name="email"
+          label="Email"
+          type="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          icon={<MailIcon className="h-5 w-5" />}
+        />
 
-        {state?.error && (
-          <p className="animate-fade-in-up text-sm text-red-600 dark:text-red-400">
-            {state.error}
-          </p>
-        )}
+        {state?.error && <p className="animate-fade-in-up text-sm text-red-600">{state.error}</p>}
 
-        <button
-          type="submit"
-          disabled={pending}
-          className="brand-gradient mt-2 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:hover:scale-100"
-        >
-          {pending ? "Sending…" : "Send reset link"}
-          {!pending && <ArrowRightIcon className="h-4 w-4" />}
-        </button>
+        <AuthSubmitButton pending={pending} idleLabel="Send reset link" pendingLabel="Sending…" />
       </form>
 
-      <p className="mt-6 text-center text-sm text-zinc-500">
+      <p className="text-center text-[var(--muted)]">
         Remembered it?{" "}
         <Link
           href="/login"
-          className="font-semibold text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+          className="font-bold text-[var(--violet)] underline underline-offset-3 hover:no-underline"
         >
           Sign in
         </Link>

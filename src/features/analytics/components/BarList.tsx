@@ -32,25 +32,23 @@ export function BarList({
   const peak = Math.max(...rows.map((row) => row.value), 1);
 
   return (
-    <ul className="flex flex-col gap-4">
+    <ul className="m-0 flex flex-col gap-4 p-0">
       {rows.map((row) => (
         <li key={row.key}>
           <div className="flex items-baseline justify-between gap-3">
-            <span className="flex min-w-0 items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-300">
+            <span className="flex min-w-0 items-center gap-1.5 text-sm text-[var(--ink)]">
               {row.icon}
               <span className="truncate">{row.label}</span>
             </span>
             <span className="shrink-0 text-sm">
-              <span className="font-semibold tabular-nums">
-                {row.value.toLocaleString("en-US")}
-              </span>
-              <span className="ml-1.5 text-xs text-zinc-400 tabular-nums">
+              <span className="font-bold tabular-nums">{row.value.toLocaleString("en-US")}</span>
+              <span className="ml-1.5 text-xs tabular-nums text-[var(--muted-soft)]">
                 {Math.round((row.value / total) * 100)}%
               </span>
             </span>
           </div>
 
-          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-brand-100/70 dark:bg-white/8">
+          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[var(--neutral-tint)]">
             <div
               className="h-full rounded-r-[4px]"
               style={{

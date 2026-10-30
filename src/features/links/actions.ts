@@ -173,6 +173,17 @@ export async function deleteLink(id: string) {
   revalidatePath("/dashboard/links");
 }
 
+export async function deleteLinks(ids: string[]) {
+  if (ids.length === 0) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("profile_links").delete().in("id", ids);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dashboard/links");
+}
+
 export async function toggleLinkActive(id: string, isActive: boolean) {
   const supabase = await createClient();
   const { error } = await supabase

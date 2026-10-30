@@ -8,7 +8,6 @@ import {
   CloseIcon,
   MenuIcon,
 } from "@/components/icons";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 const NAV_LINKS = [
   { href: "/#features", label: "Features" },
@@ -63,7 +62,6 @@ export function LandingHeader() {
             Get started
             <ArrowRightIcon className="h-3.5 w-3.5" />
           </Link>
-          <ThemeToggle />
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}

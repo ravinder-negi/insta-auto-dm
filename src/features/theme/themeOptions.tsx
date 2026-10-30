@@ -1,4 +1,4 @@
-import type { ThemeButtonStyle, ThemeFont, ThemeLayout } from "@/types";
+import type { ThemeButtonStyle, ThemeFont, ThemeLayout, ThemeTemplate } from "@/types";
 
 export const THEME_FONT_OPTIONS: { value: ThemeFont; label: string; sampleClass: string }[] = [
   { value: "sans", label: "Sans", sampleClass: "font-sans" },
@@ -19,6 +19,16 @@ export const THEME_BUTTON_STYLE_OPTIONS: {
 export const THEME_LAYOUT_OPTIONS: { value: ThemeLayout; label: string }[] = [
   { value: "center", label: "Centered" },
   { value: "left", label: "Left-aligned" },
+];
+
+export const THEME_TEMPLATE_OPTIONS: {
+  value: ThemeTemplate;
+  label: string;
+  description: string;
+}[] = [
+  { value: "original", label: "Original", description: "Two-column layout with a sidebar profile." },
+  { value: "centered", label: "Centered", description: "Single-column page with a cover banner and tabs." },
+  { value: "noir", label: "Noir", description: "Dark bento-grid layout." },
 ];
 
 export function getThemeFontClassName(font: ThemeFont): string {

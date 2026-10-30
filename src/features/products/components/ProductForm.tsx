@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { fieldClass, SelectField } from "@/components/ui/controls";
-import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/styles";
 import { useToast } from "@/components/ui/Toast";
 import { CameraIcon, TrashIcon } from "@/components/icons";
 import { CURRENCIES } from "@/features/products/currencies";
 import type { ProductFormState } from "@/features/products/actions";
 
 const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+const fieldWrapClass =
+  "flex items-center gap-2 rounded-[14px] border-[1.5px] border-[var(--line)] bg-[var(--bg)] px-3.5 transition-colors focus-within:border-[var(--primary)] focus-within:bg-white focus-within:ring-4 focus-within:ring-[var(--primary)]/15";
+const fieldInputClass = "min-h-[50px] w-full border-0 bg-transparent outline-none";
 
 export interface ProductFormInitialValues {
   name: string;
@@ -94,54 +96,52 @@ export function ProductForm({
   }
 
   return (
-    <form
-      action={formAction}
-      className="flex flex-col gap-5 rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] sm:p-5 dark:border-white/8 dark:bg-white/4"
-    >
-      <div>
-        <span className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Product image
-        </span>
-        <div className="flex items-center gap-4">
+    <form action={formAction} className="flex flex-col gap-4.5">
+      {state && "error" in state && (
+        <p
+          role="alert"
+          className="rounded-2xl border-[1.5px] border-[var(--danger-border)] bg-[var(--danger-tint-faint)] px-3.5 py-2.5 text-sm font-semibold text-[var(--danger-deep)]"
+        >
+          {state.error}
+        </p>
+      )}
+
+      <div className="flex items-center gap-4">
+        <span className="relative flex h-[84px] w-[84px] shrink-0 items-center justify-center overflow-hidden rounded-[24px] bg-[linear-gradient(135deg,var(--violet)_0%,var(--primary)_100%)] text-white/90">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL
-            <img
-              src={imageUrl}
-              alt=""
-              className="h-20 w-20 shrink-0 rounded-xl border border-black/8 object-cover dark:border-white/10"
-            />
+            <img src={imageUrl} alt="Product image" className="absolute inset-0 h-full w-full object-cover" />
           ) : (
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border border-dashed border-black/15 text-zinc-300 dark:border-white/15 dark:text-zinc-600">
-              <CameraIcon className="h-6 w-6" />
-            </div>
+            <CameraIcon className="h-8 w-8" />
           )}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor={fileInputId}
-                className={`${secondaryButtonClass} cursor-pointer`}
+        </span>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-2">
+            <label
+              htmlFor={fileInputId}
+              className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-full border-[1.5px] border-[var(--line)] bg-white px-4.5 font-semibold"
+            >
+              <CameraIcon className="h-4 w-4" />
+              {uploading ? "Uploading…" : imageUrl ? "Replace image" : "Upload image"}
+            </label>
+            {imageUrl && (
+              <button
+                type="button"
+                onClick={() => setImageUrl("")}
+                aria-label="Remove image"
+                className="flex h-[44px] w-[44px] cursor-pointer items-center justify-center rounded-full border-[1.5px] border-[var(--danger-border)] text-[var(--danger-strong)] transition-colors hover:bg-[var(--danger-tint)]"
               >
-                {uploading ? "Uploading..." : imageUrl ? "Replace" : "Upload image"}
-              </label>
-              {imageUrl && (
-                <button
-                  type="button"
-                  onClick={() => setImageUrl("")}
-                  aria-label="Remove image"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-zinc-500">Square image recommended, up to 5MB.</p>
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            )}
           </div>
+          <p className="m-0 text-xs text-[var(--muted)]">JPG or PNG, up to 5MB.</p>
         </div>
         <input
           ref={fileInputRef}
           id={fileInputId}
           type="file"
-          accept="image/*"
+          accept="image/png,image/jpeg"
           className="hidden"
           onChange={handleImageChange}
           disabled={uploading}
@@ -150,147 +150,183 @@ export function ProductForm({
       </div>
 
       <Field label="Product name" htmlFor="name">
-        <input
-          id="name"
-          name="name"
-          required
-          defaultValue={initialValues?.name}
-          placeholder="e.g. Instagram Growth Guide"
-          maxLength={80}
-          className={fieldClass}
-        />
+        <div className={fieldWrapClass}>
+          <input
+            id="name"
+            name="name"
+            required
+            defaultValue={initialValues?.name}
+            placeholder="e.g. Instagram Growth Guide"
+            maxLength={80}
+            className={fieldInputClass}
+          />
+        </div>
       </Field>
 
       <Field label="Description (optional)" htmlFor="description">
-        <textarea
-          id="description"
-          name="description"
-          defaultValue={initialValues?.description ?? ""}
-          placeholder="A short description of what this product offers."
-          maxLength={280}
-          rows={3}
-          className={`${fieldClass} resize-none`}
-        />
+        <div className={fieldWrapClass}>
+          <textarea
+            id="description"
+            name="description"
+            defaultValue={initialValues?.description ?? ""}
+            placeholder="A short description of what this product offers."
+            maxLength={280}
+            rows={3}
+            className={`${fieldInputClass} resize-none py-3`}
+          />
+        </div>
       </Field>
 
       <Field label="Product URL (optional)" htmlFor="product_url">
-        <input
-          id="product_url"
-          name="product_url"
-          type="url"
-          defaultValue={initialValues?.product_url ?? ""}
-          placeholder="https://example.com/product"
-          className={fieldClass}
-        />
-        <p className="mt-1.5 text-xs text-zinc-500">
+        <div className={fieldWrapClass}>
+          <input
+            id="product_url"
+            name="product_url"
+            type="url"
+            defaultValue={initialValues?.product_url ?? ""}
+            placeholder="https://example.com/product"
+            className={fieldInputClass}
+          />
+        </div>
+        <p className="mt-1.5 text-xs text-[var(--muted)]">
           Where visitors can learn more or purchase this product. Opens in a new tab.
         </p>
       </Field>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Price (optional)" htmlFor="price">
-          <input
-            id="price"
-            name="price"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="0.01"
-            defaultValue={initialValues?.price ?? ""}
-            placeholder="9.00"
-            className={fieldClass}
-          />
+      <div className="flex flex-wrap gap-4">
+        <Field label="Price (optional)" htmlFor="price" className="flex-1 basis-[150px]">
+          <div className={fieldWrapClass}>
+            <input
+              id="price"
+              name="price"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.01"
+              defaultValue={initialValues?.price ?? ""}
+              placeholder="9.00"
+              className={fieldInputClass}
+            />
+          </div>
         </Field>
 
-        <Field label="Currency" htmlFor="currency">
-          <SelectField id="currency" name="currency" defaultValue={initialValues?.currency ?? "USD"}>
-            {CURRENCIES.map((code) => (
-              <option key={code} value={code}>
-                {code}
-              </option>
-            ))}
-          </SelectField>
+        <Field label="Currency" htmlFor="currency" className="flex-[2] basis-[150px]">
+          <div className={fieldWrapClass}>
+            <select
+              id="currency"
+              name="currency"
+              defaultValue={initialValues?.currency ?? "USD"}
+              className={`${fieldInputClass} appearance-none`}
+            >
+              {CURRENCIES.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          </div>
         </Field>
       </div>
 
-      <div className="flex items-center justify-between rounded-xl border border-black/8 px-3.5 py-3 dark:border-white/10">
-        <div>
-          <p className="text-sm font-medium">Feature this product</p>
-          <p className="mt-0.5 text-xs text-zinc-500">
-            Featured products are visually highlighted on your public profile.
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <span className="font-semibold">Status</span>
+          <div role="group" aria-label="Status" className="flex gap-2">
+            <StatusSegment label="Active" selected={isActive} onClick={() => setIsActive(true)} />
+            <StatusSegment label="Hidden" selected={!isActive} onClick={() => setIsActive(false)} />
+          </div>
+          <input type="hidden" name="is_active" value={isActive ? "on" : ""} />
         </div>
-        <label className="relative inline-flex shrink-0 cursor-pointer items-center">
-          <input
-            type="checkbox"
-            name="is_featured"
-            checked={isFeatured}
-            onChange={(event) => setIsFeatured(event.target.checked)}
-            className="peer sr-only"
-          />
-          <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-brand-600 dark:bg-zinc-700" />
-          <div className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
-        </label>
+
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isFeatured}
+          onClick={() => setIsFeatured((value) => !value)}
+          className="inline-flex min-h-[48px] cursor-pointer items-center gap-3 rounded-full border-[1.5px] border-[var(--line)] bg-white py-0 pr-4 pl-2 font-semibold"
+        >
+          <span
+            className="inline-block h-[30px] w-12 shrink-0 rounded-full p-[3px] transition-colors"
+            style={{ background: isFeatured ? "var(--success)" : "var(--line)" }}
+          >
+            <span
+              className="block h-6 w-6 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,.25)] transition-transform"
+              style={{ transform: isFeatured ? "translateX(18px)" : "translateX(0)" }}
+            />
+          </span>
+          Featured
+        </button>
+        <input type="hidden" name="is_featured" value={isFeatured ? "on" : ""} />
       </div>
 
-      <div className="flex items-center justify-between rounded-xl border border-black/8 px-3.5 py-3 dark:border-white/10">
-        <div>
-          <p className="text-sm font-medium">Show on profile</p>
-          <p className="mt-0.5 text-xs text-zinc-500">
-            Make this product visible to visitors on your public profile.
-          </p>
-        </div>
-        <label className="relative inline-flex shrink-0 cursor-pointer items-center">
-          <input
-            type="checkbox"
-            name="is_active"
-            checked={isActive}
-            onChange={(event) => setIsActive(event.target.checked)}
-            className="peer sr-only"
-          />
-          <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-brand-600 dark:bg-zinc-700" />
-          <div className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
-        </label>
-      </div>
-
-      {state && "error" in state && (
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400">
-          {state.error}
-        </p>
-      )}
-
-      <div className="flex items-center justify-end gap-2.5">
+      <div className="mt-1 flex flex-wrap gap-2.5">
+        <button
+          type="submit"
+          disabled={pending || uploading}
+          className="min-h-[54px] flex-1 basis-[200px] cursor-pointer rounded-full border-0 bg-[var(--primary)] font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {pending ? "Saving…" : submitLabel}
+        </button>
         {onCancel ? (
-          <button type="button" onClick={onCancel} className={secondaryButtonClass}>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-[54px] cursor-pointer rounded-full border-[1.5px] border-[var(--line)] bg-white px-6 font-semibold"
+          >
             Cancel
           </button>
         ) : (
-          <Link href="/dashboard/products" className={secondaryButtonClass}>
+          <Link
+            href="/dashboard/products"
+            className="inline-flex min-h-[54px] items-center rounded-full border-[1.5px] border-[var(--line)] bg-white px-6 font-semibold"
+          >
             Cancel
           </Link>
         )}
-        <button type="submit" disabled={pending || uploading} className={primaryButtonClass}>
-          {pending ? "Saving…" : submitLabel}
-        </button>
       </div>
     </form>
+  );
+}
+
+function StatusSegment({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={`min-h-[44px] cursor-pointer rounded-full border-[1.5px] px-4.5 font-bold transition-colors ${
+        selected
+          ? "border-[var(--ink)] bg-[var(--ink)] text-white"
+          : "border-[var(--line)] bg-white text-[var(--ink)]"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
 function Field({
   label,
   htmlFor,
+  className = "",
   children,
 }: {
   label: string;
   htmlFor: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <label htmlFor={htmlFor} className="block">
-      <span className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        {label}
-      </span>
+    <label htmlFor={htmlFor} className={`flex flex-col gap-2 ${className}`}>
+      <span className="font-semibold">{label}</span>
       {children}
     </label>
   );

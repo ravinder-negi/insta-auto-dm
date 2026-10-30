@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { LandingHeader } from "../_components/LandingHeader";
-import { LandingFooter } from "../_components/LandingFooter";
+import { HomeHeader } from "../_components/home/HomeHeader";
+import { HomeFooter } from "../_components/home/HomeFooter";
+import { displayFont, homeCssVars, homeWrapperClass } from "../_components/home/fonts";
 import { ContactForm } from "@/features/contact/components/ContactForm";
 
 export const metadata: Metadata = {
@@ -10,26 +11,26 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <div className="app-surface flex min-h-screen flex-col">
-      <LandingHeader />
+    <div className={homeWrapperClass} style={homeCssVars}>
+      <HomeHeader />
 
-      <main className="w-full flex-1 px-6 sm:px-10 lg:px-25">
-        <div className="mx-auto max-w-xl py-12 lg:py-16">
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
-            Contact us
-          </h1>
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            Questions, feedback, or need a hand getting set up? Send us a
-            message and we&apos;ll reply by email.
-          </p>
+      <main className="mx-auto max-w-[540px] px-6 py-16 sm:px-8 sm:py-20">
+        <h1
+          className={`${displayFont} m-0 text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl`}
+        >
+          Contact us
+        </h1>
+        <p className="mt-2.5 text-[15px] text-[var(--muted)]">
+          Questions, feedback, or need a hand getting set up? Send us a
+          message and we&apos;ll reply by email.
+        </p>
 
-          <div className="mt-8">
-            <ContactForm />
-          </div>
+        <div className="mt-8">
+          <ContactForm />
         </div>
       </main>
 
-      <LandingFooter />
+      <HomeFooter />
     </div>
   );
 }

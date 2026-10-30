@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { displayFont } from "@/app/(marketing)/_components/home/fonts";
 import { SparkleIcon } from "@/components/icons";
 import { OnboardingCard } from "./OnboardingLayout";
 import { StepFooter } from "./StepFooter";
@@ -27,11 +28,13 @@ export function ContentStep({
   return (
     <OnboardingCard>
       <form action={formAction} className="flex flex-1 flex-col">
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+        <h1
+          className={`${displayFont} text-xl font-extrabold tracking-tight text-[var(--ink)] sm:text-2xl`}
+        >
           👋 Hi {firstName}, what type of{" "}
-          <span className="brand-text-gradient">content</span> do you create?
+          <span style={{ color: "var(--accent)" }}>content</span> do you create?
         </h1>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-[var(--muted)]">
           This helps us share relevant tools, inspiration, and examples from
           other creators in your niche.
         </p>
@@ -49,19 +52,24 @@ export function ContentStep({
                   type="button"
                   aria-pressed={active}
                   onClick={() => setNiche(option.value)}
-                  className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left text-sm font-medium transition-all duration-200 ${
+                  className="flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left text-sm font-medium transition-all duration-200"
+                  style={
                     active
-                      ? "border-brand-500 bg-brand-50/70 ring-2 ring-brand-500/15 dark:border-brand-400/70 dark:bg-brand-500/10"
-                      : "border-black/8 bg-white hover:border-brand-300 hover:bg-brand-50/40 dark:border-white/10 dark:bg-white/5 dark:hover:border-brand-400/40 dark:hover:bg-white/10"
-                  }`}
+                      ? {
+                          borderColor: "var(--accent)",
+                          background: "color-mix(in srgb, var(--accent) 7%, white)",
+                          boxShadow: "0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent)",
+                        }
+                      : { borderColor: "var(--line)", background: "#fff" }
+                  }
                 >
                   <span
                     aria-hidden="true"
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-lg shadow-sm dark:bg-zinc-800"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--bg)] text-lg shadow-sm"
                   >
                     {option.emoji}
                   </span>
-                  <span className="min-w-0 truncate">{option.label}</span>
+                  <span className="min-w-0 truncate text-[var(--ink)]">{option.label}</span>
                 </button>
               );
             })}
@@ -69,7 +77,10 @@ export function ContentStep({
         </fieldset>
 
         {selected && (
-          <p className="animate-fade-in-up mt-5 flex items-center gap-2 text-sm text-brand-600 dark:text-brand-300">
+          <p
+            className="animate-fade-in-up mt-5 flex items-center gap-2 text-sm font-medium"
+            style={{ color: "var(--accent)" }}
+          >
             <SparkleIcon className="h-4 w-4 shrink-0" />
             Nice — your first automation will start from our {
               selected.label
@@ -79,9 +90,7 @@ export function ContentStep({
         )}
 
         {state?.error && (
-          <p className="animate-fade-in-up mt-4 text-sm text-red-600 dark:text-red-400">
-            {state.error}
-          </p>
+          <p className="animate-fade-in-up mt-4 text-sm text-red-600">{state.error}</p>
         )}
 
         <StepFooter canContinue={Boolean(niche)} pending={pending} />

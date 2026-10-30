@@ -1,62 +1,30 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useFormStatus } from "react-dom";
 import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmAction } from "@/components/ui/ConfirmAction";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { RowMenu } from "@/components/ui/RowMenu";
-import { SearchField, SelectField } from "@/components/ui/controls";
+import { SearchField } from "@/components/ui/controls";
 import { Spinner } from "@/components/ui/Spinner";
-import { primaryButtonClass } from "@/components/ui/styles";
 import { formatDate, formatRelative } from "@/lib/utils/format";
 import {
-  GridIcon,
+  AlertIcon,
+  ChevronDownIcon,
+  CopyIcon,
+  ExternalLinkIcon,
   LayersIcon,
-  ListIcon,
-  PauseIcon,
-  PlayIcon,
   PlusIcon,
   RefreshIcon,
-  SearchIcon,
   TrashIcon,
 } from "@/components/icons";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/Toast";
 import { disconnectAccount, toggleAccountActive } from "@/features/accounts/actions";
+import { ConnectAccountButton } from "./ConnectAccountButton";
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
-}
-
-function ToggleAccountButton({
-  isActive,
-  fullWidth = false,
-}: {
-  isActive: boolean;
-  fullWidth?: boolean;
-}) {
-  const { pending } = useFormStatus();
-
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className={`inline-flex items-center gap-1.5 rounded-xl border border-black/10 px-3.5 py-2 text-sm font-medium transition-colors hover:bg-black/4 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:hover:bg-white/10 ${
-        fullWidth ? "w-full justify-center" : ""
-      }`}
-    >
-      {pending ? (
-        <Spinner className="h-4 w-4 border-current/30 border-t-current" />
-      ) : isActive ? (
-        <PauseIcon className="h-4 w-4" />
-      ) : (
-        <PlayIcon className="h-4 w-4" />
-      )}
-      {pending ? (isActive ? "Pausing…" : "Resuming…") : isActive ? "Pause" : "Resume"}
-    </button>
-  );
 }
 
 export interface AccountRow {
@@ -64,12 +32,18 @@ export interface AccountRow {
   instagram_user_id: string;
   username: string | null;
   is_active: boolean;
+  /** Meta rejected the token; nothing sends until the owner reconnects. */
+  tokenExpired: boolean;
   created_at: string;
   lastActivityAt: string | null;
   profilePictureUrl: string | null;
   followersCount: number | null;
   followsCount: number | null;
   mediaCount: number | null;
+  ruleCount: number;
+  activeRuleCount: number;
+  flowCount: number;
+  activeFlowCount: number;
 }
 
 function formatCount(value: number | null) {
@@ -79,16 +53,37 @@ function formatCount(value: number | null) {
   return String(value);
 }
 
-const SORTS = {
-  recent: "Recently added",
-  oldest: "Oldest first",
-  name: "Username A–Z",
-  status: "Active first",
+const connectCtaClass =
+  "inline-flex min-h-[54px] items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#B9AEE6] text-sm font-bold text-[var(--violet)] transition-colors hover:border-[var(--secondary-border)] hover:bg-[var(--secondary-faint-bg)]";
+
+type AccountStatus = "active" | "paused" | "expired";
+
+function accountStatus(account: AccountRow): AccountStatus {
+  if (account.tokenExpired) return "expired";
+  return account.is_active ? "active" : "paused";
+}
+
+const STATUS_STYLES: Record<AccountStatus, { label: string; dot: string; text: string; bg: string }> = {
+  active: { label: "Active", dot: "var(--success)", text: "var(--success-text)", bg: "var(--success-tint)" },
+  paused: { label: "Paused", dot: "var(--warning)", text: "var(--warning-text)", bg: "var(--warning-tint)" },
+  expired: { label: "Reconnect needed", dot: "var(--danger)", text: "var(--danger-strong)", bg: "var(--danger-tint)" },
 };
 
-type ViewMode = "card" | "list";
-
-const VIEW_STORAGE_KEY = "accounts-view";
+function StatusPill({ status }: { status: AccountStatus }) {
+  const style = STATUS_STYLES[status];
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold"
+      style={{ backgroundColor: style.bg, color: style.text }}
+    >
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${status === "active" ? "animate-pulse-soft" : ""}`}
+        style={{ backgroundColor: style.dot }}
+      />
+      {style.label}
+    </span>
+  );
+}
 
 export function AccountsList({
   accounts,
@@ -99,14 +94,16 @@ export function AccountsList({
   now: number;
 }) {
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<keyof typeof SORTS>("recent");
-  const [view, setView] = useState<ViewMode>("card");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
   const [isRefreshing, startRefresh] = useTransition();
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const toastShown = useRef(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (toastShown.current) return;
@@ -117,14 +114,8 @@ export function AccountsList({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(VIEW_STORAGE_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- synced from browser storage, unavailable during SSR
-      if (stored === "card" || stored === "list") setView(stored);
-    } catch {
-      // ignore unavailable storage
-    }
+  useEffect(() => () => {
+    if (copyTimer.current) clearTimeout(copyTimer.current);
   }, []);
 
   function handleRefresh() {
@@ -133,21 +124,15 @@ export function AccountsList({
     });
   }
 
-  function handleViewChange(next: ViewMode) {
-    setView(next);
-    try {
-      localStorage.setItem(VIEW_STORAGE_KEY, next);
-    } catch {
-      // ignore unavailable storage
-    }
-  }
-
   async function handleToggle(id: string, handle: string, nextActive: boolean) {
+    setPendingToggleId(id);
     try {
       await toggleAccountActive(id, nextActive);
       toast.success(`@${handle} ${nextActive ? "resumed" : "paused"}.`);
     } catch (err) {
       toast.error(errorMessage(err, "Failed to update account."));
+    } finally {
+      setPendingToggleId(null);
     }
   }
 
@@ -160,323 +145,334 @@ export function AccountsList({
     }
   }
 
+  const sorted = useMemo(
+    () => [...accounts].sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    [accounts]
+  );
+
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const filtered = needle
-      ? accounts.filter((account) =>
-          `${account.username ?? ""} ${account.instagram_user_id}`
-            .toLowerCase()
-            .includes(needle)
-        )
-      : accounts;
+    if (!needle) return sorted;
+    return sorted.filter((account) =>
+      `${account.username ?? ""} ${account.instagram_user_id}`.toLowerCase().includes(needle)
+    );
+  }, [sorted, query]);
 
-    const sorted = [...filtered];
-    sorted.sort((a, b) => {
-      switch (sort) {
-        case "oldest":
-          return a.created_at.localeCompare(b.created_at);
-        case "name":
-          return (a.username ?? a.instagram_user_id).localeCompare(
-            b.username ?? b.instagram_user_id
-          );
-        case "status":
-          return Number(b.is_active) - Number(a.is_active);
-        default:
-          return b.created_at.localeCompare(a.created_at);
-      }
-    });
-    return sorted;
-  }, [accounts, query, sort]);
+  const selected = sorted.find((a) => a.id === selectedId) ?? sorted[0] ?? null;
 
-  return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <SearchField
-          value={query}
-          onChange={setQuery}
-          placeholder="Search accounts by username..."
-          className="sm:max-w-md sm:flex-1"
-        />
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            aria-label="Refresh account stats"
-            title="Refresh followers, following, and post counts"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/10 text-zinc-500 transition-colors hover:bg-black/4 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:hover:bg-white/10"
-          >
-            {isRefreshing ? (
-              <Spinner className="h-4 w-4 border-current/30 border-t-current" />
-            ) : (
-              <RefreshIcon className="h-4 w-4" />
-            )}
-          </button>
-          <div className="flex items-center rounded-xl border border-black/10 p-0.5 dark:border-white/15">
-            <button
-              type="button"
-              aria-label="Card view"
-              aria-pressed={view === "card"}
-              onClick={() => handleViewChange("card")}
-              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-                view === "card"
-                  ? "bg-black/8 text-zinc-900 dark:bg-white/15 dark:text-white"
-                  : "text-zinc-500 hover:bg-black/4 dark:hover:bg-white/8"
-              }`}
-            >
-              <GridIcon className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              aria-label="List view"
-              aria-pressed={view === "list"}
-              onClick={() => handleViewChange("list")}
-              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-                view === "list"
-                  ? "bg-black/8 text-zinc-900 dark:bg-white/15 dark:text-white"
-                  : "text-zinc-500 hover:bg-black/4 dark:hover:bg-white/8"
-              }`}
-            >
-              <ListIcon className="h-4 w-4" />
-            </button>
-          </div>
-          <a
-            href="/api/instagram/connect"
-            className={primaryButtonClass}
+  if (accounts.length === 0) {
+    return (
+      <EmptyState
+        icon={<LayersIcon className="h-6 w-6" />}
+        title="No accounts connected yet"
+        description="Connect an Instagram account to start automating comment replies."
+        action={
+          <ConnectAccountButton
+            className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#B9AEE6] px-6 text-sm font-bold text-[var(--violet)] transition-colors hover:border-[var(--secondary-border)] hover:bg-[var(--secondary-faint-bg)]"
           >
             <PlusIcon className="h-4 w-4" />
             Connect Instagram account
-          </a>
+          </ConnectAccountButton>
+        }
+      />
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-start gap-6">
+      {/* LEFT: account list */}
+      <div className="flex min-w-0 flex-1 basis-[320px] flex-col gap-4" style={{ maxWidth: 420 }}>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-2xl font-extrabold tracking-tight">Accounts</h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              aria-label="Refresh account stats"
+              title="Refresh followers, following, and post counts"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 text-zinc-500 transition-colors hover:bg-black/4 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:hover:bg-white/10"
+            >
+              {isRefreshing ? (
+                <Spinner className="h-3.5 w-3.5 border-current/30 border-t-current" />
+              ) : (
+                <RefreshIcon className="h-3.5 w-3.5" />
+              )}
+            </button>
+            <span className="rounded-full bg-[var(--tint2)] px-3.5 py-1 text-sm font-bold text-[var(--violet)]">
+              {visible.length}
+            </span>
+          </div>
         </div>
+
+        <SearchField value={query} onChange={setQuery} placeholder="Search by username" />
+
+        <div className="flex flex-col gap-3">
+          {visible.map((account) => {
+            const handle = account.username ?? account.instagram_user_id;
+            const isSelected = selected?.id === account.id;
+            const status = STATUS_STYLES[accountStatus(account)];
+            return (
+              <button
+                key={account.id}
+                type="button"
+                onClick={() => setSelectedId(account.id)}
+                aria-pressed={isSelected}
+                className={`flex items-center gap-3.5 rounded-3xl border p-4 text-left transition-all duration-200 hover:translate-x-1.5 ${
+                  isSelected
+                    ? "border-[var(--primary)] bg-[var(--tint-faint)] shadow-[0_20px_40px_-24px_color-mix(in srgb, var(--primary) 45%, transparent)]"
+                    : "border-[var(--line)] bg-white"
+                }`}
+              >
+                <Avatar name={handle} src={account.profilePictureUrl} muted={!account.is_active} size="lg" ring />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-base font-bold">@{handle}</span>
+                  <span
+                    className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold"
+                    style={{ color: status.text }}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${accountStatus(account) === "active" ? "animate-pulse-soft" : ""}`}
+                      style={{ backgroundColor: status.dot }}
+                    />
+                    {status.label}
+                  </span>
+                </span>
+                <ChevronDownIcon
+                  className={`h-4 w-4 shrink-0 -rotate-90 ${isSelected ? "text-[var(--primary)]" : "text-[var(--muted-soft)]"}`}
+                />
+              </button>
+            );
+          })}
+        </div>
+
+        {visible.length === 0 && (
+          <div className="rounded-3xl border border-dashed border-[var(--secondary-border)] bg-[var(--secondary-faint-bg)] px-5 py-7 text-center text-sm text-[var(--muted)]">
+            No account matches &ldquo;{query.trim()}&rdquo;.
+          </div>
+        )}
+
+        <ConnectAccountButton className={connectCtaClass}>
+          <PlusIcon className="h-4.5 w-4.5" />
+          Add another account
+        </ConnectAccountButton>
       </div>
 
-      {accounts.length === 0 ? (
-        <EmptyState
-          icon={<LayersIcon className="h-6 w-6" />}
-          title="No accounts connected yet"
-          description="Click “Connect Instagram account” to link one via Instagram Login."
-        />
-      ) : (
-        <section className="overflow-hidden rounded-2xl border border-black/6 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4">
-          <header className="flex items-center justify-between gap-3 px-5 py-4">
-            <h2 className="text-base font-semibold tracking-tight">
-              Connected Accounts ({visible.length})
-            </h2>
-            <SelectField
-              value={sort}
-              onChange={(event) => setSort(event.target.value as keyof typeof SORTS)}
-              aria-label="Sort accounts"
-              className="w-44"
-            >
-              {Object.entries(SORTS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </SelectField>
-          </header>
-
-          {visible.length === 0 ? (
-            <p className="flex items-center justify-center gap-2 border-t border-black/6 px-5 py-14 text-sm text-zinc-500 dark:border-white/8">
-              <SearchIcon className="h-4 w-4" />
-              No accounts match “{query}”.
-            </p>
-          ) : view === "card" ? (
-            <ul className="grid grid-cols-1 gap-4 border-t border-black/6 p-5 sm:grid-cols-2 xl:grid-cols-3 dark:border-white/8">
-              {visible.map((account) => {
-                const handle = account.username ?? account.instagram_user_id;
-                return (
-                  <li
-                    key={account.id}
-                    className="flex flex-col gap-4 rounded-2xl border border-black/6 p-4 transition-colors hover:bg-zinc-50/80 dark:border-white/8 dark:hover:bg-white/3"
+      {/* RIGHT: detail panel */}
+      <div className="min-w-0 flex-[2_1_460px]">
+        {selected && (() => {
+          const handle = selected.username ?? selected.instagram_user_id;
+          const pending = pendingToggleId === selected.id;
+          return (
+            <div className="overflow-hidden rounded-[36px] border border-[var(--line)] bg-white shadow-[0_40px_80px_-48px_color-mix(in srgb, var(--ink) 45%, transparent)]">
+              {/* banner */}
+              <div
+                className="relative flex flex-wrap items-center gap-5 p-8"
+                style={{ backgroundImage: "linear-gradient(120deg,var(--tint) 0%,var(--tint2) 100%)" }}
+              >
+                <Avatar name={handle} src={selected.profilePictureUrl} muted={!selected.is_active} ring size="xl" />
+                <div className="relative min-w-0 flex-1 basis-[220px]">
+                  <h3 className="truncate text-3xl font-extrabold tracking-tight" style={{ color: "var(--ink)" }}>
+                    @{handle}
+                  </h3>
+                  <div className="mt-2 flex flex-wrap items-center gap-2.5">
+                    <StatusPill status={accountStatus(selected)} />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          navigator.clipboard?.writeText(selected.instagram_user_id);
+                        } catch {
+                          // Clipboard unavailable — nothing more we can do here.
+                        }
+                        setCopied(true);
+                        if (copyTimer.current) clearTimeout(copyTimer.current);
+                        copyTimer.current = setTimeout(() => setCopied(false), 1600);
+                      }}
+                      aria-label="Copy account ID"
+                      className="inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
+                      style={{ borderColor: "color-mix(in srgb, var(--ink) 14%, transparent)", backgroundColor: "rgba(255,255,255,.7)", color: "var(--ink)" }}
+                    >
+                      <CopyIcon className="h-3 w-3 shrink-0" />
+                      <span className="truncate">
+                        {copied ? "Copied" : `ID: ${selected.instagram_user_id}`}
+                      </span>
+                    </button>
+                    <a
+                      href={`https://instagram.com/${handle}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
+                      style={{ borderColor: "color-mix(in srgb, var(--ink) 14%, transparent)", backgroundColor: "rgba(255,255,255,.7)", color: "var(--ink)" }}
+                    >
+                      <ExternalLinkIcon className="h-3 w-3" />
+                      Open on Instagram
+                    </a>
+                  </div>
+                </div>
+                <div
+                  className="relative flex items-center gap-3 rounded-2xl py-2.5 pr-3.5 pl-4"
+                  style={{ backgroundColor: "rgba(255,255,255,.8)" }}
+                >
+                  <span className="flex flex-col leading-tight">
+                    <span className="text-sm font-bold" style={{ color: "var(--ink)" }}>
+                      Auto replies
+                    </span>
+                    <span className="text-xs" style={{ color: "var(--muted)" }}>
+                      {selected.is_active ? "Replying to matching comments" : "Paused, no replies are sent"}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={selected.is_active}
+                    aria-label="Auto replies for this account"
+                    disabled={pending}
+                    onClick={() => handleToggle(selected.id, handle, !selected.is_active)}
+                    className="flex h-9 w-[60px] shrink-0 items-center rounded-full p-1 transition-colors disabled:opacity-60"
+                    style={{ backgroundColor: selected.is_active ? "var(--success)" : "var(--secondary-pale)" }}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <Avatar
-                          name={handle}
-                          src={account.profilePictureUrl}
-                          muted={!account.is_active}
-                          size="lg"
-                        />
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold">@{handle}</p>
-                          <p className="truncate text-xs text-zinc-500">
-                            ID: {account.instagram_user_id}
-                          </p>
-                        </div>
-                      </div>
-                      <RowMenu
-                        label={`More actions for @${handle}`}
-                        items={[
-                          {
-                            label: "Open on Instagram",
-                            href: `https://instagram.com/${handle}`,
-                          },
-                          {
-                            label: "Copy account ID",
-                            onSelect: () => {
-                              navigator.clipboard?.writeText(
-                                account.instagram_user_id
-                              );
-                              toast.info("Account ID copied to clipboard.");
-                            },
-                          },
-                        ]}
-                      />
-                    </div>
+                    <span
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow transition-transform"
+                      style={{ transform: selected.is_active ? "translateX(24px)" : "translateX(0)" }}
+                    >
+                      {pending && <Spinner className="h-3.5 w-3.5 border-zinc-300 border-t-zinc-600" />}
+                    </span>
+                  </button>
+                </div>
+              </div>
 
-                    <div className="flex items-center justify-between gap-2">
-                      <StatusBadge status={account.is_active ? "active" : "paused"} />
-                      <p className="truncate text-xs text-zinc-400">
-                        {account.lastActivityAt
-                          ? `Last activity ${formatRelative(account.lastActivityAt, now)}`
-                          : "No activity yet"}
+              <div className="flex flex-col gap-6 p-7 sm:p-8">
+                {selected.tokenExpired && (
+                  <div
+                    role="alert"
+                    className="flex flex-wrap items-center gap-4 rounded-[22px] border p-5"
+                    style={{ borderColor: "var(--danger-border)", backgroundColor: "var(--danger-tint-faint)" }}
+                  >
+                    <span className="shrink-0" style={{ color: "var(--danger-strong)" }}>
+                      <AlertIcon className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0 flex-1 basis-[220px]">
+                      <p className="text-sm font-bold" style={{ color: "var(--danger-deep)" }}>
+                        Instagram disconnected @{handle}
+                      </p>
+                      <p className="mt-1 text-sm" style={{ color: "var(--danger-deep)" }}>
+                        AutoDMs and DM Flows on this account are on hold. Reconnect to resume them; your
+                        rules, flows and leads are kept.
                       </p>
                     </div>
+                    <ConnectAccountButton
+                      className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold text-white"
+                      style={{ backgroundColor: "var(--danger-strong)" }}
+                    >
+                      <RefreshIcon className="h-4 w-4" />
+                      Reconnect @{handle}
+                    </ConnectAccountButton>
+                  </div>
+                )}
 
-                    <div className="grid grid-cols-3 gap-2 rounded-xl bg-zinc-50 py-2.5 text-center dark:bg-white/5">
-                      <div>
-                        <p className="text-sm font-semibold">
-                          {formatCount(account.followersCount)}
-                        </p>
-                        <p className="text-[11px] text-zinc-500">Followers</p>
-                      </div>
-                      <div className="border-x border-black/6 dark:border-white/8">
-                        <p className="text-sm font-semibold">
-                          {formatCount(account.followsCount)}
-                        </p>
-                        <p className="text-[11px] text-zinc-500">Following</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold">
-                          {formatCount(account.mediaCount)}
-                        </p>
-                        <p className="text-[11px] text-zinc-500">Posts</p>
-                      </div>
+                {/* stats */}
+                <div className="flex flex-wrap gap-3.5">
+                  <div className="min-w-0 flex-1 basis-[140px] rounded-[22px] p-5" style={{ backgroundColor: "var(--tint)" }}>
+                    <div className="text-4xl leading-none font-extrabold tracking-tight">
+                      {formatCount(selected.followersCount)}
                     </div>
+                    <div className="mt-1.5 text-sm font-semibold" style={{ color: "#4A3540" }}>
+                      Followers
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1 basis-[140px] rounded-[22px] p-5" style={{ backgroundColor: "var(--tint2)" }}>
+                    <div className="text-4xl leading-none font-extrabold tracking-tight">
+                      {formatCount(selected.followsCount)}
+                    </div>
+                    <div className="mt-1.5 text-sm font-semibold" style={{ color: "#3B3560" }}>
+                      Following
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1 basis-[140px] rounded-[22px] p-5" style={{ backgroundColor: "var(--success-tint)" }}>
+                    <div className="text-4xl leading-none font-extrabold tracking-tight">
+                      {formatCount(selected.mediaCount)}
+                    </div>
+                    <div className="mt-1.5 text-sm font-semibold" style={{ color: "#24503F" }}>
+                      Posts
+                    </div>
+                  </div>
+                </div>
 
-                    <p className="text-xs text-zinc-400">
-                      Connected on {formatDate(account.created_at)}
+                <div className="flex flex-wrap gap-5">
+                  {/* automations */}
+                  <div className="min-w-0 flex-1 basis-[280px] rounded-[26px] border p-6" style={{ borderColor: "var(--line)", backgroundColor: "var(--bg)" }}>
+                    <h4 className="text-lg font-bold tracking-tight">Automations on this account</h4>
+                    {selected.ruleCount === 0 && selected.flowCount === 0 ? (
+                      <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
+                        No AutoDMs or DM Flows yet on @{handle}.
+                      </p>
+                    ) : (
+                      <div className="mt-4 flex flex-col gap-3">
+                        <Link
+                          href="/dashboard/rules"
+                          className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm transition-colors hover:bg-black/3"
+                          style={{ borderColor: "var(--line)" }}
+                        >
+                          <span className="font-medium">AutoDMs</span>
+                          <span className="font-bold" style={{ color: "var(--primary)" }}>
+                            {selected.activeRuleCount}/{selected.ruleCount} active
+                          </span>
+                        </Link>
+                        <Link
+                          href="/dashboard/flows"
+                          className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm transition-colors hover:bg-black/3"
+                          style={{ borderColor: "var(--line)" }}
+                        >
+                          <span className="font-medium">DM Flows</span>
+                          <span className="font-bold" style={{ color: "var(--violet)" }}>
+                            {selected.activeFlowCount}/{selected.flowCount} active
+                          </span>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* activity */}
+                  <div className="min-w-0 flex-1 basis-[280px] rounded-[26px] border p-6" style={{ borderColor: "var(--line)", backgroundColor: "var(--bg)" }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="text-lg font-bold tracking-tight">Recent activity</h4>
+                    </div>
+                    <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
+                      {selected.lastActivityAt
+                        ? `Last activity ${formatRelative(selected.lastActivityAt, now)}`
+                        : "Your first auto-DM will show up here as soon as a rule runs."}
                     </p>
+                  </div>
+                </div>
 
-                    <div className="mt-auto flex items-center gap-2 border-t border-black/6 pt-3 dark:border-white/8">
-                      <form
-                        action={() =>
-                          handleToggle(account.id, handle, !account.is_active)
-                        }
-                        className="flex-1"
+                {/* footer */}
+                <div className="flex flex-wrap items-center justify-between gap-3.5 border-t pt-5" style={{ borderColor: "var(--line)" }}>
+                  <span className="text-sm" style={{ color: "var(--muted)" }}>
+                    Connected on {formatDate(selected.created_at)}
+                  </span>
+                  <ConfirmAction
+                    action={() => handleDisconnect(selected.id, handle)}
+                    title="Disconnect this account?"
+                    description={`@${handle} will stop listening for comments, and all its rules and DM flows will be permanently deleted. This can't be undone.`}
+                    confirmLabel="Disconnect"
+                    trigger={
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-2xl border px-5 py-2.5 text-sm font-semibold transition-colors"
+                        style={{ borderColor: "var(--danger-border)", color: "var(--danger-strong)" }}
                       >
-                        <ToggleAccountButton isActive={account.is_active} fullWidth />
-                      </form>
-
-                      <ConfirmAction
-                        action={() => handleDisconnect(account.id, handle)}
-                        title="Disconnect this account?"
-                        description={`@${handle} will stop listening for comments, and all its rules and DM flows will be permanently deleted. This can't be undone.`}
-                        confirmLabel="Disconnect"
-                        trigger={
-                          <button
-                            type="button"
-                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-200 px-3.5 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-500/40 dark:text-rose-400 dark:hover:bg-rose-500/15"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                            Disconnect
-                          </button>
-                        }
-                        className="flex-1"
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <ul className="divide-y divide-black/6 border-t border-black/6 dark:divide-white/8 dark:border-white/8">
-              {visible.map((account) => {
-                const handle = account.username ?? account.instagram_user_id;
-                return (
-                  <li
-                    key={account.id}
-                    className="flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-zinc-50/80 sm:flex-row sm:items-center sm:justify-between dark:hover:bg-white/3"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <Avatar
-                        name={handle}
-                        src={account.profilePictureUrl}
-                        muted={!account.is_active}
-                      />
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold">@{handle}</p>
-                        <p className="truncate text-xs text-zinc-500">
-                          ID: {account.instagram_user_id}
-                        </p>
-                        <p className="mt-0.5 truncate text-xs text-zinc-400">
-                          Connected on {formatDate(account.created_at)}
-                          {account.lastActivityAt
-                            ? ` · Last activity ${formatRelative(account.lastActivityAt, now)}`
-                            : " · No activity yet"}
-                        </p>
-                        <p className="mt-0.5 truncate text-xs text-zinc-500">
-                          {formatCount(account.followersCount)} followers ·{" "}
-                          {formatCount(account.followsCount)} following ·{" "}
-                          {formatCount(account.mediaCount)} posts
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
-                      <StatusBadge status={account.is_active ? "active" : "paused"} />
-
-                      <form
-                        action={() =>
-                          handleToggle(account.id, handle, !account.is_active)
-                        }
-                      >
-                        <ToggleAccountButton isActive={account.is_active} />
-                      </form>
-
-                      <ConfirmAction
-                        action={() => handleDisconnect(account.id, handle)}
-                        title="Disconnect this account?"
-                        description={`@${handle} will stop listening for comments, and all its rules and DM flows will be permanently deleted. This can't be undone.`}
-                        confirmLabel="Disconnect"
-                        trigger={
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 px-3.5 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-500/40 dark:text-rose-400 dark:hover:bg-rose-500/15"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                            Disconnect
-                          </button>
-                        }
-                      />
-
-                      <RowMenu
-                        label={`More actions for @${handle}`}
-                        items={[
-                          {
-                            label: "Open on Instagram",
-                            href: `https://instagram.com/${handle}`,
-                          },
-                          {
-                            label: "Copy account ID",
-                            onSelect: () => {
-                              navigator.clipboard?.writeText(
-                                account.instagram_user_id
-                              );
-                              toast.info("Account ID copied to clipboard.");
-                            },
-                          },
-                        ]}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      )}
+                        <TrashIcon className="h-4 w-4" />
+                        Disconnect account
+                      </button>
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
     </div>
   );
 }

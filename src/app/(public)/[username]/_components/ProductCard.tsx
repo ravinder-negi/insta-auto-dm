@@ -25,8 +25,8 @@ export function ProductCard({
       : null;
 
   return (
-    <div
-      className={`overflow-hidden bg-white shadow-[0_4px_20px_-8px_rgba(24,24,60,0.18)] dark:bg-white/5 ${buttonRadiusClass}`}
+    <article
+      className={`flex flex-col overflow-hidden border border-black/5 bg-white shadow-[0_18px_36px_-28px_rgba(21,19,28,0.5)] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_30px_50px_-30px_var(--brand-color)] ${buttonRadiusClass}`}
       style={
         product.is_featured
           ? {
@@ -36,45 +36,47 @@ export function ProductCard({
           : undefined
       }
     >
-      {product.image_url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL
-        <img
-          src={product.image_url}
-          alt=""
-          className="h-64 w-full object-cover"
-        />
-      ) : (
-        <div
-          className="flex h-64 w-full items-center justify-center"
-          style={{ backgroundColor: `${brandColor}14`, color: brandColor }}
-        >
-          <ShoppingBagIcon className="h-12 w-12" />
-        </div>
-      )}
+      <div className="relative h-52 w-full overflow-hidden">
+        {product.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL
+          <img src={product.image_url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div
+            className="flex h-full w-full items-center justify-center"
+            style={{ backgroundColor: `${brandColor}14`, color: brandColor }}
+          >
+            <ShoppingBagIcon className="h-12 w-12" />
+          </div>
+        )}
+        {product.is_featured && (
+          <span
+            className="absolute top-3.5 right-3.5 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-white"
+            style={{ backgroundColor: brandColor }}
+          >
+            <StarIcon className="h-3 w-3" />
+            Featured
+          </span>
+        )}
+      </div>
 
-      <div className="flex flex-col gap-2 p-5 text-left">
-        <div className="flex items-start justify-between gap-2">
-          <p className="text-base font-bold text-zinc-900 dark:text-zinc-50">{product.name}</p>
-          {product.is_featured && (
-            <span
-              className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-white"
-              style={{ backgroundColor: brandColor }}
-            >
-              <StarIcon className="h-3 w-3" />
-              Featured
-            </span>
-          )}
-        </div>
+      <div className="flex flex-1 flex-col gap-2.5 p-5 text-left">
+        <p className="font-display text-lg font-extrabold tracking-tight text-[var(--ink)]">
+          {product.name}
+        </p>
 
         {product.description && (
-          <p className="line-clamp-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+          <p className="line-clamp-3 text-sm leading-relaxed text-[var(--muted)]">
             {product.description}
           </p>
         )}
 
-        {priceLabel && (
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{priceLabel}</p>
-        )}
+        <div className="mt-auto flex items-center justify-between gap-3 pt-1.5">
+          {priceLabel && (
+            <span className="font-display text-xl font-extrabold tracking-tight text-[var(--ink)]">
+              {priceLabel}
+            </span>
+          )}
+        </div>
 
         {product.product_url && (
           <TrackedLink
@@ -84,13 +86,13 @@ export function ProductCard({
             href={product.product_url}
             target="_blank"
             rel="noopener noreferrer"
-            className={`mt-2 inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-white transition-transform hover:scale-[1.02] active:scale-[0.99] ${buttonRadiusClass}`}
+            className={`inline-flex min-h-12 items-center justify-center px-5 text-sm font-bold text-white transition-transform hover:scale-[1.02] active:scale-[0.99] ${buttonRadiusClass}`}
             style={{ backgroundColor: brandColor }}
           >
-            View Product
+            View product
           </TrackedLink>
         )}
       </div>
-    </div>
+    </article>
   );
 }

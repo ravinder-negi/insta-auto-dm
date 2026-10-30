@@ -10,12 +10,14 @@ export const metadata: Metadata = {
   description: "Automatically DM Instagram commenters who use a keyword.",
 };
 
-// Re-applies an explicit theme choice before paint. With no stored choice the
-// stylesheet already follows the OS preference, so there is nothing to do.
-const THEME_SCRIPT = `try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.classList.add(t)}catch(e){}`;
+// Re-applies an explicit theme choice before paint. The toggle only exists
+// post-login, so this only ever targets `.dashboard-theme` (DashboardShell's
+// root) — on marketing/auth pages that element doesn't exist and the script
+// is a no-op, which keeps those pages on the light defaults always.
+const THEME_SCRIPT = `try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light"){var el=document.querySelector(".dashboard-theme");if(el)el.classList.add(t)}}catch(e){}`;
 
 /** Overrides the --color-brand-* defaults in globals.css with the
- *  admin-set accent color — see src/lib/utils/color.ts and /dashboard/admin/appearance. */
+ *  app's configured accent color — see src/lib/utils/color.ts. */
 function brandRampStyle(accent: string) {
   const vars = buildBrandCssVars(accent);
   const declarations = Object.entries(vars)

@@ -2,7 +2,15 @@ import { Avatar } from "@/components/ui/Avatar";
 import { ChevronDownIcon } from "@/components/icons";
 import { resolveLinkVisual } from "@/features/links/linkTypeIcons";
 import { getButtonRadiusClass, getThemeFontClassName } from "@/features/theme/themeOptions";
-import type { LinkIconKey, LinkType, ThemeButtonStyle, ThemeFont, ThemeLayout } from "@/types";
+import { linkInBioCssVars } from "@/lib/linkInBioTheme";
+import type {
+  LinkIconKey,
+  LinkType,
+  ThemeButtonStyle,
+  ThemeFont,
+  ThemeLayout,
+  ThemeTemplate,
+} from "@/types";
 
 export interface PreviewLink {
   id: string;
@@ -27,6 +35,7 @@ export function LinkInBioPreview({
   themeFont = "sans",
   buttonStyle = "rounded",
   layout = "center",
+  template = "original",
 }: {
   brandColor: string;
   avatarUrl?: string | null;
@@ -38,46 +47,70 @@ export function LinkInBioPreview({
   themeFont?: ThemeFont;
   buttonStyle?: ThemeButtonStyle;
   layout?: ThemeLayout;
+  template?: ThemeTemplate;
 }) {
   const fontClassName = getThemeFontClassName(themeFont);
   const buttonRadiusClass = getButtonRadiusClass(buttonStyle);
   const isLeftAligned = layout === "left";
+  const isNoir = template === "noir";
+  const isCentered = template === "centered";
+
+  const cardStyle: React.CSSProperties = isNoir
+    ? { background: "#0E0D14" }
+    : isCentered
+      ? { background: `color-mix(in srgb, ${brandColor} 10%, white)` }
+      : { background: `linear-gradient(135deg, ${brandColor}26, ${brandColor}4d)` };
+
+  const inkClass = isNoir ? "text-white" : "text-[var(--ink)]";
+  const mutedClass = isNoir ? "text-[#A9A5BA]" : "text-[var(--muted)]";
+  const rowClass = isNoir
+    ? "bg-white/[0.08] border border-white/10"
+    : "bg-white shadow-sm";
 
   return (
     <div
-      className={
-        bezel
-          ? "rounded-[2.5rem] border-8 border-zinc-900 p-1 dark:border-zinc-700"
-          : ""
-      }
+      style={linkInBioCssVars}
+      className={bezel ? "rounded-[2.5rem] border-8 border-[var(--ink)] p-1" : ""}
     >
       <div
-        className={`relative overflow-hidden rounded-3xl p-6 shadow-inner ${fontClassName} ${
-          isLeftAligned ? "text-left" : "text-center"
-        }`}
-        style={{
-          background: `linear-gradient(135deg, ${brandColor}26, ${brandColor}4d)`,
-        }}
+        className={`relative overflow-hidden rounded-[28px] p-7 ${
+          isNoir ? "" : "shadow-[0_30px_60px_-30px_rgba(21,19,28,0.35)]"
+        } ${fontClassName} ${isLeftAligned ? "text-left" : "text-center"}`}
+        style={cardStyle}
       >
-        <div className={`flex flex-col ${isLeftAligned ? "items-start" : "items-center"}`}>
-          <div className="rounded-full bg-white p-1 shadow dark:bg-zinc-900">
-            <Avatar name={displayName || username || "?"} src={avatarUrl} size="lg" />
+        {isCentered && (
+          <div
+            className="absolute inset-x-0 top-0 h-16 rounded-t-[28px]"
+            style={{ background: `linear-gradient(135deg, ${brandColor}, color-mix(in srgb, ${brandColor} 70%, black))` }}
+          />
+        )}
+        <div
+          className={`relative flex flex-col ${isLeftAligned ? "items-start" : "items-center"} ${
+            isCentered ? "mt-6" : ""
+          }`}
+        >
+          <div className="rounded-full bg-white p-1 shadow-[0_6px_16px_-4px_rgba(21,19,28,0.25)]">
+            <Avatar name={displayName || username || "?"} src={avatarUrl} size="xl" />
           </div>
-          <h3 className="mt-3 text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+          <h3 className={`mt-4 text-xl font-extrabold tracking-tight ${inkClass}`}>
             {displayName || "Your name"}
           </h3>
           {username && (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">@{username}</p>
+            <p className={`mt-0.5 text-sm font-medium ${mutedClass}`}>@{username}</p>
           )}
           {bio && (
-            <p className="mt-2 text-sm whitespace-pre-line text-zinc-600 dark:text-zinc-300">
+            <p
+              className={`mt-3 line-clamp-3 max-w-[240px] text-sm leading-relaxed whitespace-pre-line ${mutedClass} ${
+                isLeftAligned ? "" : "mx-auto"
+              }`}
+            >
               {bio}
             </p>
           )}
         </div>
 
         {links.length > 0 && (
-          <div className="mt-5 flex flex-col gap-2.5">
+          <div className="relative mt-6 flex flex-col gap-2.5">
             {links.map((link) => {
               const { customImageUrl, Icon, softBackground, accent } = resolveLinkVisual(
                 link,
@@ -86,13 +119,13 @@ export function LinkInBioPreview({
               return (
                 <div
                   key={link.id}
-                  className={`flex items-center gap-3 bg-white px-4 py-3 text-left shadow-sm dark:bg-zinc-900 ${buttonRadiusClass}`}
+                  className={`flex items-center gap-3 px-4 py-3.5 text-left ${rowClass} ${buttonRadiusClass}`}
                   style={
                     link.is_featured ? { borderLeft: `4px solid ${brandColor}` } : undefined
                   }
                 >
                   <span
-                    className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl"
                     style={{ background: softBackground, color: accent }}
                   >
                     {customImageUrl ? (
@@ -103,15 +136,15 @@ export function LinkInBioPreview({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-[18px] w-[18px]" />
                     )}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                    <span className={`block truncate text-sm font-semibold ${inkClass}`}>
                       {link.title}
                     </span>
                     {link.subtitle && (
-                      <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">
+                      <span className={`block truncate text-xs ${mutedClass}`}>
                         {link.subtitle}
                       </span>
                     )}
@@ -124,14 +157,16 @@ export function LinkInBioPreview({
                       Featured
                     </span>
                   )}
-                  <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 -rotate-90 text-zinc-400" />
+                  <ChevronDownIcon className={`h-3.5 w-3.5 shrink-0 -rotate-90 ${mutedClass}`} />
                 </div>
               );
             })}
           </div>
         )}
 
-        <p className="mt-6 text-xs text-zinc-400">Made with ⚡ Auto DM</p>
+        <p className={`relative mt-7 text-[11px] opacity-70 ${mutedClass}`}>
+          Made with ⚡ Auto DM
+        </p>
       </div>
     </div>
   );

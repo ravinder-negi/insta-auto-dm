@@ -2,13 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { ThemeButtonStyle, ThemeFont, ThemeLayout } from "@/types";
+import type { ThemeButtonStyle, ThemeFont, ThemeLayout, ThemeTemplate } from "@/types";
 
 export type ThemeFormState = { error: string } | { success: true } | undefined;
 
 const THEME_FONTS: ThemeFont[] = ["sans", "serif", "mono"];
 const THEME_BUTTON_STYLES: ThemeButtonStyle[] = ["pill", "rounded", "square"];
 const THEME_LAYOUTS: ThemeLayout[] = ["center", "left"];
+const THEME_TEMPLATES: ThemeTemplate[] = ["original", "centered", "noir"];
+const HEX_COLOR_PATTERN = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 export async function updateTheme(
   _prevState: ThemeFormState,
@@ -17,6 +19,8 @@ export async function updateTheme(
   const themeFont = String(formData.get("theme_font") ?? "");
   const themeButtonStyle = String(formData.get("theme_button_style") ?? "");
   const themeLayout = String(formData.get("theme_layout") ?? "");
+  const themeTemplate = String(formData.get("theme_template") ?? "");
+  const brandColor = String(formData.get("brand_color") ?? "").trim();
 
   if (!THEME_FONTS.includes(themeFont as ThemeFont)) {
     return { error: "Invalid font." };
@@ -26,6 +30,12 @@ export async function updateTheme(
   }
   if (!THEME_LAYOUTS.includes(themeLayout as ThemeLayout)) {
     return { error: "Invalid layout." };
+  }
+  if (!THEME_TEMPLATES.includes(themeTemplate as ThemeTemplate)) {
+    return { error: "Invalid template." };
+  }
+  if (brandColor && !HEX_COLOR_PATTERN.test(brandColor)) {
+    return { error: "Brand color must be a hex value like #6366f1." };
   }
 
   const supabase = await createClient();
@@ -40,6 +50,8 @@ export async function updateTheme(
       theme_font: themeFont,
       theme_button_style: themeButtonStyle,
       theme_layout: themeLayout,
+      theme_template: themeTemplate,
+      brand_color: brandColor || null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", user.id);

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { InstagramIcon, PlusIcon } from "@/components/icons";
-import { primaryButtonClass } from "@/components/ui/styles";
 import { RuleWizard } from "@/features/rules/components/wizard/RuleWizard";
 import { RuleFormPageHeader } from "@/features/rules/components/RuleFormPageHeader";
 import { createRuleAndRedirect } from "@/features/rules/actions";
@@ -39,7 +38,8 @@ export default async function NewRulePage() {
           action={
             <Link
               href="/dashboard/accounts"
-              className={`${primaryButtonClass} mt-2`}
+              className="mt-2 inline-flex min-h-[48px] items-center gap-2 rounded-full px-6 text-sm font-bold text-white"
+              style={{ backgroundColor: "var(--primary)" }}
             >
               <PlusIcon className="h-4 w-4" />
               Connect Instagram account

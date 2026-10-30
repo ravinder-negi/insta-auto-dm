@@ -12,28 +12,36 @@ export function AccountStep({
   onSelectAccount,
   name,
   onNameChange,
+  locked = false,
 }: {
   accounts: RuleWizardAccountOption[];
   selectedAccountId: string;
   onSelectAccount: (id: string) => void;
   name: string;
   onNameChange: (value: string) => void;
+  /** Editing: the account can't change once the rule exists. */
+  locked?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-7">
       <fieldset>
         <div className="flex items-center justify-between gap-3">
           <legend className="text-sm font-semibold">Instagram account</legend>
+          {!locked && (
           <Link
             href="/dashboard/accounts"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 underline-offset-2 hover:underline dark:text-brand-400"
+            className="inline-flex items-center gap-1 text-xs font-semibold underline-offset-2 hover:underline"
+            style={{ color: "var(--primary)" }}
           >
             <PlusIcon className="h-3.5 w-3.5" />
             Connect another
           </Link>
+          )}
         </div>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          The account whose comments this AutoDM listens to.
+        <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+          {locked
+            ? "Can't be changed after creating — to use another account, create a new AutoDM."
+            : "The account whose comments this AutoDM listens to."}
         </p>
 
         <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -45,37 +53,38 @@ export function AccountStep({
                 key={account.id}
                 type="button"
                 aria-pressed={active}
+                disabled={locked}
                 onClick={() => onSelectAccount(account.id)}
-                className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-all duration-200 ${
+                className={`${locked && !active ? "opacity-50" : ""} ${locked ? "cursor-not-allowed" : ""} flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-all duration-200 hover:border-[var(--secondary-border)] hover:bg-[var(--secondary-faint-bg)]`}
+                style={
                   active
-                    ? "border-brand-500 bg-brand-50/70 ring-2 ring-brand-500/15 dark:border-brand-400/70 dark:bg-brand-500/10"
-                    : "border-black/8 bg-white hover:border-brand-300 hover:bg-brand-50/40 dark:border-white/10 dark:bg-white/5 dark:hover:border-brand-400/40 dark:hover:bg-white/10"
-                }`}
+                    ? { borderColor: "var(--primary)", backgroundColor: "var(--tint-faint)", boxShadow: "0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent)" }
+                    : { borderColor: "var(--line)", backgroundColor: "#fff" }
+                }
               >
                 <span className="relative shrink-0">
                   <span className="ig-gradient flex h-11 w-11 items-center justify-center rounded-full">
-                    <Avatar
-                      name={account.handle}
-                      size="md"
-                      className="h-9.5 w-9.5 border-2 border-white dark:border-zinc-900"
-                    />
+                    <Avatar name={account.handle} size="md" className="h-9.5 w-9.5 border-2 border-white" />
                   </span>
-                  <span className="absolute -right-0.5 -bottom-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-white dark:bg-zinc-900">
-                    <InstagramIcon className="h-3 w-3 text-zinc-500" />
+                  <span className="absolute -right-0.5 -bottom-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-white">
+                    <InstagramIcon className="h-3 w-3 text-[var(--muted)]" />
                   </span>
                 </span>
 
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">
+                  <span className="block truncate text-sm font-semibold" style={{ color: "var(--ink)" }}>
                     {account.label}
                   </span>
-                  <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                  <span className="block text-xs" style={{ color: "var(--muted)" }}>
                     Instagram
                   </span>
                 </span>
 
                 {active && (
-                  <span className="brand-gradient flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white">
+                  <span
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white"
+                    style={{ backgroundColor: "var(--primary)" }}
+                  >
                     <CheckIcon className="h-3 w-3" />
                   </span>
                 )}
@@ -86,10 +95,10 @@ export function AccountStep({
       </fieldset>
 
       <div className="flex flex-col">
-        <label htmlFor="rule_name" className="text-sm font-semibold">
+        <label htmlFor="rule_name" className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
           AutoDM name
         </label>
-        <p className="mt-1 mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-1 mb-2 text-xs" style={{ color: "var(--muted)" }}>
           Only you see this — it keeps your AutoDM list easy to scan.
         </p>
         <input

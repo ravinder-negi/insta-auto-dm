@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import "@/app/(marketing)/_components/home/animations.css";
+import { displayFont, homeCssVars, homeWrapperClass } from "@/app/(marketing)/_components/home/fonts";
 import { ArrowLeftIcon, BoltIcon, CheckIcon } from "@/components/icons";
 import { SignOutButton } from "@/components/layout/SignOutButton";
 import { signOut } from "@/features/auth/actions/login";
@@ -54,9 +56,19 @@ export function OnboardingLayout({
   const meta = STEP_META[step - 1];
 
   return (
-    <div className="min-h-screen bg-[#f7f6fc] px-4 py-5 sm:px-6 sm:py-8 dark:bg-black">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 lg:flex-row lg:gap-6">
-        <aside className="hidden w-64 shrink-0 flex-col gap-5 rounded-3xl border border-black/6 bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_24px_60px_-28px_rgba(80,60,160,0.25)] lg:flex dark:border-white/8 dark:bg-zinc-900">
+    <div
+      className={`${homeWrapperClass} relative min-h-screen overflow-hidden px-4 py-5 sm:px-6 sm:py-8`}
+      style={{
+        ...homeCssVars,
+        backgroundImage: "radial-gradient(rgba(21,19,28,.07) 1.2px, transparent 1.2px)",
+        backgroundSize: "30px 30px",
+      }}
+    >
+      <div className="ha-blob1 pointer-events-none absolute -top-35 -left-35 h-115 w-115 rounded-full bg-[var(--accent)] opacity-20 blur-[120px]" />
+      <div className="ha-blob2 pointer-events-none absolute -right-35 -bottom-40 h-120 w-120 rounded-full bg-[var(--violet)] opacity-25 blur-[120px]" />
+
+      <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-5 lg:flex-row lg:gap-6">
+        <aside className="ha-fadeup hidden w-64 shrink-0 flex-col gap-5 rounded-[28px] border border-[var(--line)] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_24px_60px_-28px_rgba(21,19,28,.25)] lg:flex">
           <div className="flex items-center justify-between gap-2">
             <BrandMark />
             <SignOutButton signOutAction={signOut} />
@@ -72,36 +84,38 @@ export function OnboardingLayout({
                 <li
                   key={item.label}
                   aria-current={current ? "step" : undefined}
-                  className={`flex items-start gap-3 rounded-2xl px-3 py-2.5 transition-colors ${
-                    current ? "bg-brand-50 dark:bg-brand-500/10" : ""
-                  }`}
+                  className="flex items-start gap-3 rounded-2xl px-3 py-2.5 transition-colors"
+                  style={
+                    current
+                      ? { background: "color-mix(in srgb, var(--accent) 8%, white)" }
+                      : undefined
+                  }
                 >
                   <span
-                    className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                    style={
                       done
-                        ? "bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300"
+                        ? {
+                            background: "color-mix(in srgb, var(--accent) 16%, white)",
+                            color: "var(--accent)",
+                          }
                         : current
-                          ? "brand-gradient text-white shadow-sm shadow-brand-500/30"
-                          : "border border-black/10 text-zinc-400 dark:border-white/15 dark:text-zinc-500"
-                    }`}
+                          ? { background: "var(--accent)", color: "#fff" }
+                          : { border: "1px solid rgba(21,19,28,.12)", color: "#A7A2B8" }
+                    }
                   >
                     {done ? <CheckIcon className="h-3.5 w-3.5" /> : position}
                   </span>
 
                   <div className="min-w-0">
                     <p
-                      className={`text-sm font-semibold ${
-                        current || done
-                          ? ""
-                          : "text-zinc-400 dark:text-zinc-500"
-                      }`}
+                      className="text-sm font-semibold"
+                      style={{ color: current || done ? "var(--ink)" : "#A7A2B8" }}
                     >
                       {item.label}
                     </p>
                     {current && (
-                      <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                        {item.hint}
-                      </p>
+                      <p className="mt-0.5 text-xs text-[var(--muted)]">{item.hint}</p>
                     )}
                   </div>
                 </li>
@@ -109,16 +123,20 @@ export function OnboardingLayout({
             })}
           </ol>
 
-          <div className="mt-auto rounded-2xl bg-linear-to-br from-brand-50 to-violet-50 p-4 dark:from-brand-500/10 dark:to-violet-500/10">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl shadow-sm dark:bg-zinc-900">
+          <div
+            className="mt-auto rounded-2xl p-4"
+            style={{
+              background:
+                "linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, white), color-mix(in srgb, var(--violet) 10%, white))",
+            }}
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">
               {meta.promo.emoji}
             </span>
-            <p className="mt-3 text-sm font-semibold">{meta.promo.title}</p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              {meta.promo.body}
-            </p>
+            <p className="mt-3 text-sm font-semibold text-[var(--ink)]">{meta.promo.title}</p>
+            <p className="text-xs text-[var(--muted)]">{meta.promo.body}</p>
             <ProgressBar percent={percent} className="mt-4" />
-            <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+            <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-[var(--muted)]">
               <span>
                 Step {step} of {TOTAL}
               </span>
@@ -128,12 +146,12 @@ export function OnboardingLayout({
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <header className="flex items-center gap-3 rounded-2xl border border-black/6 bg-white px-3.5 py-3 shadow-sm lg:hidden dark:border-white/8 dark:bg-zinc-900">
+          <header className="flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-white px-3.5 py-3 shadow-sm lg:hidden">
             {backHref ? (
               <Link
                 href={backHref}
                 aria-label="Back"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-zinc-500 transition-colors hover:bg-black/5 dark:border-white/12 dark:hover:bg-white/10"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--line)] text-[var(--muted)] transition-colors hover:bg-black/5"
               >
                 <ArrowLeftIcon className="h-4 w-4" />
               </Link>
@@ -143,15 +161,13 @@ export function OnboardingLayout({
 
             <ProgressBar percent={percent} className="flex-1" />
 
-            <span className="shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="shrink-0 text-xs font-medium text-[var(--muted)]">
               Step {step} of {TOTAL}
             </span>
             <SignOutButton signOutAction={signOut} />
           </header>
 
-          <main className="animate-fade-in-up flex flex-1 flex-col">
-            {children}
-          </main>
+          <main className="ha-fadeup ha-d1 flex flex-1 flex-col">{children}</main>
         </div>
       </div>
     </div>
@@ -161,11 +177,11 @@ export function OnboardingLayout({
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <span className="brand-gradient flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white shadow-sm shadow-brand-500/30">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] text-white">
         <BoltIcon className="h-4 w-4" />
       </span>
       <span
-        className={`truncate text-sm font-semibold tracking-tight ${
+        className={`${displayFont} truncate text-sm font-semibold tracking-tight text-[var(--ink)] ${
           compact ? "hidden sm:inline" : ""
         }`}
       >
@@ -189,11 +205,11 @@ function ProgressBar({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-label="Setup progress"
-      className={`block h-1.5 overflow-hidden rounded-full bg-black/8 dark:bg-white/12 ${className}`}
+      className={`block h-1.5 overflow-hidden rounded-full bg-black/8 ${className}`}
     >
       <span
-        className="brand-gradient block h-full rounded-full transition-all duration-500"
-        style={{ width: `${percent}%` }}
+        className="block h-full rounded-full transition-all duration-500"
+        style={{ width: `${percent}%`, background: "var(--accent)" }}
       />
     </span>
   );
@@ -201,7 +217,7 @@ function ProgressBar({
 
 export function OnboardingCard({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-1 flex-col rounded-3xl border border-black/6 bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_24px_60px_-28px_rgba(80,60,160,0.25)] sm:p-8 dark:border-white/8 dark:bg-zinc-900">
+    <div className="flex flex-1 flex-col rounded-[28px] border border-[var(--line)] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_24px_60px_-28px_rgba(21,19,28,.25)] sm:p-8">
       {children}
     </div>
   );

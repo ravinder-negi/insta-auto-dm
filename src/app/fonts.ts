@@ -1,4 +1,4 @@
-import { Geist_Mono, Lora, Plus_Jakarta_Sans } from "next/font/google";
+import { Bricolage_Grotesque, Geist_Mono, Lora, Plus_Jakarta_Sans } from "next/font/google";
 
 // Single source of truth for the app's typefaces. To swap a font, change the
 // import and the constructor below — keep the `variable` names as they are.
@@ -21,5 +21,18 @@ export const serifFont = Lora({
   weight: ["400", "600", "700"],
 });
 
+// Display face for public-page headings — a fixed brand treatment, not one
+// of the creator's selectable body fonts (see themeOptions.ts).
+export const displayFont = Bricolage_Grotesque({
+  variable: "--font-app-display",
+  subsets: ["latin"],
+  weight: ["500", "700", "800"],
+});
+
 // Applied once on <html> in app/layout.tsx.
-export const fontVariables = [sansFont.variable, monoFont.variable, serifFont.variable].join(" ");
+export const fontVariables = [
+  sansFont.variable,
+  monoFont.variable,
+  serifFont.variable,
+  displayFont.variable,
+].join(" ");

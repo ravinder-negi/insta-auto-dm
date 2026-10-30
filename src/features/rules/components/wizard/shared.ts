@@ -11,9 +11,30 @@ export const PUBLIC_REPLY_SLOTS = 3;
 export const MAX_KEYWORDS = 20;
 
 export const MAX_BUTTONS = 3;
-export const BUTTON_LABEL_MAX_LENGTH = 60;
+// Meta's URL-button title cap is 20 chars — a longer label risks truncation
+// or rejection by Instagram's generic-template API.
+export const BUTTON_LABEL_MAX_LENGTH = 20;
 export const CARD_TITLE_MAX_LENGTH = 80;
 export const CARD_SUBTITLE_MAX_LENGTH = 80;
+
+export const ATTACHMENT_TYPES = [
+  { value: "image", label: "Image" },
+  { value: "video", label: "Video" },
+  { value: "audio", label: "Audio" },
+  { value: "file", label: "File (PDF)" },
+] as const;
+
+/** Instagram's own per-type caps — shown as a hint only; attachments are
+ *  linked by URL here, not uploaded, so size isn't checked client-side. */
+export const ATTACHMENT_SIZE_LIMITS: Record<
+  (typeof ATTACHMENT_TYPES)[number]["value"],
+  string
+> = {
+  image: "png or jpeg, up to 8MB",
+  video: "mp4, ogg, avi, mov or webm, up to 25MB",
+  audio: "aac, m4a, wav or mp4, up to 25MB",
+  file: "pdf, up to 25MB",
+};
 
 /** Instagram renders link buttons as a card, which needs a title of its own;
  *  the DM text is sent as a separate message right before it. */
@@ -80,7 +101,7 @@ export function followupToMinutes(followup: RuleFollowupValue) {
 /** The shortest delay the form allows; a rule always waits before its first
  *  DM, so a stored 0 (or a new rule) comes back as the default below. */
 export const MIN_DELAY_SECONDS = 1;
-export const DEFAULT_DELAY_SECONDS = 5;
+export const DEFAULT_DELAY_SECONDS = 2;
 
 /** Same idea for the pre-send delay, which is stored in seconds. */
 export function delayFromSeconds(seconds: number): {

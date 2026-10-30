@@ -8,10 +8,13 @@ import type { FlowWizardInitialValues } from "@/features/flows/components/wizard
 
 export type FlowFormState = { error: string } | { ok: true } | undefined;
 
-const ATTACHMENT_TYPES = ["image", "video", "audio"] as const;
+const ATTACHMENT_TYPES = ["image", "video", "audio", "file"] as const;
 
 const MAX_BUTTONS = 3;
 const MAX_KEYWORDS = 20;
+// Meta's URL-button title cap is 20 chars — a longer label risks truncation
+// or rejection by Instagram's generic-template API.
+const BUTTON_LABEL_MAX_LENGTH = 20;
 
 export interface FlowStepButtonInput {
   label: string;
@@ -138,6 +141,12 @@ function readFlowFields(
       for (const button of step.buttons as FlowStepButtonInput[]) {
         if (!button.label?.trim() || !/^https:\/\/\S+$/.test(button.url ?? "")) {
           return { ok: false, error: "Every button needs a label and a valid https:// link." };
+        }
+        if (button.label.length > BUTTON_LABEL_MAX_LENGTH) {
+          return {
+            ok: false,
+            error: `Button labels must be ${BUTTON_LABEL_MAX_LENGTH} characters or fewer.`,
+          };
         }
       }
     }
@@ -317,7 +326,8 @@ async function updateFlowCore(id: string, formData: FormData): Promise<FlowFormS
   const { error } = await supabase
     .from("dm_flows")
     .update({
-      instagram_account_id: parsed.fields.instagram_account_id,
+      // instagram_account_id is deliberately absent: a flow's sessions and
+      // leads belong to its account, so it's fixed once created.
       name: parsed.fields.name,
       keyword_match: parsed.fields.keyword_match,
       keywords: parsed.fields.keywords,
@@ -380,6 +390,19 @@ export async function updateFlowAndRedirect(
 export async function deleteFlow(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("dm_flows").delete().eq("id", id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard/flows");
+}
+
+export async function deleteFlows(ids: string[]) {
+  if (ids.length === 0) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("dm_flows").delete().in("id", ids);
 
   if (error) {
     throw new Error(error.message);

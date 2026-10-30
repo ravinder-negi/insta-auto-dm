@@ -1,23 +1,19 @@
 import Link from "next/link";
 import { BoltIcon } from "@/components/icons";
+import { displayFont } from "@/app/(marketing)/_components/home/fonts";
 
 export function AuthBrandHeader() {
   return (
-    <Link
-      href="/"
-      className="mb-6 flex w-fit items-center gap-2.5 transition-opacity hover:opacity-80"
-    >
-      <div className="brand-gradient flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-sm shadow-brand-500/30">
-        <BoltIcon className="h-5 w-5" />
-      </div>
-      <div className="leading-tight">
-        <div className="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+    <Link href="/" className="flex w-fit items-center gap-3 transition-opacity hover:opacity-80">
+      <span className="flex h-10.5 w-10.5 flex-none items-center justify-center rounded-xl bg-[var(--accent)] text-white">
+        <BoltIcon className="h-5.5 w-5.5" />
+      </span>
+      <span className="leading-tight">
+        <span className={`${displayFont} block text-xl font-extrabold tracking-[-0.02em] text-[var(--ink)]`}>
           Auto DM
-        </div>
-        <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          Engage. Automate. Grow.
-        </div>
-      </div>
+        </span>
+        <span className="block text-[13px] text-[var(--muted)]">Engage. Automate. Grow.</span>
+      </span>
     </Link>
   );
 }

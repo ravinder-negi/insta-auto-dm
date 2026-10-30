@@ -1,4 +1,4 @@
-export type AttachmentType = "image" | "video" | "audio";
+export type AttachmentType = "image" | "video" | "audio" | "file";
 
 export interface InstagramAccount {
   id: string;
@@ -7,6 +7,12 @@ export interface InstagramAccount {
   username: string | null;
   access_token: string;
   is_active: boolean;
+  /** Null until the first refresh for accounts connected before expiry tracking. */
+  token_expires_at: string | null;
+  token_refreshed_at: string;
+  /** "expired" once Meta rejects the token; only reconnecting clears it. */
+  token_status: "active" | "expired";
+  token_error: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -204,6 +210,9 @@ export interface ApiUsage {
 export type ThemeFont = "sans" | "serif" | "mono";
 export type ThemeButtonStyle = "pill" | "rounded" | "square";
 export type ThemeLayout = "center" | "left";
+/** Which public-page layout renders the profile — "original" is the long-standing
+ *  two-column layout; "centered"/"noir" are alternate full-page designs. */
+export type ThemeTemplate = "original" | "centered" | "noir";
 
 /** Link-in-bio creator profile — 1:1 with auth.users via profiles.id. */
 export interface Profile {
@@ -217,6 +226,7 @@ export interface Profile {
   theme_font: ThemeFont;
   theme_button_style: ThemeButtonStyle;
   theme_layout: ThemeLayout;
+  theme_template: ThemeTemplate;
   created_at: string;
   updated_at: string;
 }
@@ -328,7 +338,7 @@ export interface LinkClick {
   created_at: string;
 }
 
-/** Single-row app-wide config, admin-only write (see src/lib/auth/admin.ts). */
+/** Single-row app-wide config. */
 export interface AppSettings {
   id: number;
   accent_color: string;

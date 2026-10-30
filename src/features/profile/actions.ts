@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 export type ProfileFormState = { error: string } | { success: true } | undefined;
 
 const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9_-]{1,28}[a-z0-9])?$/;
-const HEX_COLOR_PATTERN = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 const RESERVED_USERNAMES = new Set([
   "dashboard",
@@ -29,7 +28,6 @@ export async function updateProfile(
   const displayName = String(formData.get("display_name") ?? "").trim();
   const bio = String(formData.get("bio") ?? "").trim();
   const avatarUrl = String(formData.get("avatar_url") ?? "").trim();
-  const brandColor = String(formData.get("brand_color") ?? "").trim();
   const isPublished = formData.get("is_published") === "on";
 
   if (!usernameRaw || !USERNAME_PATTERN.test(usernameRaw)) {
@@ -45,10 +43,6 @@ export async function updateProfile(
 
   if (bio.length > 280) {
     return { error: "Bio must be 280 characters or fewer." };
-  }
-
-  if (brandColor && !HEX_COLOR_PATTERN.test(brandColor)) {
-    return { error: "Brand color must be a hex value like #6366f1." };
   }
 
   if (isPublished && !displayName) {
@@ -71,7 +65,6 @@ export async function updateProfile(
       display_name: displayName || null,
       bio: bio || null,
       avatar_url: avatarUrl || null,
-      brand_color: brandColor || null,
       is_published: isPublished,
       updated_at: new Date().toISOString(),
     })

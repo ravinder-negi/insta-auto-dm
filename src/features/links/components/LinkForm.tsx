@@ -4,12 +4,35 @@ import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { LinkInBioPreview } from "./LinkInBioPreview";
-import { SelectField, fieldClass } from "@/components/ui/controls";
-import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/styles";
 import { useToast } from "@/components/ui/Toast";
+import { ChevronDownIcon } from "@/components/icons";
 import { ICON_OPTIONS } from "@/features/links/linkTypeIcons";
 import type { LinkFormState } from "@/features/links/actions";
 import type { LinkIconKey, LinkType } from "@/types";
+
+const fieldClass =
+  "w-full rounded-2xl border border-[var(--line)] bg-white px-3.5 py-2.5 text-sm text-[var(--ink)] outline-none transition-all duration-200 placeholder:text-[var(--muted-soft)] focus:border-[var(--primary)] focus:ring-4 focus:ring-[var(--primary)]/10";
+
+const primaryPillClass =
+  "inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--primary)] px-6 text-[15px] font-bold text-white transition-transform hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-60";
+
+const secondaryPillClass =
+  "inline-flex min-h-[48px] items-center justify-center rounded-full border border-[var(--line)] bg-white px-6 text-[15px] font-bold text-[var(--ink)] transition-transform hover:-translate-y-0.5";
+
+function SelectField({
+  className = "",
+  children,
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div className="relative">
+      <select {...props} className={`${fieldClass} appearance-none pr-9 ${className}`}>
+        {children}
+      </select>
+      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-[var(--muted-soft)]" />
+    </div>
+  );
+}
 
 const LINK_TYPE_OPTIONS: { value: LinkType; label: string }[] = [
   { value: "website", label: "Website" },
@@ -41,6 +64,7 @@ export function LinkForm({
   onCancel,
   onSuccess,
   showPreview = true,
+  bare = false,
 }: {
   action: (prevState: LinkFormState, formData: FormData) => Promise<LinkFormState>;
   initialValues?: LinkFormInitialValues;
@@ -62,6 +86,9 @@ export function LinkForm({
   /** Hides the live-preview sidebar — off by default inside the modal, which
    *  is too narrow for a side-by-side preview. */
   showPreview?: boolean;
+  /** Drops the form's own card border/background — used inside
+   *  LinkFormModal, which already supplies that chrome. */
+  bare?: boolean;
 }) {
   const toast = useToast();
   const [state, formAction, pending] = useActionState<LinkFormState, FormData>(
@@ -126,7 +153,8 @@ export function LinkForm({
     >
       <form
         action={formAction}
-        className="flex flex-col gap-5 rounded-2xl border border-black/6 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] sm:p-5 dark:border-white/8 dark:bg-white/4"
+        className={bare ? "flex flex-col gap-5" : "flex flex-col gap-5 rounded-[30px] border p-4 sm:p-5"}
+        style={bare ? undefined : { borderColor: "var(--line)", backgroundColor: "#fff" }}
       >
         <Field label="Title" htmlFor="title">
           <input
@@ -180,45 +208,47 @@ export function LinkForm({
         </Field>
 
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <span className="mb-1.5 block text-sm font-bold" style={{ color: "var(--ink)" }}>
             Icon (optional)
           </span>
           <div className="flex flex-wrap items-center gap-2">
-            {ICON_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                title={option.label}
-                aria-label={option.label}
-                aria-pressed={icon === option.value}
-                onClick={() => {
-                  setIcon(option.value);
-                  setCustomIconUrl("");
-                }}
-                className={`flex h-10 w-10 items-center justify-center rounded-xl border-2 text-zinc-500 transition-colors dark:text-zinc-400 ${
-                  icon === option.value
-                    ? "border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
-                    : "border-transparent bg-zinc-100 hover:bg-zinc-200 dark:bg-white/8 dark:hover:bg-white/12"
-                }`}
-              >
-                <option.icon className="h-4 w-4" />
-              </button>
-            ))}
+            {ICON_OPTIONS.map((option) => {
+              const selected = icon === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  title={option.label}
+                  aria-label={option.label}
+                  aria-pressed={selected}
+                  onClick={() => {
+                    setIcon(option.value);
+                    setCustomIconUrl("");
+                  }}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border-2 transition-colors"
+                  style={
+                    selected
+                      ? { borderColor: "var(--primary)", backgroundColor: "var(--tint)", color: "var(--primary)" }
+                      : { borderColor: "transparent", backgroundColor: "var(--neutral-tint)", color: "var(--muted)" }
+                  }
+                >
+                  <option.icon className="h-4 w-4" />
+                </button>
+              );
+            })}
 
             {customIconUrl && (
               <span
                 aria-label="Custom icon"
-                className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border-2 border-brand-500"
+                className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border-2"
+                style={{ borderColor: "var(--primary)" }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary user-uploaded URL */}
                 <img src={customIconUrl} alt="" className="h-full w-full object-cover" />
               </span>
             )}
 
-            <label
-              htmlFor={fileInputId}
-              className={`${secondaryButtonClass} cursor-pointer text-xs`}
-            >
+            <label htmlFor={fileInputId} className={`${secondaryPillClass} min-h-[40px] cursor-pointer px-4 text-xs`}>
               {uploading ? "Uploading..." : "Upload custom icon"}
             </label>
             <input
@@ -231,70 +261,49 @@ export function LinkForm({
               disabled={uploading}
             />
           </div>
-          <p className="mt-1.5 text-xs text-zinc-500">
+          <p className="mt-1.5 text-xs" style={{ color: "var(--muted)" }}>
             Recommended: 512×512px, PNG or SVG (max 2MB).
           </p>
           <input type="hidden" name="icon" value={icon} />
           <input type="hidden" name="custom_icon_url" value={customIconUrl} />
         </div>
 
-        <div className="flex items-center justify-between rounded-xl border border-black/8 px-3.5 py-3 dark:border-white/10">
-          <div>
-            <p className="text-sm font-medium">Show on profile</p>
-            <p className="mt-0.5 text-xs text-zinc-500">
-              Make this link visible on your public profile page.
-            </p>
-          </div>
-          <label className="relative inline-flex shrink-0 cursor-pointer items-center">
-            <input
-              type="checkbox"
-              name="is_active"
-              checked={isActive}
-              onChange={(event) => setIsActive(event.target.checked)}
-              className="peer sr-only"
-            />
-            <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-brand-600 dark:bg-zinc-700" />
-            <div className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
-          </label>
-        </div>
+        <ToggleField
+          label="Show on profile"
+          description="Make this link visible on your public profile page."
+          name="is_active"
+          checked={isActive}
+          onChange={setIsActive}
+        />
 
-        <div className="flex items-center justify-between rounded-xl border border-black/8 px-3.5 py-3 dark:border-white/10">
-          <div>
-            <p className="text-sm font-medium">Featured</p>
-            <p className="mt-0.5 text-xs text-zinc-500">
-              Highlight this link with an accent border and badge.
-            </p>
-          </div>
-          <label className="relative inline-flex shrink-0 cursor-pointer items-center">
-            <input
-              type="checkbox"
-              name="is_featured"
-              checked={isFeatured}
-              onChange={(event) => setIsFeatured(event.target.checked)}
-              className="peer sr-only"
-            />
-            <div className="h-6 w-11 rounded-full bg-zinc-200 transition-colors peer-checked:bg-brand-600 dark:bg-zinc-700" />
-            <div className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
-          </label>
-        </div>
+        <ToggleField
+          label="Featured"
+          description="Highlight this link with an accent border and badge."
+          name="is_featured"
+          checked={isFeatured}
+          onChange={setIsFeatured}
+        />
 
         {state && "error" in state && (
-          <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400">
+          <p
+            className="rounded-2xl border px-3.5 py-2.5 text-sm font-semibold"
+            style={{ borderColor: "var(--danger-border)", backgroundColor: "var(--danger-tint-faint)", color: "var(--danger-deep)" }}
+          >
             {state.error}
           </p>
         )}
 
         <div className="flex items-center justify-end gap-2.5">
           {onCancel ? (
-            <button type="button" onClick={onCancel} className={secondaryButtonClass}>
+            <button type="button" onClick={onCancel} className={secondaryPillClass}>
               Cancel
             </button>
           ) : (
-            <Link href="/dashboard/links" className={secondaryButtonClass}>
+            <Link href="/dashboard/links" className={secondaryPillClass}>
               Cancel
             </Link>
           )}
-          <button type="submit" disabled={pending || uploading} className={primaryButtonClass}>
+          <button type="submit" disabled={pending || uploading} className={primaryPillClass}>
             {pending ? "Saving…" : submitLabel}
           </button>
         </div>
@@ -302,9 +311,11 @@ export function LinkForm({
 
       {showPreview && (
       <aside className="lg:sticky lg:top-6">
-        <div className="rounded-2xl border border-black/6 bg-white p-6 shadow-[0_1px_2px_rgba(16,24,40,0.05)] dark:border-white/8 dark:bg-white/4">
-          <h2 className="text-base font-semibold tracking-tight">Live preview</h2>
-          <p className="mt-1 text-sm text-zinc-500">
+        <div className="rounded-[30px] border p-6" style={{ borderColor: "var(--line)", backgroundColor: "#fff" }}>
+          <h2 className="text-lg font-extrabold tracking-tight" style={{ color: "var(--ink)" }}>
+            Live preview
+          </h2>
+          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
             This is how your link will appear on your profile.
           </p>
           <div className="mx-auto mt-5 max-w-70">
@@ -345,10 +356,52 @@ function Field({
 }) {
   return (
     <label htmlFor={htmlFor} className="block">
-      <span className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <span className="mb-1.5 block text-sm font-bold" style={{ color: "var(--ink)" }}>
         {label}
       </span>
       {children}
     </label>
+  );
+}
+
+function ToggleField({
+  label,
+  description,
+  name,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  name: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-2xl border px-3.5 py-3" style={{ borderColor: "var(--line)" }}>
+      <div>
+        <p className="text-sm font-bold" style={{ color: "var(--ink)" }}>
+          {label}
+        </p>
+        <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+          {description}
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className="flex h-[34px] w-[56px] shrink-0 items-center rounded-full p-1 transition-colors"
+        style={{ backgroundColor: checked ? "var(--success)" : "var(--secondary-pale)" }}
+      >
+        <span
+          className="h-[26px] w-[26px] rounded-full bg-white shadow transition-transform"
+          style={{ transform: checked ? "translateX(22px)" : "translateX(0)" }}
+        />
+      </button>
+      <input type="hidden" name={name} value={checked ? "on" : ""} />
+    </div>
   );
 }
