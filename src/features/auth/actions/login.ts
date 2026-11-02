@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { safeRedirectPath } from "@/lib/auth/redirect";
 import {
   FIRST_ONBOARDING_STEP,
   ONBOARDING_PATH,
@@ -16,7 +17,9 @@ export async function signIn(
 ): Promise<AuthState> {
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
-  const redirectTo = String(formData.get("redirectTo") ?? "/dashboard");
+  // Re-checked here: the hidden field is just form data a crafted page
+  // could fill with another site.
+  const redirectTo = safeRedirectPath(formData.get("redirectTo"));
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({
@@ -28,7 +31,7 @@ export async function signIn(
     return { error: error.message };
   }
 
-  redirect(redirectTo || "/dashboard");
+  redirect(redirectTo);
 }
 
 export async function signUp(

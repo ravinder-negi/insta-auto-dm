@@ -5,6 +5,13 @@ import { ApiUsageCard } from "@/features/analytics/components/ApiUsageCard";
 import { AnalyticsDashboard } from "@/features/analytics/components/AnalyticsDashboard";
 import { currentTimestamp } from "@/lib/utils/format";
 import { ArrowLeftIcon, ChartIcon } from "@/components/icons";
+import { fetchMediaDetails } from "@/lib/instagram/media";
+import {
+  EMPTY_MEDIA_ROLLUP,
+  mediaToDescribe,
+  type MediaDetails,
+  type MediaRollup,
+} from "@/features/analytics/lib/mediaMetrics";
 import {
   EMPTY_ROLLUP,
   WINDOW_DAYS,
@@ -12,21 +19,38 @@ import {
 } from "@/features/analytics/lib/metrics";
 import { displayFont, linkInBioCssVars, linkInBioWrapperClass } from "@/lib/linkInBioTheme";
 
+/** Posts to load captions/thumbnails for: enough to fill the card for any
+ *  range, without a burst of Instagram calls on every page view. */
+const MEDIA_DETAILS_LIMIT = 12;
+
 export default async function AnalyticsPage() {
   const supabase = await createClient();
 
   // One pre-aggregated window; every range and account filter is applied in
   // the browser against it. See supabase/migrations/..._analytics_rollup.sql.
-  const [{ data: rollupData, error }, { data: apiUsage }] = await Promise.all([
+  const [{ data: rollupData, error }, { data: apiUsage }, { data: mediaData }, { data: tokenRows }] = await Promise.all([
     supabase.rpc("analytics_rollup", { p_days: WINDOW_DAYS }),
     supabase
       .from("api_usage")
       .select("call_count, total_cputime, total_time, updated_at")
       .eq("id", 1)
       .maybeSingle(),
+    supabase.rpc("media_rollup", { p_days: WINDOW_DAYS }),
+    // RLS limits this to the signed-in user's own accounts.
+    supabase.from("instagram_accounts").select("id, access_token"),
   ]);
 
   const rollup = (rollupData as AnalyticsRollup | null) ?? EMPTY_ROLLUP;
+  const mediaRollup = (mediaData as MediaRollup | null) ?? EMPTY_MEDIA_ROLLUP;
+
+  const tokens = new Map((tokenRows ?? []).map((row) => [row.id as string, row.access_token as string]));
+  const described = await Promise.all(
+    mediaToDescribe(mediaRollup, MEDIA_DETAILS_LIMIT).map(async ({ mediaId, accountId }) => {
+      const token = accountId ? tokens.get(accountId) : undefined;
+      return [mediaId, token ? await fetchMediaDetails(token, mediaId) : null] as const;
+    })
+  );
+  const mediaDetails: Record<string, MediaDetails | null> = Object.fromEntries(described);
 
   const usageRow = apiUsage as Pick<
     ApiUsage,
@@ -125,7 +149,12 @@ export default async function AnalyticsPage() {
         <ApiUsageCard percent={usagePercent} updatedAt={usageUpdatedAt} now={currentTimestamp()} />
 
         {hasActivity ? (
-          <AnalyticsDashboard rollup={rollup} now={currentTimestamp()} />
+          <AnalyticsDashboard
+            rollup={rollup}
+            mediaRollup={mediaRollup}
+            mediaDetails={mediaDetails}
+            now={currentTimestamp()}
+          />
         ) : (
           <div className="flex flex-col items-center gap-4 rounded-[36px] border-[1.5px] border-dashed border-[var(--secondary-border)] bg-[var(--secondary-faint-bg)] px-7 py-14 text-center">
             <span className="animate-float flex h-[72px] w-[72px] items-center justify-center rounded-[22px] bg-[var(--violet)] text-white">

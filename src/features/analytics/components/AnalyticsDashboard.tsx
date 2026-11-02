@@ -17,6 +17,13 @@ import { ChartCard, StatTile } from "@/features/analytics/components/chart-primi
 import { PerformanceTrendChart } from "@/features/analytics/components/PerformanceTrendChart";
 import { RuleLeaderboard } from "@/features/analytics/components/RuleLeaderboard";
 import { TopRulesChart } from "@/features/analytics/components/TopRulesChart";
+import { TopMediaCard } from "@/features/analytics/components/TopMediaCard";
+import {
+  EMPTY_MEDIA_ROLLUP,
+  mediaPerformance,
+  type MediaDetails,
+  type MediaRollup,
+} from "@/features/analytics/lib/mediaMetrics";
 import {
   RANGES,
   type AnalyticsRollup,
@@ -37,9 +44,15 @@ import {
  */
 export function AnalyticsDashboard({
   rollup,
+  mediaRollup = EMPTY_MEDIA_ROLLUP,
+  mediaDetails = {},
   now,
 }: {
   rollup: AnalyticsRollup;
+  /** Per-post buckets for "Top posts & reels". */
+  mediaRollup?: MediaRollup;
+  /** Caption/thumbnail/link for the busiest posts, keyed by media id. */
+  mediaDetails?: Record<string, MediaDetails | null>;
   /** Captured on the server so the window is stable across hydration. */
   now: number;
 }) {
@@ -62,8 +75,14 @@ export function AnalyticsDashboard({
       rules: rulePerformance(rollup, slice),
       statuses: statusBreakdown(slice),
       leadSources: leadSourceBreakdown(slice),
+      media: mediaPerformance(mediaRollup, window, accountId),
     };
-  }, [rollup, range, accountId, now]);
+  }, [rollup, mediaRollup, range, accountId, now]);
+
+  const accountHandles = useMemo(
+    () => new Map(rollup.accounts.map((account) => [account.id, account.handle])),
+    [rollup.accounts]
+  );
 
   const { totals, previousTotals } = view;
   const rangeLabel = RANGES[range].label.toLowerCase();
@@ -140,6 +159,13 @@ export function AnalyticsDashboard({
       >
         <PerformanceTrendChart data={view.series} />
       </ChartCard>
+
+      <TopMediaCard
+        rows={view.media}
+        details={mediaDetails}
+        accountHandles={accountHandles}
+        rangeLabel={rangeLabel}
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <ChartCard

@@ -1,5 +1,6 @@
 import { AuthLayout } from "@/features/auth/components/AuthLayout";
 import { LoginForm } from "@/features/auth/components/LoginForm";
+import { safeRedirectPath } from "@/lib/auth/redirect";
 
 export default async function LoginPage(props: PageProps<"/login">) {
   const searchParams = await props.searchParams;
@@ -10,11 +11,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
 
   return (
     <AuthLayout>
-      <LoginForm
-        redirectTo={
-          redirectTo && redirectTo.startsWith("/") ? redirectTo : "/dashboard/accounts"
-        }
-      />
+      <LoginForm redirectTo={safeRedirectPath(redirectTo)} />
     </AuthLayout>
   );
 }
