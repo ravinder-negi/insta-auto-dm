@@ -774,12 +774,18 @@ async function handleCommentChange(
    * Fires once on keyword match, independent of the follow gate below —
    * it acknowledges the comment publicly regardless of whether the real
    * DM or the follow prompt ends up being sent privately.
+   *
+   * Posted only after this comment's automation_executions row has been
+   * inserted: unique(instagram_comment_id) is the real duplicate guard, so a
+   * retried or concurrent delivery of the same comment never replies twice.
    * ======================================
    */
 
-  const publicReply = pickPublicReply(matchedRule);
+  const publicReply = matchedRule.send_public_reply ? pickPublicReply(matchedRule) : null;
 
-  if (matchedRule.send_public_reply && publicReply) {
+  const postPublicReplyOnce = async () => {
+    if (!publicReply) return;
+
     const publicReplyResult = await postPublicCommentReply({
       commentId,
       accessToken: instagramAccount.access_token,
@@ -789,7 +795,7 @@ async function handleCommentChange(
     if (!publicReplyResult.success) {
       console.error("Public comment reply failed:", commentId, publicReplyResult.error);
     }
-  }
+  };
 
   /**
    * ======================================
@@ -821,7 +827,7 @@ async function handleCommentChange(
         .maybeSingle();
 
       if (existingPrompt) {
-        await supabaseAdmin.from("automation_executions").insert({
+        const { error: skipError } = await supabaseAdmin.from("automation_executions").insert({
           automation_rule_id: matchedRule.id,
           instagram_account_id: instagramAccount.id,
           instagram_comment_id: commentId,
@@ -831,6 +837,11 @@ async function handleCommentChange(
           comment_text: commentText,
           status: "skipped_already_prompted",
         });
+        if (skipError?.code === "23505") {
+          console.log("Duplicate execution detected:", commentId);
+          return;
+        }
+        await postPublicReplyOnce();
         console.log("Already prompted to follow, skipping:", commentId);
         return;
       }
@@ -886,7 +897,7 @@ async function handleCommentChange(
         .maybeSingle();
 
       if (existingPrompt) {
-        await supabaseAdmin.from("automation_executions").insert({
+        const { error: skipError } = await supabaseAdmin.from("automation_executions").insert({
           automation_rule_id: matchedRule.id,
           instagram_account_id: instagramAccount.id,
           instagram_comment_id: commentId,
@@ -896,6 +907,11 @@ async function handleCommentChange(
           comment_text: commentText,
           status: "skipped_already_prompted",
         });
+        if (skipError?.code === "23505") {
+          console.log("Duplicate execution detected:", commentId);
+          return;
+        }
+        await postPublicReplyOnce();
         console.log("Already asked for an email, skipping:", commentId);
         return;
       }
@@ -938,6 +954,8 @@ async function handleCommentChange(
     console.error("Failed to create execution:", executionInsertError.message);
     return;
   }
+
+  await postPublicReplyOnce();
 
   const isPrompt = isFollowPrompt || isEmailPrompt;
   const buttons = isPrompt ? [] : (matchedRule.dm_buttons ?? []);
@@ -1482,6 +1500,13 @@ async function handleMessagingEvent(
 
   if (!text) return;
 
+  // Claim this message before the email-ask and flow paths act on it, so a
+  // redelivered or concurrently delivered DM is handled at most once.
+  if (mid && !(await claimInboundMessage(mid, instagramAccount.id))) {
+    console.log("Inbound message already processed:", mid);
+    return;
+  }
+
   // An outstanding email ask owns the next reply from that sender.
   const emailHandled = await handlePendingEmailPrompt({
     instagramAccount,
@@ -1634,6 +1659,31 @@ async function handleMessagingEvent(
     return;
   }
 
+  // Advance only if the session is still where this reply found it: two
+  // different replies racing each other can't both move it on (and both
+  // send the next step). Whichever update lands first sends.
+  const { data: advanced, error: advanceError } = await supabaseAdmin
+    .from("dm_flow_sessions")
+    .update({
+      current_step_order: targetStepOrder,
+      status: (nextStep as DmFlowStep).expects_reply ? "active" : "completed",
+      last_interaction_at: new Date().toISOString(),
+    })
+    .eq("id", typedSession.id)
+    .eq("status", "active")
+    .eq("current_step_order", typedSession.current_step_order)
+    .select("id");
+
+  if (advanceError) {
+    console.error("Failed to advance dm_flow_sessions row:", advanceError.message);
+    return;
+  }
+
+  if (!advanced || advanced.length === 0) {
+    console.log("DM flow session already advanced, skipping:", typedSession.id);
+    return;
+  }
+
   const result = await sendRuleOrStepMessage({
     instagramUserId: instagramAccount.instagram_user_id,
     accessToken: instagramAccount.access_token,
@@ -1651,15 +1701,23 @@ async function handleMessagingEvent(
   if (!result.success) {
     console.error("DM flow step send failed:", typedSession.flow_id, result.error);
   }
+}
 
-  await supabaseAdmin
-    .from("dm_flow_sessions")
-    .update({
-      current_step_order: targetStepOrder,
-      status: (nextStep as DmFlowStep).expects_reply ? "active" : "completed",
-      last_interaction_at: new Date().toISOString(),
-    })
-    .eq("id", typedSession.id);
+/**
+ * Records an inbound message id as handled. Returns false when it was
+ * already claimed (a redelivery). On any other error it lets the message
+ * through: a lost dedupe is better than dropping a real reply.
+ */
+async function claimInboundMessage(mid: string, instagramAccountId: string): Promise<boolean> {
+  const { error } = await supabaseAdmin
+    .from("processed_inbound_messages")
+    .insert({ mid, instagram_account_id: instagramAccountId });
+
+  if (!error) return true;
+  if (error.code === "23505") return false;
+
+  console.error("Failed to record processed inbound message:", error.message);
+  return true;
 }
 
 /**

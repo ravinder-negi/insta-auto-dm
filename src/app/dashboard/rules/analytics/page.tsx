@@ -6,6 +6,7 @@ import { AnalyticsDashboard } from "@/features/analytics/components/AnalyticsDas
 import { currentTimestamp } from "@/lib/utils/format";
 import { ArrowLeftIcon, ChartIcon } from "@/components/icons";
 import { fetchMediaDetails } from "@/lib/instagram/media";
+import { getOwnAccountTokens, type AccountToken } from "@/lib/instagram/tokens";
 import {
   EMPTY_MEDIA_ROLLUP,
   mediaToDescribe,
@@ -28,7 +29,7 @@ export default async function AnalyticsPage() {
 
   // One pre-aggregated window; every range and account filter is applied in
   // the browser against it. See supabase/migrations/..._analytics_rollup.sql.
-  const [{ data: rollupData, error }, { data: apiUsage }, { data: mediaData }, { data: tokenRows }] = await Promise.all([
+  const [{ data: rollupData, error }, { data: apiUsage }, { data: mediaData }, accountTokens] = await Promise.all([
     supabase.rpc("analytics_rollup", { p_days: WINDOW_DAYS }),
     supabase
       .from("api_usage")
@@ -36,17 +37,16 @@ export default async function AnalyticsPage() {
       .eq("id", 1)
       .maybeSingle(),
     supabase.rpc("media_rollup", { p_days: WINDOW_DAYS }),
-    // RLS limits this to the signed-in user's own accounts.
-    supabase.from("instagram_accounts").select("id, access_token"),
+    // Limited to the signed-in user's own accounts.
+    getOwnAccountTokens().catch(() => new Map<string, AccountToken>()),
   ]);
 
   const rollup = (rollupData as AnalyticsRollup | null) ?? EMPTY_ROLLUP;
   const mediaRollup = (mediaData as MediaRollup | null) ?? EMPTY_MEDIA_ROLLUP;
 
-  const tokens = new Map((tokenRows ?? []).map((row) => [row.id as string, row.access_token as string]));
   const described = await Promise.all(
     mediaToDescribe(mediaRollup, MEDIA_DETAILS_LIMIT).map(async ({ mediaId, accountId }) => {
-      const token = accountId ? tokens.get(accountId) : undefined;
+      const token = accountId ? accountTokens.get(accountId)?.accessToken : undefined;
       return [mediaId, token ? await fetchMediaDetails(token, mediaId) : null] as const;
     })
   );

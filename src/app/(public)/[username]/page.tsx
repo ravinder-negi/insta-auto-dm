@@ -7,7 +7,7 @@ import { recordProfileView } from "./actions";
 import { CenteredTemplate } from "./_components/templates/CenteredTemplate";
 import { NoirTemplate } from "./_components/templates/NoirTemplate";
 import { OriginalTemplate } from "./_components/templates/OriginalTemplate";
-import type { LeadMagnet, Product, Profile, ProfileLink, ProfileSocial } from "@/types";
+import type { Product, Profile, ProfileLink, ProfileSocial, PublicLeadMagnet } from "@/types";
 
 async function getPublishedProfile(username: string) {
   const supabase = await createClient();
@@ -50,11 +50,12 @@ async function getActiveLeadMagnets(profileId: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("lead_magnets")
-    .select("*")
+    // Never file_url: it's only handed out after an email is submitted.
+    .select("id, profile_id, title, description, file_name, position, is_active, created_at, updated_at")
     .eq("profile_id", profileId)
     .eq("is_active", true)
     .order("position", { ascending: true })
-    .returns<LeadMagnet[]>();
+    .returns<PublicLeadMagnet[]>();
 
   return data ?? [];
 }

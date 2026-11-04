@@ -4,6 +4,7 @@ import {
   INSTAGRAM_API_VERSION as API_VERSION,
   INSTAGRAM_GRAPH_BASE_URL,
 } from "@/lib/instagram/config";
+import { getOwnAccountTokens } from "@/lib/instagram/tokens";
 
 export async function GET(request: NextRequest) {
   const accountId = request.nextUrl.searchParams.get("account_id");
@@ -25,19 +26,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
-  // RLS scopes this to the signed-in user's own accounts.
-  const { data: account, error: accountError } = await supabase
-    .from("instagram_accounts")
-    .select("instagram_user_id, access_token")
-    .eq("id", accountId)
-    .maybeSingle();
+  // Scoped to the signed-in user's own accounts.
+  const account = (await getOwnAccountTokens([accountId]).catch(() => null))?.get(accountId);
 
-  if (accountError || !account) {
+  if (!account) {
     return NextResponse.json({ error: "Instagram account not found" }, { status: 404 });
   }
 
   const mediaUrl = new URL(
-    `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${account.instagram_user_id}/${
+    `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${account.instagramUserId}/${
       isStory ? "stories" : "media"
     }`
   );
@@ -48,7 +45,7 @@ export async function GET(request: NextRequest) {
       : "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp"
   );
   mediaUrl.searchParams.set("limit", "25");
-  mediaUrl.searchParams.set("access_token", account.access_token);
+  mediaUrl.searchParams.set("access_token", account.accessToken);
 
   const mediaResponse = await fetch(mediaUrl);
   const mediaBody = await mediaResponse.json().catch(() => null);

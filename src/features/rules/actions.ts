@@ -409,32 +409,23 @@ function readRuleFields(
 }
 
 /** Follow-ups are a small ordered list, so a replace is simpler — and safer
- *  against reordering — than diffing rows. */
+ *  against reordering — than diffing rows. Runs in one transaction (see
+ *  replace_rule_followups): a failed insert keeps the old follow-ups. */
 async function replaceFollowups(
   supabase: Awaited<ReturnType<typeof createClient>>,
   ruleId: string,
   followups: RuleFollowup[]
 ): Promise<string | null> {
-  const { error: deleteError } = await supabase
-    .from("automation_rule_followups")
-    .delete()
-    .eq("automation_rule_id", ruleId);
+  const { error } = await supabase.rpc("replace_rule_followups", {
+    p_rule_id: ruleId,
+    p_followups: followups.map((followup) => ({
+      step_order: followup.step_order,
+      delay_minutes: followup.delay_minutes,
+      message: followup.message,
+    })),
+  });
 
-  if (deleteError) return deleteError.message;
-  if (followups.length === 0) return null;
-
-  const { error: insertError } = await supabase
-    .from("automation_rule_followups")
-    .insert(
-      followups.map((followup) => ({
-        automation_rule_id: ruleId,
-        step_order: followup.step_order,
-        delay_minutes: followup.delay_minutes,
-        message: followup.message,
-      }))
-    );
-
-  return insertError ? insertError.message : null;
+  return error ? error.message : null;
 }
 
 async function createRuleCore(formData: FormData): Promise<RuleFormState> {
@@ -460,7 +451,11 @@ async function createRuleCore(formData: FormData): Promise<RuleFormState> {
     created.id as string,
     parsed.followups
   );
-  if (followupError) return { error: followupError };
+  if (followupError) {
+    // Don't leave a half-saved rule behind for the retry to duplicate.
+    await supabase.from("automation_rules").delete().eq("id", created.id);
+    return { error: followupError };
+  }
 
   revalidatePath("/dashboard/rules");
   return { ok: true };
@@ -707,19 +702,22 @@ export async function duplicateRule(id: string) {
     throw new Error(error.message);
   }
 
-  const { data: followups } = await supabase
+  const { data: followups, error: followupsReadError } = await supabase
     .from("automation_rule_followups")
     .select("step_order, delay_minutes, message")
     .eq("automation_rule_id", id)
     .order("step_order");
 
-  if (followups?.length) {
-    const followupError = await replaceFollowups(
-      supabase,
-      copy.id as string,
-      followups as RuleFollowup[]
-    );
-    if (followupError) throw new Error(followupError);
+  const followupError =
+    followupsReadError?.message ??
+    (followups?.length
+      ? await replaceFollowups(supabase, copy.id as string, followups as RuleFollowup[])
+      : null);
+
+  if (followupError) {
+    // The copy would silently be missing its follow-ups; remove it instead.
+    await supabase.from("automation_rules").delete().eq("id", copy.id);
+    throw new Error(followupError);
   }
 
   revalidatePath("/dashboard/rules");

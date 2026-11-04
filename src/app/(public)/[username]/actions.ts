@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { leadMagnetDownloadUrl } from "@/lib/storage/leadMagnetFiles";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -56,11 +58,15 @@ export async function submitLeadMagnetEmail(
 
   const supabase = await createClient();
 
-  const { data: magnet, error: magnetError } = await supabase
+  // file_url isn't readable by visitors (see the lead_magnets column grants),
+  // so it's read with the service role, re-applying the public visibility
+  // rule: active magnet on a published profile.
+  const { data: magnet, error: magnetError } = await createAdminClient()
     .from("lead_magnets")
-    .select("id, profile_id, file_url, is_active")
+    .select("id, profile_id, file_url, profiles!inner(is_published)")
     .eq("id", leadMagnetId)
     .eq("is_active", true)
+    .eq("profiles.is_published", true)
     .maybeSingle();
 
   if (magnetError || !magnet) {
@@ -79,5 +85,10 @@ export async function submitLeadMagnetEmail(
     return { error: "Something went wrong. Try again." };
   }
 
-  return { success: true, fileUrl: magnet.file_url };
+  const fileUrl = await leadMagnetDownloadUrl(magnet.file_url);
+  if (!fileUrl) {
+    return { error: "This download is no longer available." };
+  }
+
+  return { success: true, fileUrl };
 }

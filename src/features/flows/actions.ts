@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { DmFlowIntentMap, DmFlowStepOption, KeywordMatch } from "@/types";
 import type { FlowWizardInitialValues } from "@/features/flows/components/wizard/FlowWizard";
+import { isValidStepTarget } from "@/features/flows/components/wizard/stepOps";
 
 export type FlowFormState = { error: string } | { ok: true } | undefined;
 
@@ -196,19 +197,24 @@ function readFlowFields(
           message_text: step.message_text.trim(),
           expects_reply: Boolean(step.expects_reply),
           collects_email: step.expects_reply ? Boolean(step.collects_email) : false,
-          intent_map: step.expects_reply
-            ? step.collects_email
-              ? { yes: step.intent_map?.yes }
-              : hasOptions
-                ? {}
-                : (step.intent_map ?? {})
-            : {},
+          intent_map: validIntentMap(
+            step.expects_reply
+              ? step.collects_email
+                ? { yes: step.intent_map?.yes }
+                : hasOptions
+                  ? {}
+                  : (step.intent_map ?? {})
+              : {},
+            steps.length
+          ),
           options: hasOptions
             ? step.options
                 .filter((option: DmFlowStepOption) => option.label?.trim())
                 .map((option: DmFlowStepOption) => ({
                   label: option.label.trim(),
-                  target_step_order: option.target_step_order ?? null,
+                  target_step_order: isValidStepTarget(option.target_step_order, steps.length)
+                    ? option.target_step_order
+                    : null,
                 }))
             : [],
           attachment_url: step.attachment_url?.trim() || null,
@@ -237,14 +243,27 @@ function readFlowFields(
   };
 }
 
-async function insertSteps(
+/** Drops branch targets that don't name an existing step (they'd otherwise be
+ *  stored verbatim and send the conversation nowhere). */
+function validIntentMap(intentMap: DmFlowIntentMap, stepCount: number): DmFlowIntentMap {
+  const next: DmFlowIntentMap = {};
+  for (const key of ["yes", "no", "default"] as const) {
+    const target = intentMap[key];
+    if (isValidStepTarget(target, stepCount)) next[key] = target;
+  }
+  return next;
+}
+
+/** Replaces a flow's steps in one transaction (see replace_flow_steps): a
+ *  failed insert leaves the old steps in place instead of none. */
+async function replaceSteps(
   supabase: Awaited<ReturnType<typeof createClient>>,
   flowId: string,
   steps: FlowStepInput[]
 ) {
-  const { error } = await supabase.from("dm_flow_steps").insert(
-    steps.map((step) => ({
-      flow_id: flowId,
+  const { error } = await supabase.rpc("replace_flow_steps", {
+    p_flow_id: flowId,
+    p_steps: steps.map((step) => ({
       step_order: step.step_order,
       message_text: step.message_text,
       expects_reply: step.expects_reply,
@@ -258,8 +277,8 @@ async function insertSteps(
       options: step.options,
       buttons: step.buttons,
       button_card_title: step.button_card_title,
-    }))
-  );
+    })),
+  });
   return error;
 }
 
@@ -290,8 +309,11 @@ async function createFlowCore(formData: FormData): Promise<FlowFormState> {
     return { error: error?.message ?? "Failed to create flow." };
   }
 
-  const stepsError = await insertSteps(supabase, flow.id, parsed.fields.steps);
+  const stepsError = await replaceSteps(supabase, flow.id, parsed.fields.steps);
   if (stepsError) {
+    // Don't leave an active flow with no steps behind (it would swallow
+    // matching comments), nor a duplicate when the user retries.
+    await supabase.from("dm_flows").delete().eq("id", flow.id);
     return { error: stepsError.message };
   }
 
@@ -349,16 +371,7 @@ async function updateFlowCore(id: string, formData: FormData): Promise<FlowFormS
   // after add/remove/reorder in the builder. Any session mid-flow when
   // this happens may land on a step_order that changed meaning — an
   // accepted MVP tradeoff (see migration notes).
-  const { error: deleteError } = await supabase
-    .from("dm_flow_steps")
-    .delete()
-    .eq("flow_id", id);
-
-  if (deleteError) {
-    return { error: deleteError.message };
-  }
-
-  const stepsError = await insertSteps(supabase, id, parsed.fields.steps);
+  const stepsError = await replaceSteps(supabase, id, parsed.fields.steps);
   if (stepsError) {
     return { error: stepsError.message };
   }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { ArrowLeftIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LeadMagnetForm } from "@/features/lead-magnets/components/LeadMagnetForm";
@@ -22,10 +23,14 @@ export default async function EditLeadMagnetPage({
     redirect("/login");
   }
 
-  const { data: magnet } = await supabase
+  // file_url isn't readable through the user's own client (see the
+  // lead_magnets column grants), so read it with the service role, scoped to
+  // the owner.
+  const { data: magnet } = await createAdminClient()
     .from("lead_magnets")
     .select("id, title, description, file_url, file_name, is_active")
     .eq("id", id)
+    .eq("profile_id", user.id)
     .maybeSingle<
       Pick<LeadMagnet, "id" | "title" | "description" | "file_url" | "file_name" | "is_active">
     >();

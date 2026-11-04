@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { LeadMagnetFormInitialValues } from "@/features/lead-magnets/components/LeadMagnetForm";
 
 export type LeadMagnetFormState = { error: string } | { ok: true } | undefined;
@@ -265,10 +266,14 @@ export async function getLeadMagnetFormData(
     return { userId: user.id };
   }
 
-  const { data: magnet } = await supabase
+  // file_url isn't readable through the user's own client (see the
+  // lead_magnets column grants), so read it with the service role, scoped to
+  // the owner.
+  const { data: magnet } = await createAdminClient()
     .from("lead_magnets")
     .select("title, description, file_url, file_name, is_active")
     .eq("id", id)
+    .eq("profile_id", user.id)
     .maybeSingle();
 
   if (!magnet) {

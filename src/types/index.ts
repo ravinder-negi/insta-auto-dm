@@ -292,6 +292,10 @@ export interface LeadMagnet {
   updated_at: string;
 }
 
+/** What a public profile page may see of a lead magnet: never the file
+ *  itself, which is only handed out after an email is submitted. */
+export type PublicLeadMagnet = Omit<LeadMagnet, "file_url">;
+
 /** A visitor email captured for a lead magnet. */
 export interface LeadMagnetLead {
   id: string;

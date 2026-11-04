@@ -4,6 +4,7 @@ import { currentTimestamp } from "@/lib/utils/format";
 import { AccountsHero } from "@/features/accounts/components/AccountsHero";
 import { AccountsList, type AccountRow } from "@/features/accounts/components/AccountsList";
 import { fetchInstagramProfileStats } from "@/lib/instagram/profile";
+import { getOwnAccountTokens, type AccountToken } from "@/lib/instagram/tokens";
 
 export default async function AccountsPage(
   props: PageProps<"/dashboard/accounts">
@@ -18,7 +19,7 @@ export default async function AccountsPage(
     await Promise.all([
       supabase
         .from("instagram_accounts")
-        .select("id, instagram_user_id, username, is_active, token_status, created_at, access_token")
+        .select("id, instagram_user_id, username, is_active, token_status, created_at")
         .order("created_at", { ascending: false }),
       // Newest first, so the first row seen for an account is its last activity.
       supabase
@@ -58,11 +59,15 @@ export default async function AccountsPage(
 
   const rows = (data ?? []) as Pick<
     InstagramAccount,
-    "id" | "instagram_user_id" | "username" | "is_active" | "token_status" | "created_at" | "access_token"
+    "id" | "instagram_user_id" | "username" | "is_active" | "token_status" | "created_at"
   >[];
 
+  const tokens = await getOwnAccountTokens().catch(() => new Map<string, AccountToken>());
   const profileStats = await Promise.all(
-    rows.map((account) => fetchInstagramProfileStats(account.access_token))
+    rows.map((account) => {
+      const token = tokens.get(account.id)?.accessToken;
+      return token ? fetchInstagramProfileStats(token) : null;
+    })
   );
 
   const accounts: AccountRow[] = rows.map((account, index) => {

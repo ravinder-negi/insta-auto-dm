@@ -22,6 +22,7 @@ import {
   MESSAGE_MAX_LENGTH,
   emptyStep,
 } from "./shared";
+import { removeStepAt } from "./stepOps";
 
 export function StepsStep({
   steps,
@@ -39,7 +40,7 @@ export function StepsStep({
   }
 
   function removeStep(index: number) {
-    onChange(steps.filter((_, i) => i !== index));
+    onChange(removeStepAt(steps, index));
   }
 
   return (

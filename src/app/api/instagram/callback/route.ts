@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   INSTAGRAM_API_VERSION as API_VERSION,
   INSTAGRAM_GRAPH_BASE_URL,
@@ -140,7 +141,27 @@ export async function GET(request: NextRequest) {
     // 4. Store the account, owned by the signed-in user. A reconnect lands
     // on the same row (same instagram_user_id), so its rules, flows and
     // sessions carry over, and the token is fresh and active again.
-    const { error: upsertError } = await supabase
+    // Users can't write instagram_accounts themselves (only the OAuth flow
+    // proves who owns an Instagram id), so this goes through the service
+    // role, with the ownership check RLS used to do made explicit here.
+    const admin = createAdminClient();
+    const { data: existing, error: existingError } = await admin
+      .from("instagram_accounts")
+      .select("profile_id")
+      .eq("instagram_user_id", me.user_id)
+      .maybeSingle();
+
+    if (existingError) {
+      throw new Error(existingError.message);
+    }
+    if (existing?.profile_id && existing.profile_id !== user.id) {
+      throw new Error(
+        `@${me.username ?? me.user_id} is already connected to another Auto DM login. ` +
+          "Disconnect it there first.",
+      );
+    }
+
+    const { error: upsertError } = await admin
       .from("instagram_accounts")
       .upsert(
         {
@@ -161,14 +182,6 @@ export async function GET(request: NextRequest) {
       );
 
     if (upsertError) {
-      // RLS only lets the owner update the row, so an account already
-      // connected under another login surfaces as a policy violation.
-      if (upsertError.code === "42501") {
-        throw new Error(
-          `@${me.username ?? me.user_id} is already connected to another Auto DM login. ` +
-            "Disconnect it there first.",
-        );
-      }
       throw new Error(upsertError.message);
     }
 
