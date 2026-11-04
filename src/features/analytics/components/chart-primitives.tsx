@@ -44,7 +44,7 @@ export function StatTile({
 
   return (
     <div
-      className="flex flex-col gap-4 rounded-[26px] p-5 transition-[transform,box-shadow] hover:-translate-y-1 hover:shadow-[0_28px_46px_-30px_color-mix(in srgb, var(--violet) 40%, transparent)]"
+      className="flex flex-col gap-4 rounded-[26px] p-5 transition-[transform,box-shadow] hover:-translate-y-1"
       style={{ backgroundColor: colors.bg }}
     >
       <div className="flex items-center justify-between gap-3">
@@ -95,7 +95,7 @@ export function ChartCard({
 }) {
   return (
     <section
-      className={`viz flex flex-col rounded-[30px] border-[1.5px] border-[var(--line)] bg-white p-6 transition-[transform,box-shadow,border-color] hover:-translate-y-1 hover:border-[var(--secondary-border)] hover:shadow-[0_28px_46px_-30px_color-mix(in srgb, var(--violet) 50%, transparent)] ${className}`}
+      className={`viz flex flex-col rounded-[30px] border-[1.5px] border-[var(--line)] bg-white p-6 transition-[transform,box-shadow,border-color] hover:-translate-y-1 hover:border-[var(--secondary-border)] ${className}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -136,7 +136,7 @@ export function ChartTooltip({
   if (!active || !payload?.length) return null;
 
   return (
-    <div className="pointer-events-none rounded-2xl border-[1.5px] border-[var(--line)] bg-white px-3.5 py-2.5 shadow-[0_24px_50px_-16px_color-mix(in srgb, var(--ink) 30%, transparent)]">
+    <div className="pointer-events-none rounded-2xl border-[1.5px] border-[var(--line)] bg-white px-3.5 py-2.5">
       {label !== undefined && (
         <p className="m-0 text-[11px] font-bold tracking-[0.08em] text-[var(--muted-soft)] uppercase">
           {String(label)}

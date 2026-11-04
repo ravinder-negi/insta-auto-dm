@@ -103,7 +103,7 @@ function isNavLinkActive(href: string, activePath: string) {
 
 const dockItemBase =
   "relative flex items-center gap-3 rounded-2xl text-sm font-semibold transition-colors duration-200";
-const dockItemActive = "bg-[var(--primary)] text-white shadow-[0_10px_24px_-10px_color-mix(in srgb, var(--primary) 70%, transparent)]";
+const dockItemActive = "bg-[var(--primary)] text-white";
 const dockItemInactive = "text-[var(--muted-faint)] hover:bg-white/10 hover:text-white";
 
 function DockTooltip({ label }: { label: string }) {

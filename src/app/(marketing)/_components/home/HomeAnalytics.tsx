@@ -90,7 +90,7 @@ export function HomeAnalytics() {
 
       <Reveal
         delay={120}
-        className="ha-lift flex min-w-0 flex-[1.3_1_480px] flex-col gap-5.5 rounded-[32px] border border-[var(--line)] bg-white p-7 shadow-[0_30px_60px_-30px_color-mix(in srgb, var(--ink) 30%, transparent)]"
+        className="ha-lift flex min-w-0 flex-[1.3_1_480px] flex-col gap-5.5 rounded-[32px] border border-[var(--line)] bg-white p-7"
       >
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex flex-wrap gap-2">

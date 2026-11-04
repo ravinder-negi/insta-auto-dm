@@ -162,7 +162,7 @@ function SettingsCard({
       className={`flex flex-col gap-3.5 rounded-[30px] border-[1.5px] p-6 transition-[transform,box-shadow,border-color] hover:-translate-y-1 ${
         danger
           ? "border-[var(--danger-border)] bg-[var(--danger-tint-faint)] hover:border-[var(--danger-ring)]"
-          : "border-[var(--line)] bg-white hover:border-[var(--secondary-border)] hover:shadow-[0_28px_46px_-30px_color-mix(in srgb, var(--secondary) 50%, transparent)]"
+          : "border-[var(--line)] bg-white hover:border-[var(--secondary-border)]"
       }`}
     >
       <h3 className={`m-0 text-lg font-extrabold tracking-[-0.01em] ${danger ? "text-[var(--danger-deep)]" : ""}`}>

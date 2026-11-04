@@ -353,7 +353,7 @@ export function MessageStep({
               </label>
 
               <div
-                className="rounded-xl border transition-all duration-200 focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_4px_color-mix(in srgb, var(--primary) 14%, transparent)]"
+                className="rounded-xl border transition-all duration-200 focus-within:border-[var(--primary)]"
                 style={{ borderColor: LINE }}
               >
                 <textarea
@@ -480,7 +480,7 @@ export function MessageStep({
                   Card subtitle (optional)
                 </label>
                 <div
-                  className="rounded-xl border transition-all duration-200 focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_4px_color-mix(in srgb, var(--primary) 14%, transparent)]"
+                  className="rounded-xl border transition-all duration-200 focus-within:border-[var(--primary)]"
                   style={{ borderColor: LINE }}
                 >
                   <textarea

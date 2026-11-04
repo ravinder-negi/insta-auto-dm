@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { acceptFor, prepareUpload } from "@/lib/storage/uploadRules";
 import { displayFont } from "@/features/profile/fonts";
 import {
   CameraIcon,
@@ -16,7 +17,6 @@ import { updateProfile, type ProfileFormState } from "@/features/profile/actions
 import type { Profile } from "@/types";
 
 const BIO_MAX_LENGTH = 280;
-const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9_-]{1,28}[a-z0-9])?$/;
 
 type Values = {
@@ -85,19 +85,19 @@ export function ProfileForm({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.size > AVATAR_MAX_BYTES) {
-      toast.error("Photo must be 5MB or smaller.");
+    const prepared = prepareUpload("avatars", file, "Photo");
+    if (!prepared.ok) {
+      toast.error(prepared.error);
       return;
     }
 
     setAvatarUploading(true);
     try {
       const supabase = createClient();
-      const ext = file.name.split(".").pop() || "jpg";
-      const path = `${userId}/avatar-${Date.now()}.${ext}`;
+      const path = `${userId}/avatar-${Date.now()}.${prepared.ext}`;
       const { error } = await supabase.storage
         .from("avatars")
-        .upload(path, file, { upsert: true });
+        .upload(path, file, { upsert: true, contentType: prepared.contentType });
 
       if (error) {
         toast.error(error.message);
@@ -191,7 +191,7 @@ export function ProfileForm({
                   ref={fileInputRef}
                   id={fileInputId}
                   type="file"
-                  accept="image/png,image/jpeg"
+                  accept={acceptFor("avatars")}
                   className="sr-only"
                   onChange={handleAvatarChange}
                   disabled={avatarUploading}
@@ -407,7 +407,7 @@ export function ProfileForm({
           <div
             role="region"
             aria-label="Unsaved changes"
-            className="sticky bottom-5 z-10 flex flex-wrap items-center justify-between gap-3 rounded-full py-3.5 pr-4 pl-6 text-white shadow-[0_26px_50px_-18px_color-mix(in srgb, var(--ink) 65%, transparent)]"
+            className="sticky bottom-5 z-10 flex flex-wrap items-center justify-between gap-3 rounded-full py-3.5 pr-4 pl-6 text-white"
             style={{ background: "var(--ink)" }}
           >
             <span className="inline-flex items-center gap-2.5 font-semibold">

@@ -112,7 +112,7 @@ export function HomeTriggers() {
                   onClick={() => setActive(i)}
                   className={`ha-tabbtn flex min-h-21 w-full items-center gap-4 rounded-[22px] border-[1.5px] px-5 py-4 text-left text-[var(--ink)] ${
                     isActive
-                      ? "border-[var(--accent)] bg-white shadow-[0_18px_40px_-18px_color-mix(in srgb, var(--ink) 35%, transparent)]"
+                      ? "border-[var(--accent)] bg-white"
                       : "border-[var(--line)] bg-[var(--bg)]"
                   }`}
                 >

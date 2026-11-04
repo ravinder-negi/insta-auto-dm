@@ -6,6 +6,40 @@ Legend: **CONFIRMED** = code read and behaviour established from it (some re-ver
 
 ---
 
+## Implementation status (updated 2026-11-04)
+
+Batches 1 and 2 are **done**: merged to `main`, and their migrations applied to Supabase. Rows marked ✅ in §14 are done; ◐ is partly done. Everything not listed here is still open.
+
+### Batch 1: done (PR #1, merged 2026-11-04)
+
+| §14 # | Finding | Fix | Commit |
+|---|---|---|---|
+| 1 | SEC1: Next.js 16.3.5 advisories | Upgraded to 16.4.4 | `a2c598d` |
+| 2 | SEC2: `instagram_accounts` tokens readable/writable from the browser | Column grants; OAuth callback and token reads use a server-only service-role client; `profile_id` index (part of R7) | `d67a9ca` |
+| 3 | SEC3: Lead-magnet email gate bypass | `file_url` hidden from client roles, private bucket, signed download URLs | `68105f3` |
+| 4–5 | R3, R1: Duplicate public replies and DM flow advances | Execution row before public reply; inbound `mid` dedupe table; compare-and-set session advance | `173dfb2` |
+| 6–7 | B1, B2: Non-atomic saves; step delete mis-points branches | `replace_flow_steps` / `replace_rule_followups` RPCs; `removeStepAt` remap + server range check | `a2480a4` |
+
+Verified with anonymous and logged-in database checks (18/18), browser checks, and live Instagram tests: connect + ownership block, one public reply per comment, flow advance.
+
+### Batch 2: done (pushed to `main` 2026-11-04)
+
+| §14 # | Finding | Fix | Commit |
+|---|---|---|---|
+| 8 | B4: Analytics totals capped at 1,000 rows | `link_in_bio_rollup`, `flow_analytics_rollup`, `flow_step_counts` count in SQL | `8c489cb` |
+| 10 | SEC4: Upload limits only in the browser; SVG allowed | Bucket size/type limits; shared `uploadRules`; extension from file type | `a20e551` |
+| 11 | B6: Move up/down dead after a drag | Move uses the same local order + queued save as drag | `644e293` |
+| 12 | UI1/UI2: Never-rendered shadows; undefined colour tokens | Broken shadow classes **removed** (look unchanged, by choice); tokens defined as the colour they already fell back to | `218c202` |
+| 13 | B3/FS3: Standalone `/new` and `/edit` pages (rule edit page reset settings) | 10 pages removed, modals only; onboarding shortcuts use `?new=1` | `b8ccb97` |
+| 17, 19 | SEC6, SEC8, SEC9, Q11: Redirect check, URL/colour validation, reserved usernames | Hardened `safeRedirectPath`; `isHttpUrl` / `normalizeHexColor`; DB check constraints; 5 reserved usernames | `ca93f26` |
+| 27 (part) | B7, B9: Signup notice shown as error; 3-digit brand colours | "Check your email" card; colours saved as `#rrggbb` | `57b8cf2`, `ca93f26` |
+
+Verified with throwaway-user scripts against the live database (rollups over 1,000 rows, upload limits, direct-API writes) and page renders on the dev server.
+
+**Still to check by hand:** Move up/down after a drag (B6) in the browser; the signup "Check your email" card with a real email (only shown if email confirmation is on).
+
+---
+
 ## 1. Executive summary
 
 The codebase is in **reasonably good shape structurally** — a clear `app/` (routing) / `features/` (domain) / `components/` / `lib/` split, strict TypeScript with **zero `any` and zero `@ts-ignore`**, `tsc` clean, RLS on every table, a correctly verified webhook HMAC, a CSRF-protected OAuth flow, and SECURITY DEFINER functions that all pin `search_path`.
@@ -309,24 +343,24 @@ Ranked by impact. "Verify" = how to confirm the fix.
 
 | # | Item | Files | Effort | Risk | Depends on | Verify |
 |---|---|---|---|---|---|---|
-| 1 | SEC1 Upgrade Next to 16.4.4 | `package.json` | S | Low-med | — | `npm audit` clean for `next`; `npm run build`; smoke all routes |
-| 2 | SEC2 Lock down `instagram_accounts` writes + token reads | new migration; `api/instagram/{callback,media}`; `dashboard/{accounts,rules/analytics}/page.tsx` | M | Med | — | As `authenticated` via REST: insert/update rejected, `select=access_token` denied; connect flow still works |
+| ✅ 1 | SEC1 Upgrade Next to 16.4.4 | `package.json` | S | Low-med | — | `npm audit` clean for `next`; `npm run build`; smoke all routes |
+| ✅ 2 | SEC2 Lock down `instagram_accounts` writes + token reads | new migration; `api/instagram/{callback,media}`; `dashboard/{accounts,rules/analytics}/page.tsx` | M | Med | — | As `authenticated` via REST: insert/update rejected, `select=access_token` denied; connect flow still works |
 
 ### P1 — High
 
 | # | Item | Files | Effort | Risk | Depends on | Verify |
 |---|---|---|---|---|---|---|
-| 3 | SEC3 Lead-magnet gate | migration; `(public)/[username]/page.tsx`, `actions.ts`, `CenteredTemplate.tsx` | M | Med | — | Anon REST can't read `file_url`; view-source has no URL; email flow returns signed URL |
-| 4 | R3 Execution row before public reply | `instagram-webhook/index.ts` | S | Low | — | Replay same comment concurrently → one public reply |
-| 5 | R1 Inbound DM dedupe + CAS advance | webhook + migration | M | Low | — | Replay same `mid` twice → one step advance |
-| 6 | B1 Atomic `save_flow` / `save_rule` | migrations; `flows/actions.ts`, `rules/actions.ts` | M | Med | (ideally 9) | Force step-insert failure → flow unchanged |
-| 7 | B2 Step-removal target remap | `StepsStep.tsx` → `stepOps.ts`; `flows/actions.ts` | S | Low | — | Unit tests; delete middle step in UI, branches intact |
-| 8 | B4 Analytics rollups / counts | migrations; `dashboard/analytics/page.tsx`; flows analytics/executions pages | M | Low | — | Seed >1,000 views; totals correct |
+| ✅ 3 | SEC3 Lead-magnet gate | migration; `(public)/[username]/page.tsx`, `actions.ts`, `CenteredTemplate.tsx` | M | Med | — | Anon REST can't read `file_url`; view-source has no URL; email flow returns signed URL |
+| ✅ 4 | R3 Execution row before public reply | `instagram-webhook/index.ts` | S | Low | — | Replay same comment concurrently → one public reply |
+| ✅ 5 | R1 Inbound DM dedupe + CAS advance | webhook + migration | M | Low | — | Replay same `mid` twice → one step advance |
+| ✅ 6 | B1 Atomic `save_flow` / `save_rule` | migrations; `flows/actions.ts`, `rules/actions.ts` | M | Med | (ideally 9) | Force step-insert failure → flow unchanged |
+| ✅ 7 | B2 Step-removal target remap | `StepsStep.tsx` → `stepOps.ts`; `flows/actions.ts` | S | Low | — | Unit tests; delete middle step in UI, branches intact |
+| ✅ 8 | B4 Analytics rollups / counts | migrations; `dashboard/analytics/page.tsx`; flows analytics/executions pages | M | Low | — | Seed >1,000 views; totals correct |
 | 9 | Q1/DUP4 Shared zod schemas (automation) | `features/automation/*`, both actions + wizards | M | Med | — | Malformed payload returns validation error, not 500 |
-| 10 | SEC4 Upload limits + SVG | migration; 4 forms | S-M | Low | — | Direct upload of 50 MB / `.html` rejected |
-| 11 | B6 Reorder `localOrder` bug | 3 list components | S | Low | — | Drag then Move up/down moves row |
-| 12 | UI1/UI2 Broken shadows + undefined tokens | ~20 files, `globals.css` | S | Low | — | Classes present in built CSS; auth input focus ring visible |
-| 13 | B3 Edit page loader / FS3 decide on standalone pages | `rules/[id]/edit` + others | S | Low | — | Save via `/edit` preserves `keyword_exact` |
+| ✅ 10 | SEC4 Upload limits + SVG | migration; 4 forms | S-M | Low | — | Direct upload of 50 MB / `.html` rejected |
+| ✅ 11 | B6 Reorder `localOrder` bug | 3 list components | S | Low | — | Drag then Move up/down moves row |
+| ✅ 12 | UI1/UI2 Broken shadows + undefined tokens | ~20 files, `globals.css` | S | Low | — | Classes present in built CSS; auth input focus ring visible |
+| ✅ 13 | B3 Edit page loader / FS3 decide on standalone pages | `rules/[id]/edit` + others | S | Low | — | Save via `/edit` preserves `keyword_exact` |
 | 14 | R2 Ack-first webhook | webhook | M-L | Med | 4, 5 | Webhook p95 response < 1 s; no Meta retries in logs |
 
 ### P2 — Medium
@@ -335,9 +369,9 @@ Ranked by impact. "Verify" = how to confirm the fix.
 |---|---|---|---|
 | 15 | Q2 `ActionResult<T>` across all actions | S-M | Low |
 | 16 | SEC5 Public insert limits / rate limit / captcha | S-M | Low |
-| 17 | SEC6 Harden `safeRedirectPath` + tests | S | Low |
+| ✅ 17 | SEC6 Harden `safeRedirectPath` + tests | S | Low |
 | 18 | SEC7 Orphaned accounts on profile delete | S | Low |
-| 19 | SEC8 URL/color validation + DB CHECKs | S | Low |
+| ✅ 19 | SEC8 URL/color validation + DB CHECKs | S | Low |
 | 20 | P2 Cache root-layout `app_settings` query | M | Med (product decision) |
 | 21 | P3/P4 Cache Graph calls; `cache()` `getUser` | S-M | Low |
 | 22 | B5 Server-side pagination & counts | M | Low |
@@ -345,7 +379,7 @@ Ranked by impact. "Verify" = how to confirm the fix.
 | 24 | DUP1/DUP5/DUP6 Automation tables, wizard parts, `Modal`/`FormModal` | M | Low |
 | 25 | Split MessageStep / StepsStep / RulesTable / rules actions | M-L | Low |
 | 26 | Webhook module split (after tests) | L | Med |
-| 27 | Theme restore + UI5 scope fix; B7, B8, B9 | S | Low |
+| ◐ 27 | Theme restore + UI5 scope fix; B7 ✅, B8, B9 ✅ | S | Low |
 | 28 | Testing setup (§13 steps 1-3) + CI (lint, tsc, tests, build) | M | Low |
 | 29 | R4 stuck `processing` sweep, error checks | M | Low |
 

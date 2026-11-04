@@ -81,7 +81,7 @@ export function HomeLeadsMagnets() {
             delay={240}
             className="relative flex min-w-0 flex-1 basis-[380px] flex-col items-center justify-center gap-6 rounded-[32px] bg-[var(--tint2)] px-6 py-10 text-[var(--ink)]"
           >
-            <div className="ha-float2 absolute top-5.5 right-5 flex items-center gap-2 rounded-xl bg-white px-3.5 py-2 text-[13px] font-bold shadow-[0_12px_26px_-12px_color-mix(in srgb, var(--ink) 35%, transparent)]">
+            <div className="ha-float2 absolute top-5.5 right-5 flex items-center gap-2 rounded-xl bg-white px-3.5 py-2 text-[13px] font-bold">
               <span className="ha-pdot h-2 w-2 rounded-full bg-[var(--success)]" />
               New link click
             </div>

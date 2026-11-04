@@ -1,14 +1,13 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isHttpUrl } from "@/lib/validation/fields";
 import { CURRENCIES } from "./currencies";
 import type { ProductFormInitialValues } from "@/features/products/components/ProductForm";
 
 export type ProductFormState = { error: string } | { ok: true } | undefined;
 
-const URL_PATTERN = /^https?:\/\/\S+$/;
 
 interface ProductFields {
   name: string;
@@ -35,8 +34,12 @@ function readProductFields(
     return { ok: false, error: "Product name is required." };
   }
 
-  if (productUrl && !URL_PATTERN.test(productUrl)) {
+  if (productUrl && !isHttpUrl(productUrl)) {
     return { ok: false, error: "Product URL must be a valid http:// or https:// link." };
+  }
+
+  if (imageUrl && !isHttpUrl(imageUrl)) {
+    return { ok: false, error: "Product image must be an uploaded image." };
   }
 
   let price: number | null = null;
@@ -113,16 +116,6 @@ export async function createProduct(
   return createProductCore(formData);
 }
 
-/** Used by the standalone /dashboard/products/new page. */
-export async function createProductAndRedirect(
-  _prevState: ProductFormState,
-  formData: FormData
-): Promise<ProductFormState> {
-  const result = await createProductCore(formData);
-  if (result && "error" in result) return result;
-  redirect("/dashboard/products?created=1");
-}
-
 async function updateProductCore(id: string, formData: FormData): Promise<ProductFormState> {
   const parsed = readProductFields(formData);
   if (!parsed.ok) return { error: parsed.error };
@@ -156,17 +149,6 @@ export async function updateProduct(
   formData: FormData
 ): Promise<ProductFormState> {
   return updateProductCore(id, formData);
-}
-
-/** Used by the standalone /dashboard/products/[id]/edit page. */
-export async function updateProductAndRedirect(
-  id: string,
-  _prevState: ProductFormState,
-  formData: FormData
-): Promise<ProductFormState> {
-  const result = await updateProductCore(id, formData);
-  if (result && "error" in result) return result;
-  redirect("/dashboard/products?updated=1");
 }
 
 export async function deleteProduct(id: string) {
@@ -233,48 +215,6 @@ export async function reorderProducts(orderedIds: string[]) {
 
   const failed = updates.find((result) => result.error);
   if (failed?.error) throw new Error(failed.error.message);
-
-  revalidatePath("/dashboard/products");
-}
-
-export async function moveProduct(id: string, direction: "up" | "down") {
-  const supabase = await createClient();
-
-  const { data: current, error: currentError } = await supabase
-    .from("products")
-    .select("id, profile_id, position")
-    .eq("id", id)
-    .single();
-
-  if (currentError || !current) {
-    throw new Error(currentError?.message ?? "Product not found.");
-  }
-
-  let neighborQuery = supabase
-    .from("products")
-    .select("id, position")
-    .eq("profile_id", current.profile_id);
-
-  neighborQuery =
-    direction === "up"
-      ? neighborQuery.lt("position", current.position).order("position", { ascending: false })
-      : neighborQuery.gt("position", current.position).order("position", { ascending: true });
-
-  const { data: neighbor, error: neighborError } = await neighborQuery
-    .limit(1)
-    .maybeSingle();
-
-  if (neighborError) throw new Error(neighborError.message);
-  if (!neighbor) return;
-
-  const [{ error: errorA }, { error: errorB }] = await Promise.all([
-    supabase.from("products").update({ position: neighbor.position }).eq("id", current.id),
-    supabase.from("products").update({ position: current.position }).eq("id", neighbor.id),
-  ]);
-
-  if (errorA || errorB) {
-    throw new Error(errorA?.message ?? errorB?.message ?? "Failed to reorder.");
-  }
 
   revalidatePath("/dashboard/products");
 }

@@ -220,7 +220,7 @@ export function AccountsList({
                 aria-pressed={isSelected}
                 className={`flex items-center gap-3.5 rounded-3xl border p-4 text-left transition-all duration-200 hover:translate-x-1.5 ${
                   isSelected
-                    ? "border-[var(--primary)] bg-[var(--tint-faint)] shadow-[0_20px_40px_-24px_color-mix(in srgb, var(--primary) 45%, transparent)]"
+                    ? "border-[var(--primary)] bg-[var(--tint-faint)]"
                     : "border-[var(--line)] bg-white"
                 }`}
               >
@@ -264,7 +264,7 @@ export function AccountsList({
           const handle = selected.username ?? selected.instagram_user_id;
           const pending = pendingToggleId === selected.id;
           return (
-            <div className="overflow-hidden rounded-[36px] border border-[var(--line)] bg-white shadow-[0_40px_80px_-48px_color-mix(in srgb, var(--ink) 45%, transparent)]">
+            <div className="overflow-hidden rounded-[36px] border border-[var(--line)] bg-white">
               {/* banner */}
               <div
                 className="relative flex flex-wrap items-center gap-5 p-8"

@@ -32,14 +32,15 @@ const AUTOMATIONS = [
     accent: "var(--accent)",
     title: "Comments on your Post or Reel",
     description: "Reply with a DM whenever someone comments your keyword.",
-    href: "/dashboard/rules/new",
+    // ?new=1 opens the create modal on arrival (see OpenNewRuleOnLoad).
+    href: "/dashboard/rules?new=1",
   },
   {
     icon: SendIcon,
     accent: "var(--violet)",
     title: "Someone sends you a DM",
     description: "Run a multi-step DM flow that answers and collects emails.",
-    href: "/dashboard/flows/new",
+    href: "/dashboard/flows?new=1",
   },
 ];
 

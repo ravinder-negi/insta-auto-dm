@@ -92,7 +92,7 @@ export function LinkInBioRowMenu({ items, label = "More actions" }: { items: Lin
               left: position?.left ?? -9999,
               visibility: position ? "visible" : "hidden",
             }}
-            className="z-50 w-[190px] rounded-[20px] border border-[var(--line)] bg-white p-2 shadow-[0_30px_60px_-20px_color-mix(in srgb, var(--ink) 45%, transparent)]"
+            className="z-50 w-[190px] rounded-[20px] border border-[var(--line)] bg-white p-2"
           >
             {items.map((item) => (
               <button

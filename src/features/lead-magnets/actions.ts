@@ -1,14 +1,13 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isHttpUrl } from "@/lib/validation/fields";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { LeadMagnetFormInitialValues } from "@/features/lead-magnets/components/LeadMagnetForm";
 
 export type LeadMagnetFormState = { error: string } | { ok: true } | undefined;
 
-const URL_PATTERN = /^https?:\/\/\S+$/;
 
 interface LeadMagnetFields {
   title: string;
@@ -30,7 +29,7 @@ function readLeadMagnetFields(
     return { ok: false, error: "Title is required." };
   }
 
-  if (!URL_PATTERN.test(fileUrl)) {
+  if (!isHttpUrl(fileUrl)) {
     return { ok: false, error: "Upload a file before saving." };
   }
 
@@ -89,16 +88,6 @@ export async function createLeadMagnet(
   return createLeadMagnetCore(formData);
 }
 
-/** Used by the standalone /dashboard/lead-magnets/new page. */
-export async function createLeadMagnetAndRedirect(
-  _prevState: LeadMagnetFormState,
-  formData: FormData
-): Promise<LeadMagnetFormState> {
-  const result = await createLeadMagnetCore(formData);
-  if (result && "error" in result) return result;
-  redirect("/dashboard/lead-magnets?created=1");
-}
-
 async function updateLeadMagnetCore(id: string, formData: FormData): Promise<LeadMagnetFormState> {
   const parsed = readLeadMagnetFields(formData);
   if (!parsed.ok) return { error: parsed.error };
@@ -129,17 +118,6 @@ export async function updateLeadMagnet(
   formData: FormData
 ): Promise<LeadMagnetFormState> {
   return updateLeadMagnetCore(id, formData);
-}
-
-/** Used by the standalone /dashboard/lead-magnets/[id]/edit page. */
-export async function updateLeadMagnetAndRedirect(
-  id: string,
-  _prevState: LeadMagnetFormState,
-  formData: FormData
-): Promise<LeadMagnetFormState> {
-  const result = await updateLeadMagnetCore(id, formData);
-  if (result && "error" in result) return result;
-  redirect("/dashboard/lead-magnets?updated=1");
 }
 
 export async function deleteLeadMagnet(id: string) {
@@ -194,54 +172,6 @@ export async function reorderLeadMagnets(orderedIds: string[]) {
 
   const failed = updates.find((result) => result.error);
   if (failed?.error) throw new Error(failed.error.message);
-
-  revalidatePath("/dashboard/lead-magnets");
-}
-
-export async function moveLeadMagnet(id: string, direction: "up" | "down") {
-  const supabase = await createClient();
-
-  const { data: current, error: currentError } = await supabase
-    .from("lead_magnets")
-    .select("id, profile_id, position")
-    .eq("id", id)
-    .single();
-
-  if (currentError || !current) {
-    throw new Error(currentError?.message ?? "Lead magnet not found.");
-  }
-
-  let neighborQuery = supabase
-    .from("lead_magnets")
-    .select("id, position")
-    .eq("profile_id", current.profile_id);
-
-  neighborQuery =
-    direction === "up"
-      ? neighborQuery.lt("position", current.position).order("position", { ascending: false })
-      : neighborQuery.gt("position", current.position).order("position", { ascending: true });
-
-  const { data: neighbor, error: neighborError } = await neighborQuery
-    .limit(1)
-    .maybeSingle();
-
-  if (neighborError) throw new Error(neighborError.message);
-  if (!neighbor) return;
-
-  const [{ error: errorA }, { error: errorB }] = await Promise.all([
-    supabase
-      .from("lead_magnets")
-      .update({ position: neighbor.position })
-      .eq("id", current.id),
-    supabase
-      .from("lead_magnets")
-      .update({ position: current.position })
-      .eq("id", neighbor.id),
-  ]);
-
-  if (errorA || errorB) {
-    throw new Error(errorA?.message ?? errorB?.message ?? "Failed to reorder.");
-  }
 
   revalidatePath("/dashboard/lead-magnets");
 }

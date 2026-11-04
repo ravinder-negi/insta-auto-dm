@@ -1,8 +1,8 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isHttpUrl } from "@/lib/validation/fields";
 import type { LinkIconKey, LinkType, Profile } from "@/types";
 import type { LinkFormInitialValues } from "@/features/links/components/LinkForm";
 
@@ -10,7 +10,6 @@ export type LinkFormState = { error: string } | { ok: true } | undefined;
 
 const LINK_TYPES: LinkType[] = ["website", "youtube", "blog", "product", "custom"];
 const ICON_KEYS: LinkIconKey[] = ["link", "youtube", "instagram", "globe", "mail", "custom"];
-const URL_PATTERN = /^https?:\/\/\S+$/;
 
 interface LinkFields {
   title: string;
@@ -37,8 +36,12 @@ function readLinkFields(
     return { ok: false, error: "Title is required." };
   }
 
-  if (!URL_PATTERN.test(url)) {
+  if (!isHttpUrl(url)) {
     return { ok: false, error: "URL must be a valid http:// or https:// link." };
+  }
+
+  if (customIconUrl && !isHttpUrl(customIconUrl)) {
+    return { ok: false, error: "Custom icon must be an uploaded image." };
   }
 
   const linkType = LINK_TYPES.includes(linkTypeRaw as LinkType)
@@ -108,16 +111,6 @@ export async function createLink(
   return createLinkCore(formData);
 }
 
-/** Used by the standalone /dashboard/links/new page. */
-export async function createLinkAndRedirect(
-  _prevState: LinkFormState,
-  formData: FormData
-): Promise<LinkFormState> {
-  const result = await createLinkCore(formData);
-  if (result && "error" in result) return result;
-  redirect("/dashboard/links?created=1");
-}
-
 async function updateLinkCore(id: string, formData: FormData): Promise<LinkFormState> {
   const parsed = readLinkFields(formData);
   if (!parsed.ok) return { error: parsed.error };
@@ -151,17 +144,6 @@ export async function updateLink(
   formData: FormData
 ): Promise<LinkFormState> {
   return updateLinkCore(id, formData);
-}
-
-/** Used by the standalone /dashboard/links/[id]/edit page. */
-export async function updateLinkAndRedirect(
-  id: string,
-  _prevState: LinkFormState,
-  formData: FormData
-): Promise<LinkFormState> {
-  const result = await updateLinkCore(id, formData);
-  if (result && "error" in result) return result;
-  redirect("/dashboard/links?updated=1");
 }
 
 export async function deleteLink(id: string) {
@@ -216,54 +198,6 @@ export async function reorderLinks(orderedIds: string[]) {
 
   const failed = updates.find((result) => result.error);
   if (failed?.error) throw new Error(failed.error.message);
-
-  revalidatePath("/dashboard/links");
-}
-
-export async function moveLink(id: string, direction: "up" | "down") {
-  const supabase = await createClient();
-
-  const { data: current, error: currentError } = await supabase
-    .from("profile_links")
-    .select("id, profile_id, position")
-    .eq("id", id)
-    .single();
-
-  if (currentError || !current) {
-    throw new Error(currentError?.message ?? "Link not found.");
-  }
-
-  let neighborQuery = supabase
-    .from("profile_links")
-    .select("id, position")
-    .eq("profile_id", current.profile_id);
-
-  neighborQuery =
-    direction === "up"
-      ? neighborQuery.lt("position", current.position).order("position", { ascending: false })
-      : neighborQuery.gt("position", current.position).order("position", { ascending: true });
-
-  const { data: neighbor, error: neighborError } = await neighborQuery
-    .limit(1)
-    .maybeSingle();
-
-  if (neighborError) throw new Error(neighborError.message);
-  if (!neighbor) return;
-
-  const [{ error: errorA }, { error: errorB }] = await Promise.all([
-    supabase
-      .from("profile_links")
-      .update({ position: neighbor.position })
-      .eq("id", current.id),
-    supabase
-      .from("profile_links")
-      .update({ position: current.position })
-      .eq("id", neighbor.id),
-  ]);
-
-  if (errorA || errorB) {
-    throw new Error(errorA?.message ?? errorB?.message ?? "Failed to reorder.");
-  }
 
   revalidatePath("/dashboard/links");
 }

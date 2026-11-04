@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { LinkInBioRowMenu } from "@/components/ui/LinkInBioRowMenu";
 import {
@@ -28,7 +28,6 @@ import {
 import {
   deleteLeadMagnet,
   deleteLeadMagnets,
-  moveLeadMagnet,
   reorderLeadMagnets,
   toggleLeadMagnetActive,
 } from "@/features/lead-magnets/actions";
@@ -64,9 +63,6 @@ export function LeadMagnetsList({
 }) {
   const toast = useToast();
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const toastShown = useRef(false);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -94,15 +90,6 @@ export function LeadMagnetsList({
     const missing = leadMagnets.filter((magnet) => !localOrder.includes(magnet.id));
     return [...reordered, ...missing];
   }, [leadMagnets, localOrder]);
-
-  useEffect(() => {
-    if (toastShown.current) return;
-    if (!searchParams.has("created") && !searchParams.has("updated")) return;
-    toastShown.current = true;
-    toast.success(searchParams.has("created") ? "Lead magnet added." : "Lead magnet updated.");
-    router.replace(pathname);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
   const counts = useMemo(
     () => ({
@@ -161,12 +148,17 @@ export function LeadMagnetsList({
     }
   }
 
-  async function handleMove(id: string, direction: "up" | "down") {
-    try {
-      await moveLeadMagnet(id, direction);
-    } catch (err) {
-      toast.error(errorMessage(err, "Failed to reorder lead magnet."));
-    }
+  // Move up/down goes through the same local-order + queued save as drag and
+  // drop. It used to swap positions on the server only, which the list never
+  // showed once a drag had set localOrder.
+  function handleMove(id: string, direction: "up" | "down") {
+    const index = order.findIndex((magnet) => magnet.id === id);
+    const neighbor = direction === "up" ? index - 1 : index + 1;
+    if (index === -1 || neighbor < 0 || neighbor >= order.length) return;
+
+    const nextIds = order.map((magnet) => magnet.id);
+    [nextIds[index], nextIds[neighbor]] = [nextIds[neighbor], nextIds[index]];
+    saveOrder(nextIds);
   }
 
   function handleDrop(targetId: string) {
@@ -179,10 +171,13 @@ export function LeadMagnetsList({
     const next = [...order];
     const [moved] = next.splice(fromIndex, 1);
     next.splice(toIndex, 0, moved);
-    const nextIds = next.map((magnet) => magnet.id);
+    setDraggingId(null);
+    saveOrder(next.map((magnet) => magnet.id));
+  }
+
+  function saveOrder(nextIds: string[]) {
     const previousIds = order.map((magnet) => magnet.id);
     setLocalOrder(nextIds);
-    setDraggingId(null);
 
     setPendingReorders((count) => count + 1);
     reorderQueueRef.current = reorderQueueRef.current
@@ -422,7 +417,7 @@ function MagnetCard({
   onMoveDown: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3.5 rounded-[30px] border-[1.5px] border-[var(--line)] bg-white p-3.5 transition-[transform,box-shadow,border-color] hover:-translate-y-1 hover:border-[var(--secondary-border)] hover:shadow-[0_28px_46px_-30px_color-mix(in srgb, var(--secondary) 50%, transparent)]">
+    <div className="flex flex-col gap-3.5 rounded-[30px] border-[1.5px] border-[var(--line)] bg-white p-3.5 transition-[transform,box-shadow,border-color] hover:-translate-y-1 hover:border-[var(--secondary-border)]">
       <Tile id={magnet.id} className="h-[120px] w-full rounded-[22px]" />
 
       <div className="flex flex-col gap-2.5 px-1.5">
@@ -511,7 +506,7 @@ function MagnetRow({
       onDragOver={onDragOver}
       onDrop={onDrop}
       onDragEnd={onDragEnd}
-      className={`flex flex-wrap items-center gap-3 rounded-[24px] border-[1.5px] border-[var(--line)] bg-white p-3 pr-4.5 transition-[box-shadow,border-color,opacity] hover:border-[var(--secondary-border)] hover:shadow-[0_20px_36px_-28px_color-mix(in srgb, var(--secondary) 50%, transparent)] ${
+      className={`flex flex-wrap items-center gap-3 rounded-[24px] border-[1.5px] border-[var(--line)] bg-white p-3 pr-4.5 transition-[box-shadow,border-color,opacity] hover:border-[var(--secondary-border)] ${
         dragging ? "opacity-40" : ""
       }`}
     >

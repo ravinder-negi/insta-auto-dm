@@ -11,6 +11,9 @@ import {
 
 export type AuthState = { error: string } | undefined;
 
+/** Sign-up can also end in "confirm your email" — a success, not an error. */
+export type SignUpState = { error: string } | { confirmEmail: string } | undefined;
+
 export async function signIn(
   _prevState: AuthState,
   formData: FormData
@@ -35,9 +38,9 @@ export async function signIn(
 }
 
 export async function signUp(
-  _prevState: AuthState,
+  _prevState: SignUpState,
   formData: FormData
-): Promise<AuthState> {
+): Promise<SignUpState> {
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
@@ -64,10 +67,10 @@ export async function signUp(
     return { error: error.message };
   }
 
+  // Email confirmation is on: the account exists, the user just has to click
+  // the link we sent.
   if (!data.session) {
-    return {
-      error: "Check your inbox to confirm your email before signing in.",
-    };
+    return { confirmEmail: email };
   }
 
   redirect(ONBOARDING_PATH);

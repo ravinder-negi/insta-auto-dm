@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { acceptFor, prepareUpload } from "@/lib/storage/uploadRules";
 import { useToast } from "@/components/ui/Toast";
 import { DocumentIcon, TrashIcon, UploadIcon } from "@/components/icons";
 import type { LeadMagnetFormState } from "@/features/lead-magnets/actions";
 
-const FILE_MAX_BYTES = 20 * 1024 * 1024;
 
 const fieldWrapClass =
   "flex items-center gap-2 rounded-[14px] border-[1.5px] border-[var(--line)] bg-[var(--bg)] px-3.5 transition-colors focus-within:border-[var(--primary)] focus-within:bg-white focus-within:ring-4 focus-within:ring-[var(--primary)]/15";
@@ -67,19 +67,19 @@ export function LeadMagnetForm({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.size > FILE_MAX_BYTES) {
-      toast.error("File must be 20MB or smaller.");
+    const prepared = prepareUpload("lead-magnets", file, "File");
+    if (!prepared.ok) {
+      toast.error(prepared.error);
       return;
     }
 
     setUploading(true);
     try {
       const supabase = createClient();
-      const ext = file.name.split(".").pop() || "pdf";
-      const path = `${userId}/file-${Date.now()}.${ext}`;
+      const path = `${userId}/file-${Date.now()}.${prepared.ext}`;
       const { error } = await supabase.storage
         .from("lead-magnets")
-        .upload(path, file, { upsert: true });
+        .upload(path, file, { upsert: true, contentType: prepared.contentType });
 
       if (error) {
         toast.error(error.message);
@@ -167,14 +167,14 @@ export function LeadMagnetForm({
                 {uploading ? "Uploading…" : "Upload file"}
               </label>
             )}
-            <p className="m-0 text-xs text-[var(--muted)]">PDF, ZIP, DOC, or EPUB, up to 20MB.</p>
+            <p className="m-0 text-xs text-[var(--muted)]">PDF, ZIP, EPUB, Word, Excel, PowerPoint, text or image, up to 20MB.</p>
           </div>
         </div>
         <input
           ref={fileInputRef}
           id={fileInputId}
           type="file"
-          accept=".pdf,.zip,.doc,.docx,.epub"
+          accept={acceptFor("lead-magnets")}
           className="hidden"
           onChange={handleFileChange}
           disabled={uploading}

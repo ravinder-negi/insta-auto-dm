@@ -161,7 +161,7 @@ export function OriginalTemplate({
           {tabs.length > 1 && (
             <nav
               aria-label="Sections"
-              className="sticky top-4 z-[5] flex w-fit max-w-full gap-1 overflow-x-auto rounded-full border border-black/10 bg-white/80 p-1.5 shadow-[0_12px_26px_-18px_color-mix(in srgb, var(--ink) 50%, transparent)] backdrop-blur-md"
+              className="sticky top-4 z-[5] flex w-fit max-w-full gap-1 overflow-x-auto rounded-full border border-black/10 bg-white/80 p-1.5 backdrop-blur-md"
             >
               {tabs.map((tab) => (
                 <a
@@ -198,7 +198,7 @@ export function OriginalTemplate({
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`group flex items-center gap-4 border border-black/5 bg-white px-5 py-4 text-left shadow-[0_14px_30px_-24px_color-mix(in srgb, var(--ink) 50%, transparent)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_40px_-26px_var(--brand-color)] active:translate-y-0 ${buttonRadiusClass}`}
+                    className={`group flex items-center gap-4 border border-black/5 bg-white px-5 py-4 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_40px_-26px_var(--brand-color)] active:translate-y-0 ${buttonRadiusClass}`}
                     style={
                       link.is_featured
                         ? {

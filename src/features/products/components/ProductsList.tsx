@@ -1,7 +1,7 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { LinkInBioRowMenu } from "@/components/ui/LinkInBioRowMenu";
 import {
@@ -27,7 +27,6 @@ import {
 import {
   deleteProduct,
   deleteProducts,
-  moveProduct,
   reorderProducts,
   toggleProductActive,
   toggleProductFeatured,
@@ -62,9 +61,6 @@ export function ProductsList({
 }) {
   const toast = useToast();
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const toastShown = useRef(false);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -92,15 +88,6 @@ export function ProductsList({
     const missing = products.filter((product) => !localOrder.includes(product.id));
     return [...reordered, ...missing];
   }, [products, localOrder]);
-
-  useEffect(() => {
-    if (toastShown.current) return;
-    if (!searchParams.has("created") && !searchParams.has("updated")) return;
-    toastShown.current = true;
-    toast.success(searchParams.has("created") ? "Product added." : "Product updated.");
-    router.replace(pathname);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
   const counts = useMemo(
     () => ({
@@ -168,12 +155,17 @@ export function ProductsList({
     }
   }
 
-  async function handleMove(id: string, direction: "up" | "down") {
-    try {
-      await moveProduct(id, direction);
-    } catch (err) {
-      toast.error(errorMessage(err, "Failed to reorder product."));
-    }
+  // Move up/down goes through the same local-order + queued save as drag and
+  // drop. It used to swap positions on the server only, which the list never
+  // showed once a drag had set localOrder.
+  function handleMove(id: string, direction: "up" | "down") {
+    const index = order.findIndex((product) => product.id === id);
+    const neighbor = direction === "up" ? index - 1 : index + 1;
+    if (index === -1 || neighbor < 0 || neighbor >= order.length) return;
+
+    const nextIds = order.map((product) => product.id);
+    [nextIds[index], nextIds[neighbor]] = [nextIds[neighbor], nextIds[index]];
+    saveOrder(nextIds);
   }
 
   function handleDrop(targetId: string) {
@@ -186,10 +178,13 @@ export function ProductsList({
     const next = [...order];
     const [moved] = next.splice(fromIndex, 1);
     next.splice(toIndex, 0, moved);
-    const nextIds = next.map((product) => product.id);
+    setDraggingId(null);
+    saveOrder(next.map((product) => product.id));
+  }
+
+  function saveOrder(nextIds: string[]) {
     const previousIds = order.map((product) => product.id);
     setLocalOrder(nextIds);
-    setDraggingId(null);
 
     setPendingReorders((count) => count + 1);
     reorderQueueRef.current = reorderQueueRef.current
@@ -453,7 +448,7 @@ function ProductCard({
   const priceLabel = formatPrice(product.price, product.currency);
 
   return (
-    <div className="flex flex-col gap-3.5 rounded-[30px] border-[1.5px] border-[var(--line)] bg-white p-3.5 transition-[transform,box-shadow,border-color] hover:-translate-y-1 hover:border-[var(--secondary-border)] hover:shadow-[0_28px_46px_-30px_color-mix(in srgb, var(--secondary) 50%, transparent)]">
+    <div className="flex flex-col gap-3.5 rounded-[30px] border-[1.5px] border-[var(--line)] bg-white p-3.5 transition-[transform,box-shadow,border-color] hover:-translate-y-1 hover:border-[var(--secondary-border)]">
       <Thumb product={product} className="h-[170px] w-full rounded-[22px]">
         {product.is_featured && <FeaturedBadge className="absolute top-3 left-3" />}
         <span className="absolute bottom-3 left-3 w-fit rounded-full bg-[var(--ink)] px-3.5 py-1 font-extrabold text-white">
@@ -556,7 +551,7 @@ function ProductRow({
       onDragOver={onDragOver}
       onDrop={onDrop}
       onDragEnd={onDragEnd}
-      className={`flex flex-wrap items-center gap-3 rounded-[24px] border-[1.5px] border-[var(--line)] bg-white p-3 pr-4.5 transition-[box-shadow,border-color,opacity] hover:border-[var(--secondary-border)] hover:shadow-[0_20px_36px_-28px_color-mix(in srgb, var(--secondary) 50%, transparent)] ${
+      className={`flex flex-wrap items-center gap-3 rounded-[24px] border-[1.5px] border-[var(--line)] bg-white p-3 pr-4.5 transition-[box-shadow,border-color,opacity] hover:border-[var(--secondary-border)] ${
         dragging ? "opacity-40" : ""
       }`}
     >

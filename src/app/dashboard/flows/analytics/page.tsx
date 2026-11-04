@@ -2,7 +2,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ArrowLeftIcon } from "@/components/icons";
 import { currentTimestamp } from "@/lib/utils/format";
-import { FlowsAnalyticsDashboard } from "@/features/flows/components/FlowsAnalyticsDashboard";
+import {
+  FlowsAnalyticsDashboard,
+  type FlowLeadInfo,
+  type FlowSessionInfo,
+  type FlowStepInfo,
+} from "@/features/flows/components/FlowsAnalyticsDashboard";
+import { EMPTY_FLOW_ROLLUP, type FlowAnalyticsRollup } from "@/features/flows/lib/flowRollup";
 import { displayFont, linkInBioCssVars, linkInBioWrapperClass } from "@/lib/linkInBioTheme";
 
 type FlowQueryRow = {
@@ -16,13 +22,8 @@ type FlowQueryRow = {
 export default async function FlowsAnalyticsPage() {
   const supabase = await createClient();
 
-  const [
-    { data: flows },
-    { data: accountsData },
-    { data: sessions },
-    { data: steps },
-    { data: leads },
-  ] = await Promise.all([
+  const [{ data: flows }, { data: accountsData }, { data: rollupData, error: rollupError }] =
+    await Promise.all([
     supabase
       .from("dm_flows")
       .select(
@@ -32,12 +33,14 @@ export default async function FlowsAnalyticsPage() {
       .from("instagram_accounts")
       .select("id, username, instagram_user_id")
       .order("created_at", { ascending: false }),
-    supabase
-      .from("dm_flow_sessions")
-      .select("id, flow_id, instagram_account_id, status, current_step_order, started_at"),
-    supabase.from("dm_flow_steps").select("flow_id, step_order"),
-    supabase.from("dm_flow_leads").select("id, flow_id, instagram_account_id, collected_at"),
+    // Counted in SQL: whole-table selects were capped at 1000 rows.
+    supabase.rpc("flow_analytics_rollup"),
   ]);
+
+  if (rollupError) {
+    console.error("[flow analytics] rollup failed:", rollupError.message);
+  }
+  const rollup = (rollupData as FlowAnalyticsRollup | null) ?? EMPTY_FLOW_ROLLUP;
 
   const flowInfos = ((flows as unknown as FlowQueryRow[]) ?? []).map((flow) => ({
     id: flow.id,
@@ -55,26 +58,16 @@ export default async function FlowsAnalyticsPage() {
     handle: (account.username ?? account.instagram_user_id) as string,
   }));
 
-  const sessionInfos = (sessions ?? []).map((session) => ({
-    id: session.id as string,
-    flowId: session.flow_id as string,
-    accountId: session.instagram_account_id as string | null,
-    status: session.status as string,
-    currentStepOrder: session.current_step_order as number,
-    startedAt: session.started_at as string,
+  const sessionInfos: FlowSessionInfo[] = rollup.sessions.map((row) => ({
+    day: row.day,
+    flowId: row.flowId,
+    accountId: row.accountId,
+    status: row.status,
+    currentStepOrder: row.stepOrder,
+    count: row.count,
   }));
-
-  const stepInfos = (steps ?? []).map((step) => ({
-    flowId: step.flow_id as string,
-    stepOrder: step.step_order as number,
-  }));
-
-  const leadInfos = (leads ?? []).map((lead) => ({
-    id: lead.id as string,
-    flowId: lead.flow_id as string,
-    accountId: lead.instagram_account_id as string | null,
-    collectedAt: lead.collected_at as string,
-  }));
+  const stepInfos: FlowStepInfo[] = rollup.steps;
+  const leadInfos: FlowLeadInfo[] = rollup.leads;
 
   return (
     <div className={linkInBioWrapperClass} style={linkInBioCssVars}>

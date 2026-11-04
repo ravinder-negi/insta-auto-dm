@@ -1,7 +1,7 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { LinkInBioRowMenu } from "@/components/ui/LinkInBioRowMenu";
 import {
@@ -24,7 +24,7 @@ import {
   StarIcon,
   TrashIcon,
 } from "@/components/icons";
-import { deleteLink, deleteLinks, moveLink, reorderLinks, toggleLinkActive } from "@/features/links/actions";
+import { deleteLink, deleteLinks, reorderLinks, toggleLinkActive } from "@/features/links/actions";
 import { resolveLinkVisual } from "@/features/links/linkTypeIcons";
 import { displayFont } from "@/lib/linkInBioTheme";
 import { LinkFormModal } from "@/features/links/components/LinkFormModal";
@@ -62,9 +62,6 @@ export function LinksList({
 }) {
   const toast = useToast();
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const toastShown = useRef(false);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -90,15 +87,6 @@ export function LinksList({
     const missing = links.filter((link) => !localOrder.includes(link.id));
     return [...reordered, ...missing];
   }, [links, localOrder]);
-
-  useEffect(() => {
-    if (toastShown.current) return;
-    if (!searchParams.has("created") && !searchParams.has("updated")) return;
-    toastShown.current = true;
-    toast.success(searchParams.has("created") ? "Link added." : "Link updated.");
-    router.replace(pathname);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
   const counts = useMemo(
     () => ({
@@ -157,12 +145,17 @@ export function LinksList({
     }
   }
 
-  async function handleMove(id: string, direction: "up" | "down") {
-    try {
-      await moveLink(id, direction);
-    } catch (err) {
-      toast.error(errorMessage(err, "Failed to reorder link."));
-    }
+  // Move up/down goes through the same local-order + queued save as drag and
+  // drop. It used to swap positions on the server only, which the list never
+  // showed once a drag had set localOrder.
+  function handleMove(id: string, direction: "up" | "down") {
+    const index = order.findIndex((link) => link.id === id);
+    const neighbor = direction === "up" ? index - 1 : index + 1;
+    if (index === -1 || neighbor < 0 || neighbor >= order.length) return;
+
+    const nextIds = order.map((link) => link.id);
+    [nextIds[index], nextIds[neighbor]] = [nextIds[neighbor], nextIds[index]];
+    saveOrder(nextIds);
   }
 
   function handleCopy(url: string) {
@@ -180,10 +173,13 @@ export function LinksList({
     const next = [...order];
     const [moved] = next.splice(fromIndex, 1);
     next.splice(toIndex, 0, moved);
-    const nextIds = next.map((link) => link.id);
+    setDraggingId(null);
+    saveOrder(next.map((link) => link.id));
+  }
+
+  function saveOrder(nextIds: string[]) {
     const previousIds = order.map((link) => link.id);
     setLocalOrder(nextIds);
-    setDraggingId(null);
 
     // Requests are chained (not fired in parallel) so a slow response can't land
     // after a later drop and stomp its order in the database.
@@ -436,7 +432,7 @@ function LinkCard({
   onCopy: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3.5 rounded-[30px] border-[1.5px] border-[var(--line)] bg-white p-3.5 transition-[transform,box-shadow,border-color] hover:-translate-y-1 hover:border-[var(--secondary-border)] hover:shadow-[0_28px_46px_-30px_color-mix(in srgb, var(--secondary) 50%, transparent)]">
+    <div className="flex flex-col gap-3.5 rounded-[30px] border-[1.5px] border-[var(--line)] bg-white p-3.5 transition-[transform,box-shadow,border-color] hover:-translate-y-1 hover:border-[var(--secondary-border)]">
       <div className="flex items-center gap-3.5 px-1.5 pt-1.5">
         <LinkThumb link={link} brandColor={brandColor} className="h-[46px] w-[46px] rounded-2xl" />
         <div className="min-w-0 flex-1">
@@ -539,7 +535,7 @@ function LinkRow({
       onDragOver={onDragOver}
       onDrop={onDrop}
       onDragEnd={onDragEnd}
-      className={`flex flex-wrap items-center gap-3 rounded-[24px] border-[1.5px] border-[var(--line)] bg-white p-3 pr-4.5 transition-[box-shadow,border-color,opacity] hover:border-[var(--secondary-border)] hover:shadow-[0_20px_36px_-28px_color-mix(in srgb, var(--secondary) 50%, transparent)] ${
+      className={`flex flex-wrap items-center gap-3 rounded-[24px] border-[1.5px] border-[var(--line)] bg-white p-3 pr-4.5 transition-[box-shadow,border-color,opacity] hover:border-[var(--secondary-border)] ${
         dragging ? "opacity-40" : ""
       }`}
     >

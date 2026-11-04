@@ -280,7 +280,7 @@ export function ThemeForm({
           <div
             role="region"
             aria-label="Unsaved changes"
-            className="sticky bottom-5 z-10 flex flex-wrap items-center justify-between gap-3 rounded-full py-3.5 pr-4 pl-6 text-white shadow-[0_26px_50px_-18px_color-mix(in srgb, var(--ink) 65%, transparent)]"
+            className="sticky bottom-5 z-10 flex flex-wrap items-center justify-between gap-3 rounded-full py-3.5 pr-4 pl-6 text-white"
             style={{ background: "var(--ink)" }}
           >
             <span className="inline-flex items-center gap-2.5 font-semibold">
@@ -364,7 +364,7 @@ export function ThemeForm({
 
         <div className="flex justify-center">
           <div
-            className="relative flex flex-col overflow-hidden bg-white shadow-[0_40px_70px_-34px_color-mix(in srgb, var(--ink) 50%, transparent)] transition-[width,height,border-radius]"
+            className="relative flex flex-col overflow-hidden bg-white transition-[width,height,border-radius]"
             style={
               device === "mobile"
                 ? { width: 300, height: 600, borderRadius: 42, border: "8px solid var(--ink)" }

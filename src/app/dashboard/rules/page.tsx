@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { AutomationHero } from "@/components/ui/AutomationHero";
 import { primaryButtonClass } from "@/components/ui/styles";
 import { BoltIcon, ChartIcon, ClockIcon, PlusIcon } from "@/components/icons";
-import { NewRuleButton } from "@/features/rules/components/NewRuleButton";
+import { NewRuleButton, OpenNewRuleOnLoad } from "@/features/rules/components/NewRuleButton";
 import { RulesTable, type RuleTableRow } from "@/features/rules/components/RulesTable";
 import { getViewPreference } from "@/lib/viewPreference/server";
 import { VIEW_PREFERENCE_KEYS } from "@/lib/viewPreference/keys";
@@ -32,7 +32,8 @@ type RuleQueryRow = Pick<
   > | null;
 };
 
-export default async function RulesPage() {
+export default async function RulesPage(props: PageProps<"/dashboard/rules">) {
+  const openNew = (await props.searchParams).new === "1";
   const initialView = await getViewPreference(VIEW_PREFERENCE_KEYS.rules, ["card", "list"] as const, "card");
   const supabase = await createClient();
 
@@ -83,6 +84,7 @@ export default async function RulesPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      {openNew && <OpenNewRuleOnLoad />}
       <AutomationHero
         titlePlain="Auto"
         titleAccent="DMs"

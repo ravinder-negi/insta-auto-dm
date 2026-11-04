@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatCard } from "@/components/ui/StatCard";
 import { FlowStepFunnel } from "@/features/flows/components/FlowStepFunnel";
+import { EMPTY_FLOW_ROLLUP, type FlowAnalyticsRollup } from "@/features/flows/lib/flowRollup";
 
 export default async function FlowAnalyticsPage(
   props: PageProps<"/dashboard/flows/[id]/analytics">
@@ -13,13 +14,11 @@ export default async function FlowAnalyticsPage(
   const { id } = await props.params;
   const supabase = await createClient();
 
-  const [{ data: flow }, { data: sessions }, { data: steps }, { count: leadCount }] =
+  const [{ data: flow }, { data: rollupData }, { data: steps }, { count: leadCount }] =
     await Promise.all([
       supabase.from("dm_flows").select("id, name").eq("id", id).maybeSingle(),
-      supabase
-        .from("dm_flow_sessions")
-        .select("status, current_step_order")
-        .eq("flow_id", id),
+      // Counted in SQL: selecting every session was capped at 1000 rows.
+      supabase.rpc("flow_analytics_rollup", { p_flow_id: id }),
       supabase
         .from("dm_flow_steps")
         .select("step_order, message_text")
@@ -35,16 +34,20 @@ export default async function FlowAnalyticsPage(
     notFound();
   }
 
-  const total = sessions?.length ?? 0;
-  const completed = (sessions ?? []).filter((s) => s.status === "completed").length;
-  const active = (sessions ?? []).filter((s) => s.status === "active").length;
+  const sessions = ((rollupData as FlowAnalyticsRollup | null) ?? EMPTY_FLOW_ROLLUP).sessions;
+  const countWhere = (match: (row: (typeof sessions)[number]) => boolean) =>
+    sessions.filter(match).reduce((sum, row) => sum + row.count, 0);
+
+  const total = countWhere(() => true);
+  const completed = countWhere((s) => s.status === "completed");
+  const active = countWhere((s) => s.status === "active");
   const completionRate = total > 0 ? Math.round((completed / total) * 100) : null;
 
   const reachedByStep = new Map<number, number>();
-  for (const session of sessions ?? []) {
+  for (const session of sessions) {
     for (const step of steps ?? []) {
-      if (session.current_step_order >= step.step_order) {
-        reachedByStep.set(step.step_order, (reachedByStep.get(step.step_order) ?? 0) + 1);
+      if (session.stepOrder >= step.step_order) {
+        reachedByStep.set(step.step_order, (reachedByStep.get(step.step_order) ?? 0) + session.count);
       }
     }
   }

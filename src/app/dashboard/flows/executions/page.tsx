@@ -22,7 +22,7 @@ type SessionQueryRow = {
 export default async function FlowsExecutionsPage() {
   const supabase = await createClient();
 
-  const [{ data, error }, { data: steps }] = await Promise.all([
+  const [{ data, error }, { data: stepCounts }] = await Promise.all([
     supabase
       .from("dm_flow_sessions")
       .select(
@@ -30,15 +30,14 @@ export default async function FlowsExecutionsPage() {
       )
       .order("last_interaction_at", { ascending: false })
       .limit(200),
-    supabase.from("dm_flow_steps").select("flow_id, step_order"),
+    // Highest step_order per flow, computed in SQL (selecting every step
+    // row was capped at 1000).
+    supabase.rpc("flow_step_counts"),
   ]);
 
-  // Highest step_order per flow — each flow has its own step count.
-  const totalStepsByFlow = new Map<string, number>();
-  for (const step of steps ?? []) {
-    const current = totalStepsByFlow.get(step.flow_id) ?? 0;
-    if (step.step_order > current) totalStepsByFlow.set(step.flow_id, step.step_order);
-  }
+  const totalStepsByFlow = new Map(
+    Object.entries((stepCounts as Record<string, number> | null) ?? {})
+  );
 
   const sessions = (data as unknown as SessionQueryRow[]) ?? [];
 

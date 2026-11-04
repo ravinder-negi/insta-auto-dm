@@ -8,12 +8,12 @@ import { AuthTextField } from "./AuthTextField";
 import { AuthSubmitButton } from "./AuthSubmitButton";
 import { AuthDivider } from "./AuthDivider";
 import { PasswordField } from "./PasswordField";
-import { MailIcon, UserIcon } from "@/components/icons";
+import { ArrowLeftIcon, MailIcon, UserIcon } from "@/components/icons";
 import { displayFont } from "@/app/(marketing)/_components/home/fonts";
-import { signUp, type AuthState } from "@/features/auth/actions/login";
+import { signUp, type SignUpState } from "@/features/auth/actions/login";
 
 export function SignupForm() {
-  const [state, formAction, pending] = useActionState<AuthState, FormData>(
+  const [state, formAction, pending] = useActionState<SignUpState, FormData>(
     signUp,
     undefined
   );
@@ -21,6 +21,34 @@ export function SignupForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Same "check your email" card as the forgot-password flow.
+  if (state && "confirmEmail" in state) {
+    return (
+      <AuthCard>
+        <AuthBrandHeader />
+        <div>
+          <h1
+            className={`${displayFont} text-[32px] leading-[1.1] font-extrabold tracking-[-0.03em] text-[var(--ink)]`}
+          >
+            Check your email
+          </h1>
+          <p className="mt-2 text-[var(--muted)]">
+            We&apos;ve sent a confirmation link to{" "}
+            <span className="font-semibold text-[var(--ink)]">{state.confirmEmail}</span>. Click it to
+            finish creating your account.
+          </p>
+        </div>
+        <Link
+          href="/login"
+          className="inline-flex w-fit items-center gap-2 text-sm font-bold text-[var(--violet)] hover:underline"
+        >
+          <ArrowLeftIcon className="h-4 w-4" />
+          Back to sign in
+        </Link>
+      </AuthCard>
+    );
+  }
 
   return (
     <AuthCard>

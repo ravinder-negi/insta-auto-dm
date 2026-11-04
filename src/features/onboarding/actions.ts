@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { safeRedirectPath } from "@/lib/auth/redirect";
 import {
   CONTENT_NICHES,
   ONBOARDING_GOALS,
@@ -123,9 +124,7 @@ export async function completeOnboarding(
   _prevState: OnboardingState,
   formData: FormData,
 ): Promise<OnboardingState> {
-  const target = String(formData.get("redirectTo") ?? "");
-  const destination =
-    target.startsWith("/") && !target.startsWith("//") ? target : "/dashboard";
+  const destination = safeRedirectPath(formData.get("redirectTo"), "/dashboard");
 
   const state = await saveStep({}, "done");
 

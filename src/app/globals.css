@@ -57,6 +57,12 @@
      '#F5F6FF' : white` pattern, which this reproduces almost exactly. */
   --tint: color-mix(in srgb, var(--primary) 10%, white);
   --tint-faint: color-mix(in srgb, var(--primary) 6%, white);
+  /* Text colour for selected-state labels and the pink stat tiles. These
+     were referenced but never defined, so they rendered as the default ink
+     colour; kept that way on purpose. For indigo text instead use e.g.
+     color-mix(in srgb, var(--primary) 85%, black). */
+  --primary-strong: var(--ink);
+  --primary-deep: var(--ink);
 
   /* Violet is its OWN fixed brand color in the reference exports
      ("--violet:#5B3FE0", present in every export, never templated) — not a
@@ -154,6 +160,7 @@
   --color-brand-700: #4a37bd;
   --color-brand-800: #3c2d97;
   --color-brand-900: #2f2478;
+  --color-brand-950: #1d1650;
 }
 
 body {

@@ -6,7 +6,7 @@ import { AutomationHero } from "@/components/ui/AutomationHero";
 import { primaryButtonClass } from "@/components/ui/styles";
 import { ChartIcon, ClockIcon, LayersIcon, PlusIcon } from "@/components/icons";
 import { FlowsTable, type FlowTableRow } from "@/features/flows/components/FlowsTable";
-import { NewFlowButton } from "@/features/flows/components/NewFlowButton";
+import { NewFlowButton, OpenNewFlowOnLoad } from "@/features/flows/components/NewFlowButton";
 import { getViewPreference } from "@/lib/viewPreference/server";
 import { VIEW_PREFERENCE_KEYS } from "@/lib/viewPreference/keys";
 
@@ -29,7 +29,8 @@ type FlowQueryRow = Pick<
   dm_flow_steps: { id: string; step_order: number; message_text: string }[] | null;
 };
 
-export default async function FlowsPage() {
+export default async function FlowsPage(props: PageProps<"/dashboard/flows">) {
+  const openNew = (await props.searchParams).new === "1";
   const initialView = await getViewPreference(VIEW_PREFERENCE_KEYS.flows, ["card", "list"] as const, "card");
   const supabase = await createClient();
 
@@ -80,6 +81,7 @@ export default async function FlowsPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      {openNew && <OpenNewFlowOnLoad />}
       <AutomationHero
         titlePlain="DM "
         titleAccent="Flows"

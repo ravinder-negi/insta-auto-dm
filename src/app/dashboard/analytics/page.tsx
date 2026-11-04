@@ -2,7 +2,6 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { currentTimestamp } from "@/lib/utils/format";
 import { ArrowLeftIcon, EyeIcon, ChartIcon } from "@/components/icons";
 import { BarList, type BarListRow } from "@/features/analytics/components/BarList";
 import { ChartCard, StatTile } from "@/features/analytics/components/chart-primitives";
@@ -10,24 +9,39 @@ import { compactNumber, trendFor } from "@/features/analytics/lib/metrics";
 import { displayFont, linkInBioCssVars, linkInBioWrapperClass } from "@/lib/linkInBioTheme";
 import { UtmSourceEmptyState } from "./_components/UtmSourceEmptyState";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function hostnameFromReferrer(referrer: string | null): string {
-  if (!referrer) return "Direct / unknown";
-  try {
-    return new URL(referrer).hostname.replace(/^www\./, "");
-  } catch {
-    return "Direct / unknown";
-  }
+/** Shape of public.link_in_bio_rollup() — counted in SQL so totals aren't
+ *  capped at PostgREST's 1000-row limit. */
+interface LinkInBioRollup {
+  totals: {
+    viewsTotal: number;
+    views7d: number;
+    viewsPrev7d: number;
+    clicksTotal: number;
+    clicks7d: number;
+    clicksPrev7d: number;
+  };
+  clicksByTarget: { targetType: string; targetId: string; count: number }[];
+  topReferrers: { label: string; count: number }[];
+  topUtmSources: { label: string; count: number }[];
 }
 
-function countBy<T>(items: T[], keyOf: (item: T) => string): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const item of items) {
-    const key = keyOf(item);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return counts;
+const EMPTY_ROLLUP: LinkInBioRollup = {
+  totals: { viewsTotal: 0, views7d: 0, viewsPrev7d: 0, clicksTotal: 0, clicks7d: 0, clicksPrev7d: 0 },
+  clicksByTarget: [],
+  topReferrers: [],
+  topUtmSources: [],
+};
+
+function clickCountsFor(rollup: LinkInBioRollup, targetType: string): Map<string, number> {
+  return new Map(
+    rollup.clicksByTarget
+      .filter((row) => row.targetType === targetType)
+      .map((row) => [row.targetId, row.count])
+  );
+}
+
+function barRows(rows: { label: string; count: number }[]): BarListRow[] {
+  return rows.map((row) => ({ key: row.label, label: row.label, value: row.count }));
 }
 
 function rankedRows(
@@ -37,13 +51,6 @@ function rankedRows(
   return targets
     .map((target) => ({ key: target.id, label: target.label, value: counts.get(target.id) ?? 0 }))
     .sort((a, b) => b.value - a.value);
-}
-
-function countInWindow(rows: { created_at: string }[], startMs: number, endMs: number): number {
-  return rows.filter((row) => {
-    const ts = new Date(row.created_at).getTime();
-    return ts >= startMs && ts < endMs;
-  }).length;
 }
 
 export default async function AnalyticsPage() {
@@ -57,8 +64,7 @@ export default async function AnalyticsPage() {
   }
 
   const [
-    { data: viewRows },
-    { data: clickRows },
+    { data: rollupData, error: rollupError },
     { data: linkRows },
     { data: magnetRows },
     { data: productRows },
@@ -66,16 +72,7 @@ export default async function AnalyticsPage() {
     { data: profile },
     requestHeaders,
   ] = await Promise.all([
-    supabase
-      .from("profile_views")
-      .select("referrer, utm_source, created_at")
-      .eq("profile_id", user.id)
-      .returns<{ referrer: string | null; utm_source: string | null; created_at: string }[]>(),
-    supabase
-      .from("link_clicks")
-      .select("target_type, target_id, created_at")
-      .eq("profile_id", user.id)
-      .returns<{ target_type: string; target_id: string; created_at: string }[]>(),
+    supabase.rpc("link_in_bio_rollup"),
     supabase
       .from("profile_links")
       .select("id, title")
@@ -102,53 +99,24 @@ export default async function AnalyticsPage() {
     headers(),
   ]);
 
-  const views = viewRows ?? [];
-  const clicks = clickRows ?? [];
+  if (rollupError) {
+    console.error("[link-in-bio analytics] rollup failed:", rollupError.message);
+  }
+  const rollup = (rollupData as LinkInBioRollup | null) ?? EMPTY_ROLLUP;
+  const { viewsTotal, views7d, viewsPrev7d, clicksTotal, clicks7d, clicksPrev7d } = rollup.totals;
+
   const links = linkRows ?? [];
   const magnets = magnetRows ?? [];
   const products = productRows ?? [];
   const socials = socialRows ?? [];
 
-  const now = currentTimestamp();
-  const weekAgo = now - 7 * DAY_MS;
-  const twoWeeksAgo = now - 14 * DAY_MS;
+  const linkClickCounts = clickCountsFor(rollup, "profile_link");
+  const magnetClickCounts = clickCountsFor(rollup, "lead_magnet");
+  const productClickCounts = clickCountsFor(rollup, "product");
+  const socialClickCounts = clickCountsFor(rollup, "social");
 
-  const views7d = countInWindow(views, weekAgo, now);
-  const viewsPrev7d = countInWindow(views, twoWeeksAgo, weekAgo);
-  const clicks7d = countInWindow(clicks, weekAgo, now);
-  const clicksPrev7d = countInWindow(clicks, twoWeeksAgo, weekAgo);
-
-  const linkClickCounts = countBy(
-    clicks.filter((row) => row.target_type === "profile_link"),
-    (row) => row.target_id
-  );
-  const magnetClickCounts = countBy(
-    clicks.filter((row) => row.target_type === "lead_magnet"),
-    (row) => row.target_id
-  );
-  const productClickCounts = countBy(
-    clicks.filter((row) => row.target_type === "product"),
-    (row) => row.target_id
-  );
-  const socialClickCounts = countBy(
-    clicks.filter((row) => row.target_type === "social"),
-    (row) => row.target_id
-  );
-
-  const referrerCounts = countBy(views, (row) => hostnameFromReferrer(row.referrer));
-  const topReferrers: BarListRow[] = [...referrerCounts.entries()]
-    .map(([hostname, count]) => ({ key: hostname, label: hostname, value: count }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 8);
-
-  const utmSourceCounts = countBy(
-    views.filter((row) => row.utm_source),
-    (row) => row.utm_source as string
-  );
-  const topUtmSources: BarListRow[] = [...utmSourceCounts.entries()]
-    .map(([source, count]) => ({ key: source, label: source, value: count }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 8);
+  const topReferrers = barRows(rollup.topReferrers);
+  const topUtmSources = barRows(rollup.topUtmSources);
 
   const host = requestHeaders.get("host");
   const protocol = host?.startsWith("localhost") ? "http" : "https";
@@ -232,13 +200,13 @@ export default async function AnalyticsPage() {
           />
           <StatTile
             label="Profile views (all time)"
-            value={compactNumber(views.length)}
+            value={compactNumber(viewsTotal)}
             tone="green"
             icon={<EyeIcon className="h-5 w-5" />}
           />
           <StatTile
             label="Clicks (all time)"
-            value={compactNumber(clicks.length)}
+            value={compactNumber(clicksTotal)}
             tone="pink"
             icon={<ChartIcon className="h-5 w-5" />}
           />

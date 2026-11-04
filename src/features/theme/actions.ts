@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeHexColor } from "@/lib/validation/fields";
 import type { ThemeButtonStyle, ThemeFont, ThemeLayout, ThemeTemplate } from "@/types";
 
 export type ThemeFormState = { error: string } | { success: true } | undefined;
@@ -10,7 +11,6 @@ const THEME_FONTS: ThemeFont[] = ["sans", "serif", "mono"];
 const THEME_BUTTON_STYLES: ThemeButtonStyle[] = ["pill", "rounded", "square"];
 const THEME_LAYOUTS: ThemeLayout[] = ["center", "left"];
 const THEME_TEMPLATES: ThemeTemplate[] = ["original", "centered", "noir"];
-const HEX_COLOR_PATTERN = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 export async function updateTheme(
   _prevState: ThemeFormState,
@@ -34,7 +34,8 @@ export async function updateTheme(
   if (!THEME_TEMPLATES.includes(themeTemplate as ThemeTemplate)) {
     return { error: "Invalid template." };
   }
-  if (brandColor && !HEX_COLOR_PATTERN.test(brandColor)) {
+  const normalizedBrandColor = brandColor ? normalizeHexColor(brandColor) : null;
+  if (brandColor && !normalizedBrandColor) {
     return { error: "Brand color must be a hex value like #6366f1." };
   }
 
@@ -51,7 +52,7 @@ export async function updateTheme(
       theme_button_style: themeButtonStyle,
       theme_layout: themeLayout,
       theme_template: themeTemplate,
-      brand_color: brandColor || null,
+      brand_color: normalizedBrandColor,
       updated_at: new Date().toISOString(),
     })
     .eq("id", user.id);

@@ -32,7 +32,7 @@ export function PasswordField({
         </label>
         {labelAction}
       </div>
-      <div className="flex items-center gap-2.5 rounded-[14px] border-[1.5px] border-[var(--line)] bg-[var(--bg)] pr-1.5 pl-3.5 transition-colors duration-200 focus-within:border-[var(--accent)] focus-within:bg-white focus-within:shadow-[0_0_0_4px_color-mix(in srgb, var(--primary) 14%, transparent)]">
+      <div className="flex items-center gap-2.5 rounded-[14px] border-[1.5px] border-[var(--line)] bg-[var(--bg)] pr-1.5 pl-3.5 transition-colors duration-200 focus-within:border-[var(--accent)] focus-within:bg-white">
         <LockIcon className="h-5 w-5 flex-none text-[var(--muted)]" />
         <input
           id={id}

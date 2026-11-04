@@ -37,13 +37,15 @@ export interface AccountOption {
   handle: string;
 }
 
+/** Conversations started on one UTC day, grouped by flow / account / status
+ *  / current step — see public.flow_analytics_rollup. */
 export interface FlowSessionInfo {
-  id: string;
+  day: string;
   flowId: string;
   accountId: string | null;
   status: string;
   currentStepOrder: number;
-  startedAt: string;
+  count: number;
 }
 
 export interface FlowStepInfo {
@@ -51,11 +53,16 @@ export interface FlowStepInfo {
   stepOrder: number;
 }
 
+/** Emails collected on one UTC day, grouped by flow / account. */
 export interface FlowLeadInfo {
-  id: string;
+  day: string;
   flowId: string;
   accountId: string | null;
-  collectedAt: string;
+  count: number;
+}
+
+function sumCounts(rows: { count: number }[]): number {
+  return rows.reduce((total, row) => total + row.count, 0);
 }
 
 export function FlowsAnalyticsDashboard({
@@ -78,25 +85,25 @@ export function FlowsAnalyticsDashboard({
 
   const view = useMemo(() => {
     const days = RANGES[range].days;
-    const sinceMs = days === null ? null : now - days * DAY_MS;
+    // Rows are bucketed by UTC day, so "last N days" means today plus the
+    // N-1 days before it (same convention as the AutoDMs analytics).
+    const sinceDay =
+      days === null ? null : new Date(now - (days - 1) * DAY_MS).toISOString().slice(0, 10);
 
     const matchesAccount = (rowAccountId: string | null) =>
       accountId === "all" || rowAccountId === accountId;
 
     const filteredSessions = sessions.filter(
       (session) =>
-        matchesAccount(session.accountId) &&
-        (sinceMs === null || new Date(session.startedAt).getTime() >= sinceMs)
+        matchesAccount(session.accountId) && (sinceDay === null || session.day >= sinceDay)
     );
     const filteredLeads = leads.filter(
-      (lead) =>
-        matchesAccount(lead.accountId) &&
-        (sinceMs === null || new Date(lead.collectedAt).getTime() >= sinceMs)
+      (lead) => matchesAccount(lead.accountId) && (sinceDay === null || lead.day >= sinceDay)
     );
 
-    const total = filteredSessions.length;
-    const completed = filteredSessions.filter((s) => s.status === "completed").length;
-    const active = filteredSessions.filter((s) => s.status === "active").length;
+    const total = sumCounts(filteredSessions);
+    const completed = sumCounts(filteredSessions.filter((s) => s.status === "completed"));
+    const active = sumCounts(filteredSessions.filter((s) => s.status === "active"));
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : null;
 
     // Each flow has its own steps, so a session only counts toward step N if
@@ -116,7 +123,7 @@ export function FlowsAnalyticsDashboard({
       if (!flowSteps) continue;
       for (const stepOrder of flowSteps) {
         if (session.currentStepOrder >= stepOrder) {
-          reachedByStep.set(stepOrder, (reachedByStep.get(stepOrder) ?? 0) + 1);
+          reachedByStep.set(stepOrder, (reachedByStep.get(stepOrder) ?? 0) + session.count);
         }
       }
     }
@@ -137,7 +144,7 @@ export function FlowsAnalyticsDashboard({
     }
     const emailsByFlow = new Map<string, number>();
     for (const lead of filteredLeads) {
-      emailsByFlow.set(lead.flowId, (emailsByFlow.get(lead.flowId) ?? 0) + 1);
+      emailsByFlow.set(lead.flowId, (emailsByFlow.get(lead.flowId) ?? 0) + lead.count);
     }
 
     const leaderboard: FlowPerformance[] = flows
@@ -148,16 +155,16 @@ export function FlowsAnalyticsDashboard({
           name: flow.name,
           accountHandle: flow.accountHandle,
           isActive: flow.isActive,
-          started: flowSessions.length,
-          completed: flowSessions.filter((s) => s.status === "completed").length,
-          active: flowSessions.filter((s) => s.status === "active").length,
+          started: sumCounts(flowSessions),
+          completed: sumCounts(flowSessions.filter((s) => s.status === "completed")),
+          active: sumCounts(flowSessions.filter((s) => s.status === "active")),
           emails: emailsByFlow.get(flow.id) ?? 0,
         };
       })
       // A flow that never started a conversation in this period has nothing to rank.
       .filter((row) => row.started > 0);
 
-    return { total, completed, active, completionRate, emails: filteredLeads.length, funnel, leaderboard };
+    return { total, completed, active, completionRate, emails: sumCounts(filteredLeads), funnel, leaderboard };
   }, [flows, sessions, steps, leads, range, accountId, now]);
 
   return (

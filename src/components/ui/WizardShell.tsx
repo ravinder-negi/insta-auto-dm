@@ -66,7 +66,7 @@ export function WizardShell({
 
   return (
     <div
-      className="flex flex-col rounded-[30px] border bg-white shadow-[0_24px_60px_-40px_color-mix(in srgb, var(--ink) 35%, transparent)]"
+      className="flex flex-col rounded-[30px] border bg-white"
       style={{ borderColor: LINE }}
     >
       <div className="border-b px-5 py-4 sm:px-7 sm:py-5" style={{ borderColor: LINE }}>
@@ -220,7 +220,7 @@ export function WizardShell({
 export function WizardShellSkeleton({ stepCount }: { stepCount: number }) {
   return (
     <div
-      className="flex flex-col rounded-[30px] border bg-white shadow-[0_24px_60px_-40px_color-mix(in srgb, var(--ink) 35%, transparent)]"
+      className="flex flex-col rounded-[30px] border bg-white"
       style={{ borderColor: LINE }}
     >
       <div className="border-b px-5 py-4 sm:px-7 sm:py-5" style={{ borderColor: LINE }}>

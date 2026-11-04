@@ -129,7 +129,7 @@ export function HomeHero() {
         <div className="ha-fadeup ha-d2 relative flex min-h-[600px] min-w-0 flex-1 basis-[400px] items-center justify-center rounded-[44px] border border-[#E1D9FB] bg-[var(--tint2)]/75 sm:min-h-[740px]">
           <div className="ha-spinner pointer-events-none absolute h-[480px] w-[480px] rounded-full border-2 border-dashed border-[var(--secondary-border)]" />
 
-          <div className="ha-float1 absolute top-7 left-5 z-2 flex items-center gap-2.5 rounded-2xl bg-white py-2.5 pr-4 pl-3 text-sm font-semibold shadow-[0_12px_30px_-12px_color-mix(in srgb, var(--ink) 28%, transparent)]">
+          <div className="ha-float1 absolute top-7 left-5 z-2 flex items-center gap-2.5 rounded-2xl bg-white py-2.5 pr-4 pl-3 text-sm font-semibold">
             <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-[var(--tint2)] text-[var(--violet)]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"></path></svg>
             </span>
@@ -138,7 +138,7 @@ export function HomeHero() {
 
           {h.leadChip && (
             <div className="ha-pop absolute right-5 bottom-7 z-2">
-              <div className="ha-float2 flex items-center gap-2.5 rounded-2xl bg-white py-2.5 pr-4 pl-3 text-sm font-semibold shadow-[0_12px_30px_-12px_color-mix(in srgb, var(--ink) 28%, transparent)]">
+              <div className="ha-float2 flex items-center gap-2.5 rounded-2xl bg-white py-2.5 pr-4 pl-3 text-sm font-semibold">
                 <span className="ha-pulsegreen flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-[var(--success-tint)] text-[var(--success-text)]">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>
                 </span>
@@ -148,7 +148,7 @@ export function HomeHero() {
           )}
           {h.followChip && (
             <div className="ha-pop absolute bottom-23 left-5 z-2">
-              <div className="ha-float3 flex items-center gap-2.5 rounded-2xl bg-white py-2.5 pr-4 pl-3 text-sm font-semibold shadow-[0_12px_30px_-12px_color-mix(in srgb, var(--ink) 28%, transparent)]">
+              <div className="ha-float3 flex items-center gap-2.5 rounded-2xl bg-white py-2.5 pr-4 pl-3 text-sm font-semibold">
                 <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-[var(--warning-tint)] text-[var(--warning-text)]">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
                 </span>
@@ -157,7 +157,7 @@ export function HomeHero() {
             </div>
           )}
 
-          <div className="relative flex h-[640px] w-[300px] flex-col gap-3 overflow-hidden rounded-[42px] border-[8px] border-[var(--ink)] bg-white px-3.5 py-5 shadow-[0_40px_70px_-24px_color-mix(in srgb, var(--ink) 50%, transparent)]">
+          <div className="relative flex h-[640px] w-[300px] flex-col gap-3 overflow-hidden rounded-[42px] border-[8px] border-[var(--ink)] bg-white px-3.5 py-5">
             <div className="flex flex-none items-start gap-2.5 rounded-2xl border border-[var(--line)] p-3">
               <span className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-[#E8E2FF] text-[13px] font-bold text-[var(--violet)]">
                 M

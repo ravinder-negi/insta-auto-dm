@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { DmFlowIntentMap, DmFlowStepOption, KeywordMatch } from "@/types";
@@ -330,16 +329,6 @@ export async function createFlow(
   return createFlowCore(formData);
 }
 
-/** Used by the standalone /dashboard/flows/new page. */
-export async function createFlowAndRedirect(
-  _prevState: FlowFormState,
-  formData: FormData
-): Promise<FlowFormState> {
-  const result = await createFlowCore(formData);
-  if (result && "error" in result) return result;
-  redirect("/dashboard/flows?created=1");
-}
-
 async function updateFlowCore(id: string, formData: FormData): Promise<FlowFormState> {
   const parsed = readFlowFields(formData);
   if (!parsed.ok) return { error: parsed.error };
@@ -387,17 +376,6 @@ export async function updateFlow(
   formData: FormData
 ): Promise<FlowFormState> {
   return updateFlowCore(id, formData);
-}
-
-/** Used by the standalone /dashboard/flows/[id]/edit page. */
-export async function updateFlowAndRedirect(
-  id: string,
-  _prevState: FlowFormState,
-  formData: FormData
-): Promise<FlowFormState> {
-  const result = await updateFlowCore(id, formData);
-  if (result && "error" in result) return result;
-  redirect("/dashboard/flows?updated=1");
 }
 
 export async function deleteFlow(id: string) {

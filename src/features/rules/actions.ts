@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { followupFromMinutes } from "@/features/rules/components/wizard/shared";
@@ -470,17 +469,6 @@ export async function createRule(
   return createRuleCore(formData);
 }
 
-/** Used by the standalone /dashboard/rules/new page (e.g. the onboarding
- *  shortcut), which has no modal to close and still expects a redirect. */
-export async function createRuleAndRedirect(
-  _prevState: RuleFormState,
-  formData: FormData
-): Promise<RuleFormState> {
-  const result = await createRuleCore(formData);
-  if (result && "error" in result) return result;
-  redirect("/dashboard/rules?created=1");
-}
-
 async function updateRuleCore(
   id: string,
   formData: FormData
@@ -519,17 +507,6 @@ export async function updateRule(
   formData: FormData
 ): Promise<RuleFormState> {
   return updateRuleCore(id, formData);
-}
-
-/** Used by the standalone /dashboard/rules/[id]/edit page. */
-export async function updateRuleAndRedirect(
-  id: string,
-  _prevState: RuleFormState,
-  formData: FormData
-): Promise<RuleFormState> {
-  const result = await updateRuleCore(id, formData);
-  if (result && "error" in result) return result;
-  redirect("/dashboard/rules?updated=1");
 }
 
 export interface RuleFormData {

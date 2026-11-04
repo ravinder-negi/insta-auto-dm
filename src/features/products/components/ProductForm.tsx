@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { acceptFor, prepareUpload } from "@/lib/storage/uploadRules";
 import { useToast } from "@/components/ui/Toast";
 import { CameraIcon, TrashIcon } from "@/components/icons";
 import { CURRENCIES } from "@/features/products/currencies";
 import type { ProductFormState } from "@/features/products/actions";
 
-const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 const fieldWrapClass =
   "flex items-center gap-2 rounded-[14px] border-[1.5px] border-[var(--line)] bg-[var(--bg)] px-3.5 transition-colors focus-within:border-[var(--primary)] focus-within:bg-white focus-within:ring-4 focus-within:ring-[var(--primary)]/15";
@@ -68,19 +68,19 @@ export function ProductForm({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.size > IMAGE_MAX_BYTES) {
-      toast.error("Image must be 5MB or smaller.");
+    const prepared = prepareUpload("product-images", file, "Image");
+    if (!prepared.ok) {
+      toast.error(prepared.error);
       return;
     }
 
     setUploading(true);
     try {
       const supabase = createClient();
-      const ext = file.name.split(".").pop() || "jpg";
-      const path = `${userId}/product-${Date.now()}.${ext}`;
+      const path = `${userId}/product-${Date.now()}.${prepared.ext}`;
       const { error } = await supabase.storage
         .from("product-images")
-        .upload(path, file, { upsert: true });
+        .upload(path, file, { upsert: true, contentType: prepared.contentType });
 
       if (error) {
         toast.error(error.message);
@@ -141,7 +141,7 @@ export function ProductForm({
           ref={fileInputRef}
           id={fileInputId}
           type="file"
-          accept="image/png,image/jpeg"
+          accept={acceptFor("product-images")}
           className="hidden"
           onChange={handleImageChange}
           disabled={uploading}

@@ -2,11 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isHttpUrl } from "@/lib/validation/fields";
 
 export type ProfileFormState = { error: string } | { success: true } | undefined;
 
 const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9_-]{1,28}[a-z0-9])?$/;
 
+// Every top-level route (a profile at /<username> with one of these names
+// would never be reachable), plus a few names that look official.
 const RESERVED_USERNAMES = new Set([
   "dashboard",
   "login",
@@ -15,6 +18,11 @@ const RESERVED_USERNAMES = new Set([
   "api",
   "forgot-password",
   "reset-password",
+  "onboarding",
+  "contact",
+  "privacy",
+  "terms",
+  "data-deletion",
   "favicon.ico",
   "admin",
   "www",
@@ -43,6 +51,10 @@ export async function updateProfile(
 
   if (bio.length > 280) {
     return { error: "Bio must be 280 characters or fewer." };
+  }
+
+  if (avatarUrl && !isHttpUrl(avatarUrl)) {
+    return { error: "Profile photo must be an uploaded image." };
   }
 
   if (isPublished && !displayName) {

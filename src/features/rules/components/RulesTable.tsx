@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmAction } from "@/components/ui/ConfirmAction";
@@ -271,18 +271,6 @@ export function RulesTable({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const toast = useToast();
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const toastShown = useRef(false);
-
-  useEffect(() => {
-    if (toastShown.current) return;
-    if (!searchParams.has("created") && !searchParams.has("updated")) return;
-    toastShown.current = true;
-    toast.success(searchParams.has("created") ? "AutoDM created." : "AutoDM updated.");
-    router.replace(pathname);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
 
   function handleViewChange(next: ViewMode) {

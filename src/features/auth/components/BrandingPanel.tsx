@@ -110,7 +110,7 @@ export function BrandingPanel() {
           </div>
 
           <div className="au-pillloop absolute top-62.5 left-6">
-            <div className="ha-float3 inline-flex items-center gap-2.5 rounded-full bg-[var(--accent)] px-5.5 py-3 text-[15px] font-semibold text-white shadow-[0_18px_40px_-10px_color-mix(in srgb, var(--primary) 65%, transparent)]">
+            <div className="ha-float3 inline-flex items-center gap-2.5 rounded-full bg-[var(--accent)] px-5.5 py-3 text-[15px] font-semibold text-white">
               <BoltIcon className="h-4 w-4" />
               <span>Auto DM sent</span>
             </div>

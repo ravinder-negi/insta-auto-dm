@@ -103,7 +103,7 @@ export function SocialsForm({ socials }: { socials: ProfileSocial[] }) {
         <div
           role="region"
           aria-label="Unsaved changes"
-          className="sticky bottom-5 z-10 flex flex-wrap items-center justify-between gap-3 rounded-full py-3.5 pr-4 pl-6 text-white shadow-[0_26px_50px_-18px_color-mix(in srgb, var(--ink) 65%, transparent)]"
+          className="sticky bottom-5 z-10 flex flex-wrap items-center justify-between gap-3 rounded-full py-3.5 pr-4 pl-6 text-white"
           style={{ background: "var(--ink)" }}
         >
           <span className="inline-flex items-center gap-2.5 font-semibold">

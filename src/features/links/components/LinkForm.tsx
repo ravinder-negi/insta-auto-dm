@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { acceptFor, prepareUpload } from "@/lib/storage/uploadRules";
 import { LinkInBioPreview } from "./LinkInBioPreview";
 import { useToast } from "@/components/ui/Toast";
 import { ChevronDownIcon } from "@/components/icons";
@@ -42,7 +43,6 @@ const LINK_TYPE_OPTIONS: { value: LinkType; label: string }[] = [
   { value: "custom", label: "Custom page" },
 ];
 
-const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 
 export interface LinkFormInitialValues {
   title: string;
@@ -117,19 +117,19 @@ export function LinkForm({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.size > AVATAR_MAX_BYTES) {
-      toast.error("Icon must be 2MB or smaller.");
+    const prepared = prepareUpload("link-icons", file, "Icon");
+    if (!prepared.ok) {
+      toast.error(prepared.error);
       return;
     }
 
     setUploading(true);
     try {
       const supabase = createClient();
-      const ext = file.name.split(".").pop() || "png";
-      const path = `${userId}/icon-${Date.now()}.${ext}`;
+      const path = `${userId}/icon-${Date.now()}.${prepared.ext}`;
       const { error } = await supabase.storage
         .from("link-icons")
-        .upload(path, file, { upsert: true });
+        .upload(path, file, { upsert: true, contentType: prepared.contentType });
 
       if (error) {
         toast.error(error.message);
@@ -255,7 +255,7 @@ export function LinkForm({
               ref={fileInputRef}
               id={fileInputId}
               type="file"
-              accept="image/png,image/svg+xml,image/jpeg"
+              accept={acceptFor("link-icons")}
               className="hidden"
               onChange={handleUploadIcon}
               disabled={uploading}
