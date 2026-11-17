@@ -65,8 +65,8 @@ export default async function AccountsPage(
   const tokens = await getOwnAccountTokens().catch(() => new Map<string, AccountToken>());
   const profileStats = await Promise.all(
     rows.map((account) => {
-      const token = tokens.get(account.id)?.accessToken;
-      return token ? fetchInstagramProfileStats(token) : null;
+      const token = tokens.get(account.id);
+      return token ? fetchInstagramProfileStats(token.instagramUserId, token.accessToken) : null;
     })
   );
 

@@ -7,12 +7,16 @@ export interface InstagramAccount {
   username: string | null;
   access_token: string;
   is_active: boolean;
-  /** Null until the first refresh for accounts connected before expiry tracking. */
+  /** Always null for Unified Login system-user tokens, which never expire. */
   token_expires_at: string | null;
   token_refreshed_at: string;
   /** "expired" once Meta rejects the token; only reconnecting clears it. */
   token_status: "active" | "expired";
   token_error: string | null;
+  /** Business portfolio picked at Unified Login; the token belongs to it. */
+  client_business_id: string | null;
+  /** Unified Login configuration the token was issued under. */
+  meta_config_id: string | null;
   created_at: string;
   updated_at: string;
 }

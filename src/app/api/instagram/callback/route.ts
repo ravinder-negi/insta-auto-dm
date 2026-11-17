@@ -4,19 +4,42 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   INSTAGRAM_API_VERSION as API_VERSION,
   INSTAGRAM_GRAPH_BASE_URL,
-  INSTAGRAM_OAUTH_BASE_URL,
 } from "@/lib/instagram/config";
 import { ONBOARDING_PATH, pendingOnboardingStep } from "@/lib/auth/onboarding";
 import { grantedScopes, missingScopeLabels } from "@/lib/instagram/scopes";
 
 const STATE_COOKIE = "ig_oauth_state";
 const ACCOUNTS_PATH = "/dashboard/accounts";
-/** Used when Meta's long-lived token response omits expires_in. */
-const DEFAULT_TOKEN_LIFETIME_SECONDS = 60 * 24 * 60 * 60;
+/** Webhook fields each connected account is subscribed to. */
+const SUBSCRIBED_FIELDS = "comments,live_comments,messages";
 
+interface MetaError {
+  message?: string;
+  type?: string;
+  code?: number;
+  error_subcode?: number;
+  fbtrace_id?: string;
+}
+
+interface AssignedInstagramAccount {
+  id: string;
+  username?: string;
+}
+
+/**
+ * Instagram API with Unified Login callback.
+ *
+ * The code exchanges for a Business Integration System User token that
+ * belongs to the client's business portfolio and never expires (set on the
+ * App Dashboard configuration). /me with this token is the system user, so
+ * the Instagram accounts the client shared come from
+ * /me/assigned_instagram_accounts, and every later call names the account
+ * id explicitly.
+ */
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
-  const errorParam = url.searchParams.get("error_description");
+  const errorParam =
+    url.searchParams.get("error_description") ?? url.searchParams.get("error_reason");
 
   if (errorParam) {
     return redirectWithError(request, errorParam);
@@ -45,11 +68,12 @@ export async function GET(request: NextRequest) {
     ? ONBOARDING_PATH
     : ACCOUNTS_PATH;
 
-  const appId = process.env.INSTAGRAM_APP_ID;
+  const appId = process.env.META_APP_ID;
   const appSecret = process.env.META_APP_SECRET;
+  const configId = process.env.META_CONFIG_ID;
   const redirectUri = process.env.INSTAGRAM_REDIRECT_URI;
 
-  if (!appId || !appSecret || !redirectUri) {
+  if (!appId || !appSecret || !configId || !redirectUri) {
     return redirectWithError(
       request,
       "Instagram connect is not configured on the server.",
@@ -57,36 +81,40 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const graph = (path: string) =>
+    new URL(`${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${path}`);
+
   try {
-    // 1. Exchange the authorization code for a short-lived token.
-    const shortLivedForm = new URLSearchParams({
-      client_id: appId,
-      client_secret: appSecret,
-      grant_type: "authorization_code",
-      redirect_uri: redirectUri,
-      code,
-    });
+    // 1. Exchange the code for the system-user token (server-side only).
+    const tokenUrl = graph("oauth/access_token");
+    tokenUrl.searchParams.set("client_id", appId);
+    tokenUrl.searchParams.set("client_secret", appSecret);
+    tokenUrl.searchParams.set("redirect_uri", redirectUri);
+    tokenUrl.searchParams.set("code", code);
 
-    const shortLivedResponse = await fetch(
-      `${INSTAGRAM_OAUTH_BASE_URL}/oauth/access_token`,
-      { method: "POST", body: shortLivedForm },
-    );
-
-    if (!shortLivedResponse.ok) {
-      throw new Error(
-        `Short-lived token exchange failed: ${await shortLivedResponse.text()}`,
-      );
+    const tokenResponse = await fetch(tokenUrl, { cache: "no-store" });
+    if (!tokenResponse.ok) {
+      throw new Error(`Token exchange failed: ${await tokenResponse.text()}`);
+    }
+    const { access_token: accessToken } = (await tokenResponse.json()) as {
+      access_token?: string;
+    };
+    if (!accessToken) {
+      throw new Error("Token exchange returned no access token.");
     }
 
-    const shortLived = (await shortLivedResponse.json()) as {
-      access_token: string;
-      user_id?: string;
-    };
+    // 2. Each permission is a checkbox the client can untick on the consent
+    // screen. Without all three the token is valid but sends or comment
+    // events fail later with no visible cause, so refuse up front. A
+    // debug_token failure skips the check rather than blocking the connect.
+    const debugUrl = graph("debug_token");
+    debugUrl.searchParams.set("input_token", accessToken);
+    debugUrl.searchParams.set("access_token", `${appId}|${appSecret}`);
+    const debugBody = await fetch(debugUrl, { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .catch(() => null);
 
-    // Each permission is a checkbox the user can untick on Instagram's
-    // consent screen. Without all three the token is valid but sends or
-    // comment events fail later with no visible cause, so refuse up front.
-    const missing = missingScopeLabels(grantedScopes(shortLived));
+    const missing = missingScopeLabels(grantedScopes(debugBody));
     if (missing.length > 0) {
       throw new Error(
         `Auto DM needs permission to ${missing.join(", ")}. ` +
@@ -94,144 +122,109 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 2. Exchange the short-lived token for a long-lived one (~60 days).
-    const longLivedUrl = new URL(
-      `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/access_token`,
-    );
-    longLivedUrl.searchParams.set("grant_type", "ig_exchange_token");
-    longLivedUrl.searchParams.set("client_secret", appSecret);
-    longLivedUrl.searchParams.set("access_token", shortLived.access_token);
+    // 3. The business portfolio the client picked. The token belongs to it.
+    const businessUrl = graph("me");
+    businessUrl.searchParams.set("fields", "client_business_id");
+    businessUrl.searchParams.set("access_token", accessToken);
 
-    const longLivedResponse = await fetch(longLivedUrl);
-
-    if (!longLivedResponse.ok) {
+    const businessResponse = await fetch(businessUrl, { cache: "no-store" });
+    if (!businessResponse.ok) {
       throw new Error(
-        `Long-lived token exchange failed: ${await longLivedResponse.text()}`,
+        `Fetching business portfolio failed: ${await businessResponse.text()}`,
+      );
+    }
+    const { client_business_id: clientBusinessId } =
+      (await businessResponse.json()) as { client_business_id?: string };
+
+    // 4. The Instagram professional account(s) the client shared.
+    const accountsUrl = graph("me/assigned_instagram_accounts");
+    accountsUrl.searchParams.set("fields", "id,username");
+    accountsUrl.searchParams.set("access_token", accessToken);
+
+    const accountsResponse = await fetch(accountsUrl, { cache: "no-store" });
+    if (!accountsResponse.ok) {
+      throw new Error(
+        `Fetching Instagram accounts failed: ${await accountsResponse.text()}`,
+      );
+    }
+    const accounts = (
+      ((await accountsResponse.json()) as { data?: AssignedInstagramAccount[] })
+        .data ?? []
+    ).filter((account) => typeof account?.id === "string" && account.id);
+
+    if (accounts.length === 0) {
+      throw new Error(
+        "No Instagram account was shared. Connect again and select your " +
+          "Instagram professional (Business or Creator) account.",
       );
     }
 
-    const longLived = (await longLivedResponse.json()) as {
-      access_token: string;
-      expires_in?: number;
-    };
-    const issuedAt = new Date();
-    const expiresInSeconds =
-      typeof longLived.expires_in === "number" && longLived.expires_in > 0
-        ? longLived.expires_in
-        : DEFAULT_TOKEN_LIFETIME_SECONDS;
-
-    // 3. Fetch the connected Instagram account's identity.
-    const meUrl = new URL(`${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/me`);
-    meUrl.searchParams.set("fields", "user_id,username");
-    meUrl.searchParams.set("access_token", longLived.access_token);
-
-    const meResponse = await fetch(meUrl);
-
-    if (!meResponse.ok) {
-      throw new Error(
-        `Fetching Instagram profile failed: ${await meResponse.text()}`,
-      );
-    }
-
-    const me = (await meResponse.json()) as {
-      user_id: string;
-      username?: string;
-    };
-
-    // 4. Store the account, owned by the signed-in user. A reconnect lands
+    // 5. Store each account, owned by the signed-in user. A reconnect lands
     // on the same row (same instagram_user_id), so its rules, flows and
     // sessions carry over, and the token is fresh and active again.
     // Users can't write instagram_accounts themselves (only the OAuth flow
     // proves who owns an Instagram id), so this goes through the service
     // role, with the ownership check RLS used to do made explicit here.
     const admin = createAdminClient();
-    const { data: existing, error: existingError } = await admin
+    const { data: existingRows, error: existingError } = await admin
       .from("instagram_accounts")
-      .select("profile_id")
-      .eq("instagram_user_id", me.user_id)
-      .maybeSingle();
+      .select("instagram_user_id, profile_id")
+      .in(
+        "instagram_user_id",
+        accounts.map((account) => account.id),
+      );
 
     if (existingError) {
       throw new Error(existingError.message);
     }
-    if (existing?.profile_id && existing.profile_id !== user.id) {
+    const takenElsewhere = accounts.filter((account) =>
+      (existingRows ?? []).some(
+        (row) =>
+          row.instagram_user_id === account.id &&
+          row.profile_id &&
+          row.profile_id !== user.id,
+      ),
+    );
+    if (takenElsewhere.length > 0) {
+      const names = takenElsewhere
+        .map((account) => `@${account.username ?? account.id}`)
+        .join(", ");
       throw new Error(
-        `@${me.username ?? me.user_id} is already connected to another Auto DM login. ` +
+        `${names} is already connected to another Auto DM login. ` +
           "Disconnect it there first.",
       );
     }
 
-    const { error: upsertError } = await admin
-      .from("instagram_accounts")
-      .upsert(
-        {
-          profile_id: user.id,
-          instagram_user_id: me.user_id,
-          username: me.username ?? null,
-          access_token: longLived.access_token,
-          token_expires_at: new Date(
-            issuedAt.getTime() + expiresInSeconds * 1000,
-          ).toISOString(),
-          token_refreshed_at: issuedAt.toISOString(),
-          token_status: "active",
-          token_error: null,
-          is_active: true,
-          updated_at: issuedAt.toISOString(),
-        },
-        { onConflict: "instagram_user_id" },
-      );
+    const now = new Date().toISOString();
+    const { error: upsertError } = await admin.from("instagram_accounts").upsert(
+      accounts.map((account) => ({
+        profile_id: user.id,
+        instagram_user_id: account.id,
+        username: account.username ?? null,
+        access_token: accessToken,
+        client_business_id: clientBusinessId ?? null,
+        meta_config_id: configId,
+        // System-user tokens from this configuration never expire.
+        token_expires_at: null,
+        token_refreshed_at: now,
+        token_status: "active",
+        token_error: null,
+        is_active: true,
+        updated_at: now,
+      })),
+      { onConflict: "instagram_user_id" },
+    );
 
     if (upsertError) {
       throw new Error(upsertError.message);
     }
 
-    // 5. Subscribe this Instagram account to the app's webhook so Meta
-    // actually delivers comment events for it (dashboard-level webhook
-    // config alone only enables the *app*; each connected IG user must
-    // separately opt in via this call, or Meta never sends events for
-    // that account). Calling this again on reconnect just re-asserts the
-    // same subscription (it's a set, not an append), so it's naturally
-    // idempotent — no dedup bookkeeping needed on our side.
-    const subscribeUrl = new URL(
-      `${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${me.user_id}/subscribed_apps`,
-    );
-    subscribeUrl.searchParams.set("subscribed_fields", "comments,messages");
-    subscribeUrl.searchParams.set("access_token", longLived.access_token);
-
-    const subscribeResponse = await fetch(subscribeUrl, { method: "POST" });
-    const subscribeBody = await subscribeResponse.json().catch(() => null);
-
-    if (!subscribeResponse.ok || subscribeBody?.success !== true) {
-      const metaError = subscribeBody?.error as
-        | {
-            message?: string;
-            type?: string;
-            code?: number;
-            error_subcode?: number;
-            fbtrace_id?: string;
-          }
-        | undefined;
-
-      // Safe to log: HTTP status + Meta's error fields + the IG account id.
-      // Never log longLived.access_token or any other secret.
-      console.error("Instagram webhook subscription failed", {
-        instagramUserId: me.user_id,
-        httpStatus: subscribeResponse.status,
-        metaErrorCode: metaError?.code,
-        metaErrorSubcode: metaError?.error_subcode,
-        metaErrorType: metaError?.type,
-        metaErrorMessage: metaError?.message,
-        fbtraceId: metaError?.fbtrace_id,
-      });
-
-      // The account row is already stored at this point — don't pretend
-      // the connection is fully working when comments won't actually
-      // arrive. Surface a distinct, specific error instead.
-      throw new Error(
-        `Instagram account connected, but webhook subscription failed` +
-          (metaError?.message ? `: ${metaError.message}` : "") +
-          (metaError?.code ? ` (code ${metaError.code})` : ""),
-      );
+    // 6. Subscribe each account to the app's webhook so Meta actually
+    // delivers its events (the App Dashboard webhook config only enables
+    // the app; each account must opt in too). It's a set, not an append,
+    // so re-subscribing on reconnect is naturally idempotent.
+    for (const account of accounts) {
+      await subscribeToWebhooks(graph, account, accessToken);
     }
   } catch (err) {
     console.error("Instagram connect failed:", err);
@@ -249,6 +242,43 @@ export async function GET(request: NextRequest) {
   );
   response.cookies.delete(STATE_COOKIE);
   return response;
+}
+
+async function subscribeToWebhooks(
+  graph: (path: string) => URL,
+  account: AssignedInstagramAccount,
+  accessToken: string,
+) {
+  const subscribeUrl = graph(`${account.id}/subscribed_apps`);
+  subscribeUrl.searchParams.set("subscribed_fields", SUBSCRIBED_FIELDS);
+  subscribeUrl.searchParams.set("access_token", accessToken);
+
+  const subscribeResponse = await fetch(subscribeUrl, { method: "POST" });
+  const subscribeBody = await subscribeResponse.json().catch(() => null);
+
+  if (subscribeResponse.ok && subscribeBody?.success === true) return;
+
+  const metaError = subscribeBody?.error as MetaError | undefined;
+
+  // Safe to log: HTTP status + Meta's error fields + the IG account id.
+  // Never log the access token or any other secret.
+  console.error("Instagram webhook subscription failed", {
+    instagramUserId: account.id,
+    httpStatus: subscribeResponse.status,
+    metaErrorCode: metaError?.code,
+    metaErrorSubcode: metaError?.error_subcode,
+    metaErrorType: metaError?.type,
+    metaErrorMessage: metaError?.message,
+    fbtraceId: metaError?.fbtrace_id,
+  });
+
+  // The account row is already stored at this point — don't pretend
+  // the connection is fully working when events won't actually arrive.
+  throw new Error(
+    `@${account.username ?? account.id} connected, but webhook subscription failed` +
+      (metaError?.message ? `: ${metaError.message}` : "") +
+      (metaError?.code ? ` (code ${metaError.code})` : ""),
+  );
 }
 
 function redirectWithError(

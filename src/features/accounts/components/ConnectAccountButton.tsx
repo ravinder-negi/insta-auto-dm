@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { CheckIcon, InstagramIcon } from "@/components/icons";
 
 /** Explains the three permissions Auto DM asks for, then hands off to the
- *  real Instagram Login OAuth redirect at `/api/instagram/connect`. */
+ *  real Instagram API with Unified Login redirect at `/api/instagram/connect`. */
 export function ConnectAccountButton({
   className,
   style,

@@ -15,12 +15,14 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
 const VERIFY_TOKEN = Deno.env.get("INSTAGRAM_VERIFY_TOKEN")!;
 const META_APP_SECRET = Deno.env.get("META_APP_SECRET")!;
 
+// Instagram API with Unified Login: graph.facebook.com, system-user token,
+// explicit Instagram account id in every path.
 const INSTAGRAM_API_VERSION =
-  Deno.env.get("INSTAGRAM_API_VERSION") || "v26.0";
+  Deno.env.get("INSTAGRAM_API_VERSION") || "v27.0";
 const INSTAGRAM_GRAPH_BASE_URL =
-  Deno.env.get("INSTAGRAM_GRAPH_BASE_URL") || "https://graph.instagram.com";
-const INSTAGRAM_AUTHORIZE_BASE_URL =
-  Deno.env.get("INSTAGRAM_AUTHORIZE_BASE_URL") || "https://www.instagram.com";
+  Deno.env.get("INSTAGRAM_GRAPH_BASE_URL") || "https://graph.facebook.com";
+/** Public instagram.com, for profile links sent inside DMs. */
+const INSTAGRAM_WEB_BASE_URL = "https://www.instagram.com";
 
 interface InstagramWebhookPayload {
   object?: string;
@@ -846,7 +848,7 @@ async function handleCommentChange(
         return;
       }
 
-      const profileLink = `${INSTAGRAM_AUTHORIZE_BASE_URL}/_u/${
+      const profileLink = `${INSTAGRAM_WEB_BASE_URL}/_u/${
         instagramAccount.username ?? instagramAccount.instagram_user_id
       }/`;
       outgoingMessage = (matchedRule.follow_prompt_message ?? "").replaceAll(
@@ -1781,7 +1783,7 @@ async function runInboundDmRule({
         return;
       }
 
-      const profileLink = `${INSTAGRAM_AUTHORIZE_BASE_URL}/_u/${
+      const profileLink = `${INSTAGRAM_WEB_BASE_URL}/_u/${
         instagramAccount.username ?? instagramAccount.instagram_user_id
       }/`;
       outgoingMessage = (matchedRule.follow_prompt_message ?? "").replaceAll(
@@ -2360,7 +2362,7 @@ function timingSafeEqual(a: string, b: string): boolean {
  * CHECK WHETHER A COMMENTER FOLLOWS THE BUSINESS ACCOUNT
  * Uses the Instagram Messaging "user profile" field
  * is_user_follow_business, available under the same
- * instagram_business_manage_messages permission already
+ * instagram_manage_messages permission already
  * used to send messages. Fails closed (treated as "not
  * following") on any error, since that's the safer default
  * for a follow-gate.

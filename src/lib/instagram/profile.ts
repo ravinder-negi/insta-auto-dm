@@ -10,12 +10,13 @@ export interface InstagramProfileStats {
   mediaCount: number | null;
 }
 
-/** Fetches live profile stats for a connected account. Returns null on any failure — callers should degrade gracefully rather than block the page on Meta being slow or rate-limiting. */
+/** Fetches live profile stats for a connected account (by its Instagram id: with a Unified Login token, /me is the system user, not the account). Returns null on any failure — callers should degrade gracefully rather than block the page on Meta being slow or rate-limiting. */
 export async function fetchInstagramProfileStats(
+  instagramUserId: string,
   accessToken: string
 ): Promise<InstagramProfileStats | null> {
   try {
-    const url = new URL(`${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/me`);
+    const url = new URL(`${INSTAGRAM_GRAPH_BASE_URL}/${API_VERSION}/${instagramUserId}`);
     url.searchParams.set(
       "fields",
       "profile_picture_url,followers_count,follows_count,media_count"
