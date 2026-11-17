@@ -13,6 +13,14 @@ const ACCOUNTS_PATH = "/dashboard/accounts";
 /** Webhook fields each connected account is subscribed to. */
 const SUBSCRIBED_FIELDS = "comments,live_comments,messages";
 
+/** Shown when the failure isn't something the user can act on. Details go to
+ *  the server log only, never into the URL. */
+const GENERIC_ERROR =
+  "Couldn't finish connecting to Instagram. Please try again in a moment.";
+
+/** A failure whose message is safe and useful to show the user as-is. */
+class ConnectError extends Error {}
+
 interface MetaError {
   message?: string;
   type?: string;
@@ -38,11 +46,22 @@ interface AssignedInstagramAccount {
  */
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
-  const errorParam =
-    url.searchParams.get("error_description") ?? url.searchParams.get("error_reason");
+  const metaError = url.searchParams.get("error");
 
-  if (errorParam) {
-    return redirectWithError(request, errorParam);
+  if (metaError) {
+    const reason = url.searchParams.get("error_reason");
+    if (metaError === "access_denied" || reason === "user_denied") {
+      return redirectWithError(
+        request,
+        "Instagram connection was canceled. Connect again whenever you're ready.",
+      );
+    }
+    console.error("Meta login returned an error", {
+      error: metaError,
+      reason,
+      description: url.searchParams.get("error_description"),
+    });
+    return redirectWithError(request, GENERIC_ERROR);
   }
 
   const code = url.searchParams.get("code");
@@ -116,7 +135,7 @@ export async function GET(request: NextRequest) {
 
     const missing = missingScopeLabels(grantedScopes(debugBody));
     if (missing.length > 0) {
-      throw new Error(
+      throw new ConnectError(
         `Auto DM needs permission to ${missing.join(", ")}. ` +
           "Please connect again and keep every permission switched on.",
       );
@@ -153,7 +172,7 @@ export async function GET(request: NextRequest) {
     ).filter((account) => typeof account?.id === "string" && account.id);
 
     if (accounts.length === 0) {
-      throw new Error(
+      throw new ConnectError(
         "No Instagram account was shared. Connect again and select your " +
           "Instagram professional (Business or Creator) account.",
       );
@@ -189,7 +208,7 @@ export async function GET(request: NextRequest) {
       const names = takenElsewhere
         .map((account) => `@${account.username ?? account.id}`)
         .join(", ");
-      throw new Error(
+      throw new ConnectError(
         `${names} is already connected to another Auto DM login. ` +
           "Disconnect it there first.",
       );
@@ -230,9 +249,7 @@ export async function GET(request: NextRequest) {
     console.error("Instagram connect failed:", err);
     return redirectWithError(
       request,
-      err instanceof Error
-        ? err.message
-        : "Could not connect that Instagram account. Please try again.",
+      err instanceof ConnectError ? err.message : GENERIC_ERROR,
       returnPath,
     );
   }
@@ -274,10 +291,10 @@ async function subscribeToWebhooks(
 
   // The account row is already stored at this point — don't pretend
   // the connection is fully working when events won't actually arrive.
-  throw new Error(
-    `@${account.username ?? account.id} connected, but webhook subscription failed` +
-      (metaError?.message ? `: ${metaError.message}` : "") +
-      (metaError?.code ? ` (code ${metaError.code})` : ""),
+  // Meta's details are in the log above.
+  throw new ConnectError(
+    `@${account.username ?? account.id} connected, but Instagram didn't turn on ` +
+      "comment and DM events for it, so automations won't run yet. Please reconnect.",
   );
 }
 

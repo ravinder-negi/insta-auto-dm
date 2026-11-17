@@ -19,8 +19,19 @@ const META_APP_SECRET = Deno.env.get("META_APP_SECRET")!;
 // explicit Instagram account id in every path.
 const INSTAGRAM_API_VERSION =
   Deno.env.get("INSTAGRAM_API_VERSION") || "v27.0";
-const INSTAGRAM_GRAPH_BASE_URL =
-  Deno.env.get("INSTAGRAM_GRAPH_BASE_URL") || "https://graph.facebook.com";
+// A leftover graph.instagram.com override (old Instagram Login setup) would
+// fail every send with IGApiException 190, so it's ignored.
+const INSTAGRAM_GRAPH_BASE_URL = (() => {
+  const override = Deno.env.get("INSTAGRAM_GRAPH_BASE_URL");
+  if (!override) return "https://graph.facebook.com";
+  if (override.includes("graph.instagram.com")) {
+    console.warn(
+      "Ignoring INSTAGRAM_GRAPH_BASE_URL=graph.instagram.com: Unified Login tokens only work on graph.facebook.com.",
+    );
+    return "https://graph.facebook.com";
+  }
+  return override;
+})();
 /** Public instagram.com, for profile links sent inside DMs. */
 const INSTAGRAM_WEB_BASE_URL = "https://www.instagram.com";
 

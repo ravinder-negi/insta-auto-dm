@@ -48,7 +48,9 @@ export function ConnectAccountButton({
               <div>
                 <h3 className="text-2xl font-bold tracking-tight">Connect your Instagram</h3>
                 <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
-                  You will sign in on Instagram. Auto DM only asks for what it needs:
+                  You&apos;ll continue on Meta: sign in with Instagram or Facebook, then
+                  pick your business portfolio (or create one) and your Instagram
+                  account. Auto DM only asks for what it needs:
                 </p>
               </div>
               <div className="flex flex-col gap-3">
@@ -70,7 +72,7 @@ export function ConnectAccountButton({
               </div>
               <div className="flex flex-wrap gap-2.5">
                 {/* A full page load on purpose: this route redirects off-site to
-                    Instagram's OAuth screen, which client-side <Link> can't follow. */}
+                    Meta's login screen, which client-side <Link> can't follow. */}
                 {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
                 <a
                   href="/api/instagram/connect"
