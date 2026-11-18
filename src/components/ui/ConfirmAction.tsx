@@ -13,7 +13,8 @@ export function ConfirmAction({
   confirmLabel,
   className = "",
 }: {
-  action: () => Promise<void>;
+  /** Dialog closes once this resolves; return `false` to keep it open (e.g. on failure). */
+  action: () => Promise<void | boolean>;
   /** Rendered as the clickable element that opens the dialog. */
   trigger: ReactNode;
   title: string;
@@ -22,6 +23,11 @@ export function ConfirmAction({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+
+  async function runAction() {
+    const result = await action();
+    if (result !== false) setOpen(false);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -70,7 +76,7 @@ export function ConfirmAction({
                 {description}
               </p>
 
-              <form action={action} className="mt-3.5 flex justify-end gap-2.5">
+              <form action={runAction} className="mt-3.5 flex justify-end gap-2.5">
                 <DialogActions
                   onCancel={() => setOpen(false)}
                   confirmLabel={confirmLabel}

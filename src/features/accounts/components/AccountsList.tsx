@@ -136,12 +136,15 @@ export function AccountsList({
     }
   }
 
-  async function handleDisconnect(id: string, handle: string) {
+  async function handleDisconnect(id: string, handle: string): Promise<boolean> {
     try {
       await disconnectAccount(id);
       toast.success(`@${handle} disconnected.`);
+      if (selectedId === id) setSelectedId(null);
+      return true;
     } catch (err) {
       toast.error(errorMessage(err, "Failed to disconnect account."));
+      return false;
     }
   }
 
