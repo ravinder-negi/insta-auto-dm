@@ -113,7 +113,7 @@ export default function PrivacyPolicyPage() {
           connection and any automations set up for it. Historical records of
           comments and DMs already processed through those automations — used
           for your analytics and activity history — are retained with your
-          Auto DM account until you request deletion (Section 7).
+          Auto DM account until you delete your account (Section 7).
         </p>
       </LegalSection>
 
@@ -142,7 +142,8 @@ export default function PrivacyPolicyPage() {
           <li>Access, correct, or export the data we hold about you from your dashboard.</li>
           <li>Disconnect your Instagram account at any time, which immediately stops our access to it.</li>
           <li>
-            Request deletion of your account and associated data — see our{" "}
+            Delete your account and associated data at any time from
+            Settings → Delete account — see our{" "}
             <Link
               href="/data-deletion"
               className="font-medium text-[var(--accent)] underline hover:no-underline"

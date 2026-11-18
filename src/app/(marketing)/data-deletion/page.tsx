@@ -10,11 +10,11 @@ export const metadata: Metadata = {
 
 export default function DataDeletionPage() {
   return (
-    <LegalPage title="Data Deletion Instructions" updated="October 22, 2026">
+    <LegalPage title="Data Deletion Instructions" updated="November 18, 2026">
       <p>
         You can remove your data from Auto DM at any time, either by
-        disconnecting your Instagram account yourself or by requesting full
-        account deletion.
+        disconnecting your Instagram account or by deleting your Auto DM
+        account.
       </p>
 
       <LegalSection heading="1. Disconnect your Instagram account">
@@ -27,11 +27,16 @@ export default function DataDeletionPage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="2. Request full account and data deletion">
+      <LegalSection heading="2. Delete your account and all data">
         <p>
-          To delete your Auto DM account and all associated data (profile,
-          automations, stored conversations, comments, and lead data), send
-          us a message from our{" "}
+          From your Auto DM dashboard, go to <strong>Settings → Delete account</strong>,
+          type <strong>DELETE</strong> to confirm, and select{" "}
+          <strong>Delete account</strong>. This immediately and permanently
+          deletes your profile, connected Instagram accounts, automations,
+          stored conversations, comments, lead data, and uploaded files.
+        </p>
+        <p>
+          If you can&apos;t sign in, send us a message from our{" "}
           <Link
             href="/contact"
             className="font-medium text-[var(--accent)] underline hover:no-underline"
@@ -39,10 +44,8 @@ export default function DataDeletionPage() {
             contact page
           </Link>{" "}
           with the subject &quot;Data Deletion Request&quot; and the email
-          address associated with your account.
-        </p>
-        <p>
-          We verify the request against the account on file and confirm by
+          address associated with your account. We verify the request against
+          the account on file, delete your data within 30 days, and confirm by
           email once deletion is complete.
         </p>
       </LegalSection>
@@ -52,9 +55,8 @@ export default function DataDeletionPage() {
           Disconnecting an Instagram account removes that connection and its
           automations immediately. Historical comment and DM records already
           processed through those automations are retained, tied to your
-          Auto DM account, until you request full account deletion — at
-          which point we permanently delete your profile and all associated
-          data. Some information may be retained for a limited time where
+          Auto DM account, until you delete your account — at which point we
+          permanently delete your profile and all associated data. Some information may be retained for a limited time where
           required to comply with legal obligations, resolve disputes, or
           enforce our agreements, as described in our{" "}
           <Link

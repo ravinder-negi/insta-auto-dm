@@ -2,6 +2,7 @@ import Link from "next/link";
 import { signOut } from "@/features/auth/actions/login";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/layout/SignOutButton";
+import { DeleteAccountButton } from "@/features/settings/components/DeleteAccountButton";
 import { formatDate } from "@/lib/utils/format";
 import { Avatar } from "@/components/ui/Avatar";
 import { ArrowRightIcon, InstagramIcon } from "@/components/icons";
@@ -129,6 +130,14 @@ export default async function SettingsPage() {
           <SettingsCard title="Session" danger>
             <p className="m-0 text-sm text-[var(--muted)]">Sign out of Auto DM on this device.</p>
             <SignOutButton signOutAction={signOut} variant="text" />
+          </SettingsCard>
+
+          <SettingsCard title="Delete account" danger>
+            <p className="m-0 text-sm text-[var(--muted)]">
+              Permanently delete your account, connected Instagram accounts, and all
+              your data. This can&apos;t be undone.
+            </p>
+            <DeleteAccountButton />
           </SettingsCard>
         </div>
       </div>
