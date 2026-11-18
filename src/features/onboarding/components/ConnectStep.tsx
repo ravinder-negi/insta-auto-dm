@@ -13,6 +13,7 @@ import {
   ShieldIcon,
 } from "@/components/icons";
 import { OnboardingCard } from "./OnboardingLayout";
+import { CONNECT_REQUIREMENT, CONNECT_STEPS } from "@/features/accounts/connectSteps";
 import {
   completeOnboarding,
   type OnboardingState,
@@ -20,7 +21,7 @@ import {
 
 const GUARANTEES = [
   "Safe & secure connection via Meta",
-  "Read comments, DMs and insights",
+  "Reads comments and sends DMs for you",
   "No password required",
 ];
 
@@ -142,6 +143,34 @@ export function ConnectStep({
               </Link>
             )}
           </div>
+
+          {!connected && (
+            <div className="mt-5 border-t border-[var(--line)] pt-4">
+              <p className="text-xs font-semibold tracking-[0.12em] text-[var(--muted)] uppercase">
+                What you&apos;ll do on Meta
+              </p>
+              <ol className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                {CONNECT_STEPS.map((step, index) => (
+                  <li
+                    key={step}
+                    className="flex items-center gap-2.5 text-sm text-[var(--ink)]"
+                  >
+                    <span
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                      style={{
+                        background: "color-mix(in srgb, var(--accent) 14%, white)",
+                        color: "var(--accent)",
+                      }}
+                    >
+                      {index + 1}
+                    </span>
+                    {step}
+                  </li>
+                ))}
+              </ol>
+              <p className="mt-3 text-xs text-[var(--muted)]">{CONNECT_REQUIREMENT}</p>
+            </div>
+          )}
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)] pt-4">
             <span className="flex items-center gap-2 text-xs font-medium text-[var(--muted)]">
