@@ -602,11 +602,20 @@ async function handleCommentChange(
   /**
    * ======================================
    * FIND INSTAGRAM ACCOUNT
-   * (resolved first so webhook_events can store a proper FK)
+   * (resolved first so webhook_events can store a proper FK, and so
+   * events for unknown accounts are never stored)
    * ======================================
    */
 
   const instagramAccount = await resolveInstagramAccount(instagramAccountId);
+
+  // Not ours (any more): Meta can keep delivering events for an account
+  // that was disconnected, so drop them before storing anything — commenter
+  // usernames and comment text from a disconnected account must not be kept.
+  if (!instagramAccount) {
+    console.log("Instagram account not found:", instagramAccountId);
+    return;
+  }
 
   /**
    * ======================================
@@ -618,7 +627,7 @@ async function handleCommentChange(
     .from("webhook_events")
     .insert({
       event_type: triggerType === "live_comment" ? "live_comments" : "comments",
-      instagram_account_id: instagramAccount?.id ?? null,
+      instagram_account_id: instagramAccount.id,
       payload: fullPayload,
     });
 
@@ -633,11 +642,6 @@ async function handleCommentChange(
 
   if (parentCommentId) {
     console.log("Skipping nested comment/reply:", commentId);
-    return;
-  }
-
-  if (!instagramAccount) {
-    console.log("Instagram account not found:", instagramAccountId);
     return;
   }
 
