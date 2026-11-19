@@ -17,6 +17,8 @@ export interface InstagramAccount {
   client_business_id: string | null;
   /** Unified Login configuration the token was issued under. */
   meta_config_id: string | null;
+  /** Facebook user who connected it; matches Meta's deauthorize/deletion callbacks. */
+  meta_user_id: string | null;
   created_at: string;
   updated_at: string;
 }

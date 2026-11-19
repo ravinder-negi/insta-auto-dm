@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function DataDeletionPage() {
   return (
-    <LegalPage title="Data Deletion Instructions" updated="November 18, 2026">
+    <LegalPage title="Data Deletion Instructions" updated="November 19, 2026">
       <p>
         You can remove your data from Auto DM at any time, either by
         disconnecting your Instagram account or by deleting your Auto DM
@@ -50,7 +50,22 @@ export default function DataDeletionPage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="3. What gets deleted and when">
+      <LegalSection heading="3. Remove Auto DM from Facebook">
+        <p>
+          You can also remove Auto DM from your Facebook settings, under{" "}
+          <strong>Settings &amp; privacy → Settings → Business integrations</strong>.
+          Removing it stops all automations for the Instagram accounts you
+          connected. If you also choose to delete the data Auto DM received
+          from Facebook, we immediately and permanently delete those
+          Instagram accounts, their access tokens, automations, and stored
+          comment, DM and lead data. Facebook gives you a confirmation code
+          and a link where you can check the status of your request. Your
+          Auto DM sign-in and profile stay until you delete your account as
+          described above.
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="4. What gets deleted and when">
         <p>
           Disconnecting an Instagram account removes that connection and its
           automations immediately. Historical comment and DM records already

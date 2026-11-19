@@ -6,7 +6,11 @@ import {
   INSTAGRAM_GRAPH_BASE_URL,
 } from "@/lib/instagram/config";
 import { ONBOARDING_PATH, pendingOnboardingStep } from "@/lib/auth/onboarding";
-import { grantedScopes, missingScopeLabels } from "@/lib/instagram/scopes";
+import {
+  debugTokenUserId,
+  grantedScopes,
+  missingScopeLabels,
+} from "@/lib/instagram/scopes";
 
 const STATE_COOKIE = "ig_oauth_state";
 const ACCOUNTS_PATH = "/dashboard/accounts";
@@ -133,6 +137,10 @@ export async function GET(request: NextRequest) {
       .then((response) => (response.ok ? response.json() : null))
       .catch(() => null);
 
+    // The person who logged in, as Meta names them in the deauthorize and
+    // data deletion callbacks (signed_request.user_id).
+    const metaUserId = debugTokenUserId(debugBody);
+
     const missing = missingScopeLabels(grantedScopes(debugBody));
     if (missing.length > 0) {
       throw new ConnectError(
@@ -223,6 +231,7 @@ export async function GET(request: NextRequest) {
         access_token: accessToken,
         client_business_id: clientBusinessId ?? null,
         meta_config_id: configId,
+        meta_user_id: metaUserId,
         // System-user tokens from this configuration never expire.
         token_expires_at: null,
         token_refreshed_at: now,
