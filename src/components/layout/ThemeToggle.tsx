@@ -4,7 +4,8 @@ import { useSyncExternalStore } from "react";
 import { MoonIcon, SunIcon } from "@/components/icons";
 
 /** The class on `.dashboard-theme` (DashboardShell's root) is the source of
- *  truth (`dark`/`light` = explicit choice, neither = follow the OS), so
+ *  truth (`dark` = explicit choice, anything else = light; the OS preference is
+ *  ignored), so
  *  watch it rather than mirroring it. This toggle only ever renders inside
  *  that subtree, post-login. */
 function getShell() {
@@ -18,21 +19,12 @@ function subscribe(onChange: () => void) {
     observer.observe(shell, { attributes: true, attributeFilter: ["class"] });
   }
 
-  const media = window.matchMedia("(prefers-color-scheme: dark)");
-  media.addEventListener("change", onChange);
-
-  return () => {
-    observer.disconnect();
-    media.removeEventListener("change", onChange);
-  };
+  return () => observer.disconnect();
 }
 
 function isDarkNow() {
-  const classes = getShell()?.classList;
-  if (!classes) return false;
-  if (classes.contains("dark")) return true;
-  if (classes.contains("light")) return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  // Light unless the user explicitly picked dark — OS preference is ignored.
+  return getShell()?.classList.contains("dark") ?? false;
 }
 
 export function ThemeToggle() {

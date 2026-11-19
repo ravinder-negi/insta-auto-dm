@@ -237,6 +237,11 @@ export async function GET(request: NextRequest) {
         token_refreshed_at: now,
         token_status: "active",
         token_error: null,
+        // Drop any health check queued for the old token, so its answer
+        // can't flag this fresh one expired. The token was just used, so
+        // count that as this hour's check.
+        token_check_request_id: null,
+        token_checked_at: now,
         is_active: true,
         updated_at: now,
       })),

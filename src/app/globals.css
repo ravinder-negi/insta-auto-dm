@@ -3,21 +3,18 @@
 /* The dark/light toggle only exists post-login (dashboard header + settings),
    so it only ever applies inside `.dashboard-theme` (the DashboardShell root)
    — landing and auth pages never get a `.dark`/`.light` class and always stay
-   on the :root defaults below, regardless of OS preference. `dark` and
-   `light` are explicit choices made with the toggle; no class on
-   `.dashboard-theme` follows the OS preference. */
+   on the :root defaults below. The OS `prefers-color-scheme` is ignored
+   everywhere: light is the default, and dark only applies after the user
+   explicitly picks it with the toggle (`.dashboard-theme.dark`). */
 @custom-variant dark {
   &:where(.dashboard-theme.dark, .dashboard-theme.dark *) {
     @slot;
   }
-  @media (prefers-color-scheme: dark) {
-    &:where(.dashboard-theme:not(.light), .dashboard-theme:not(.light) *) {
-      @slot;
-    }
-  }
 }
 
 :root {
+  /* Pin native UI (form controls, scrollbars) to light regardless of OS. */
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #171717;
 
@@ -119,15 +116,8 @@
   --dash-border: #e7e3dc;
 }
 
-@media (prefers-color-scheme: dark) {
-  .dashboard-theme:not(.light) {
-    --background: #09090b;
-    --foreground: #ededed;
-    --dash-border: #27272a;
-  }
-}
-
 .dashboard-theme.dark {
+  color-scheme: dark;
   --background: #09090b;
   --foreground: #ededed;
   --dash-border: #27272a;
@@ -258,19 +248,6 @@ input[type="reset"]:disabled {
   --viz-surface: #ffffff;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) .viz {
-    --viz-series-1: #8a79f9;
-    --viz-series-2: #d95926;
-    --viz-series-3: #199e70;
-    --viz-critical: #e66767;
-    --viz-grid: #27272a;
-    --viz-axis: #3f3f46;
-    --viz-muted: #898781;
-    --viz-surface: #131315;
-  }
-}
-
 .dark .viz {
   --viz-series-1: #8a79f9;
   --viz-series-2: #d95926;
@@ -342,18 +319,6 @@ input[type="reset"]:disabled {
 :where(.dark, .dark *) .thin-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: rgb(82 82 91); /* zinc-600 */
 }
-@media (prefers-color-scheme: dark) {
-  :where(:root:not(.light), :root:not(.light) *) .thin-scrollbar {
-    scrollbar-color: rgb(63 63 70) transparent;
-  }
-  :where(:root:not(.light), :root:not(.light) *) .thin-scrollbar::-webkit-scrollbar-thumb {
-    background-color: rgb(63 63 70);
-  }
-  :where(:root:not(.light), :root:not(.light) *) .thin-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: rgb(82 82 91);
-  }
-}
-
 @keyframes gradient-shift {
   0%,
   100% {

@@ -19,6 +19,10 @@ export interface InstagramAccount {
   meta_config_id: string | null;
   /** Facebook user who connected it; matches Meta's deauthorize/deletion callbacks. */
   meta_user_id: string | null;
+  /** pg_net request id of the pending hourly token health check. */
+  token_check_request_id: number | null;
+  /** When the last token health check was queued. */
+  token_checked_at: string | null;
   created_at: string;
   updated_at: string;
 }

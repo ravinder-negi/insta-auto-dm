@@ -18,21 +18,12 @@ function subscribe(onChange: () => void) {
     observer.observe(shell, { attributes: true, attributeFilter: ["class"] });
   }
 
-  const media = window.matchMedia("(prefers-color-scheme: dark)");
-  media.addEventListener("change", onChange);
-
-  return () => {
-    observer.disconnect();
-    media.removeEventListener("change", onChange);
-  };
+  return () => observer.disconnect();
 }
 
 function isDarkNow() {
-  const classes = getShell()?.classList;
-  if (!classes) return false;
-  if (classes.contains("dark")) return true;
-  if (classes.contains("light")) return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  // Light unless the user explicitly picked dark — OS preference is ignored.
+  return getShell()?.classList.contains("dark") ?? false;
 }
 
 function setTheme(theme: "light" | "dark") {
