@@ -10,7 +10,7 @@ export const CONNECT_STEPS = [
   "Skip the ad account (optional) and approve",
 ] as const;
 
-/** What the configuration's three permissions let Auto DM do. */
+/** What the configuration's three permissions let DMLink do. */
 export const CONNECT_PERMISSIONS = [
   "Read comments on your posts and lives",
   "Send DMs and replies for you",

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import "@/app/(marketing)/_components/home/animations.css";
-import { displayFont, homeCssVars, homeWrapperClass } from "@/app/(marketing)/_components/home/fonts";
-import { ArrowLeftIcon, BoltIcon, CheckIcon } from "@/components/icons";
+import { homeCssVars, homeWrapperClass } from "@/app/(marketing)/_components/home/fonts";
+import { ArrowLeftIcon, CheckIcon } from "@/components/icons";
+import { Logo } from "@/components/ui/Logo";
 import { SignOutButton } from "@/components/layout/SignOutButton";
 import { signOut } from "@/features/auth/actions/login";
 import { ONBOARDING_STEPS } from "@/lib/auth/onboarding";
@@ -176,17 +177,8 @@ export function OnboardingLayout({
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
-    <span className="flex min-w-0 items-center gap-2">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] text-white">
-        <BoltIcon className="h-4 w-4" />
-      </span>
-      <span
-        className={`${displayFont} truncate text-sm font-semibold tracking-tight text-[var(--ink)] ${
-          compact ? "hidden sm:inline" : ""
-        }`}
-      >
-        Auto DM
-      </span>
+    <span className="flex min-w-0 items-center">
+      <Logo className={compact ? "h-7" : "h-8"} />
     </span>
   );
 }

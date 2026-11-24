@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { LegalPage, LegalSection } from "../../_components/LegalPage";
 
 export const metadata: Metadata = {
-  title: "Data Deletion Status — Auto DM",
+  title: "Data Deletion Status — DMLink",
   description: "Check the status of a data deletion request sent from Facebook.",
   robots: { index: false, follow: false },
 };
@@ -44,12 +44,12 @@ export default async function DataDeletionStatusPage(
             </p>
           ) : (
             <p>
-              We found no Instagram accounts connected to Auto DM through your
+              We found no Instagram accounts connected to DMLink through your
               Facebook login, so there was no data from Facebook to delete.
             </p>
           )}
           <p>
-            Your Auto DM sign-in and profile are separate from Facebook. To
+            Your DMLink sign-in and profile are separate from Facebook. To
             delete those too, follow the{" "}
             <DeletionLink />.
           </p>

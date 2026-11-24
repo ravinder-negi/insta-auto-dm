@@ -89,7 +89,7 @@ export function ConnectAccountButton({
                   className="text-[11px] font-semibold tracking-[0.12em] uppercase"
                   style={{ color: "var(--muted)" }}
                 >
-                  Auto DM will be able to
+                  DMLink will be able to
                 </h4>
                 <ul className="mt-3 flex flex-col gap-2.5">
                   {CONNECT_PERMISSIONS.map((perm) => (

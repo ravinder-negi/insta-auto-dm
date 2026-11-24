@@ -86,7 +86,7 @@ export function ConnectStep({
               <span style={{ color: "var(--accent)" }}>Instagram account</span>
             </h1>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Connect your Instagram Professional account to enable Auto DM and
+              Connect your Instagram Professional account to enable AutoDMs and
               every other automation.
             </p>
           </>

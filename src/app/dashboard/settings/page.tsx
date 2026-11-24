@@ -128,7 +128,7 @@ export default async function SettingsPage() {
           </SettingsCard>
 
           <SettingsCard title="Session" danger>
-            <p className="m-0 text-sm text-[var(--muted)]">Sign out of Auto DM on this device.</p>
+            <p className="m-0 text-sm text-[var(--muted)]">Sign out of DMLink on this device.</p>
             <SignOutButton signOutAction={signOut} variant="text" />
           </SettingsCard>
 

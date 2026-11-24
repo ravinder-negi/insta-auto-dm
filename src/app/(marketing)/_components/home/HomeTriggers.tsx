@@ -97,7 +97,7 @@ export function HomeTriggers() {
           </h2>
           <p className="m-0 max-w-[420px] text-[var(--muted)]">
             Pick the moment your audience engages. Tap a trigger to see what
-            AutoDM does.
+            DMLink does.
           </p>
         </Reveal>
 

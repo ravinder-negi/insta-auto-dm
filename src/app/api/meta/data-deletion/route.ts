@@ -7,11 +7,11 @@ const STATUS_PATH = "/data-deletion/status";
 
 /**
  * Meta Data Deletion Request callback: Meta POSTs here when a person asks
- * Facebook to delete the data Auto DM got about them.
+ * Facebook to delete the data DMLink got about them.
  *
  * Deletes the Instagram accounts they connected and everything sourced from
  * those accounts (tokens, rules, flows, leads, comment and DM history). The
- * Auto DM login and profile stay; those come from our own sign-up, not Meta.
+ * DMLink login and profile stay; those come from our own sign-up, not Meta.
  *
  * Meta requires `{ url, confirmation_code }` back, where `url` lets the
  * person check the request's status.

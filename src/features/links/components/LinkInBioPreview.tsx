@@ -165,7 +165,7 @@ export function LinkInBioPreview({
         )}
 
         <p className={`relative mt-7 text-[11px] opacity-70 ${mutedClass}`}>
-          Made with ⚡ Auto DM
+          Made with ⚡ DMLink
         </p>
       </div>
     </div>

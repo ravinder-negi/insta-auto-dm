@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BoltIcon } from "@/components/icons";
-import { displayFont } from "./fonts";
+import { Logo } from "@/components/ui/Logo";
 
 const NAV_LINKS = [
   { href: "/#features", label: "Features" },
@@ -17,16 +16,10 @@ export function HomeHeader() {
 
   return (
     <div className="sticky top-0 z-30 w-full border-b border-[var(--line)] bg-[var(--bg)]/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1920px] flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-8">
-        <a
-          href="/#top"
-          className={`${displayFont} flex items-center gap-2.5 text-2xl font-extrabold tracking-[-0.02em]`}
-        >
-          <span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[var(--accent)] text-white">
-            <BoltIcon className="h-5 w-5" />
-          </span>
-          <span>Auto DM</span>
-        </a>
+      <div className="mx-auto flex max-w-[1920px] flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-8 sm:py-4">
+        <Link href="/#top" className="flex items-center">
+          <Logo className="h-12 sm:h-14" preload />
+        </Link>
 
         <nav className="hidden items-center gap-7 text-base font-medium text-[var(--muted)] lg:flex">
           {NAV_LINKS.map((link) => (

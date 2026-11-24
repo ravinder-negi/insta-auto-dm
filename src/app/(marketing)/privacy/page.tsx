@@ -3,16 +3,16 @@ import Link from "next/link";
 import { LegalPage, LegalSection } from "../_components/LegalPage";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Auto DM",
+  title: "Privacy Policy — DMLink",
   description:
-    "How Auto DM collects, uses, and protects your data when you connect your Instagram account.",
+    "How DMLink collects, uses, and protects your data when you connect your Instagram account.",
 };
 
 export default function PrivacyPolicyPage() {
   return (
     <LegalPage title="Privacy Policy" updated="October 5, 2026">
       <p>
-        Auto DM (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) provides tools that help
+        DMLink (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) provides tools that help
         Instagram creators and businesses automate replies, direct messages, and
         lead capture. This policy explains what information we collect, how we
         use it, and the choices you have — including the data we access through
@@ -42,12 +42,12 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             Direct message conversations your account sends or receives
-            through Auto DM, including message content, attachments, and
+            through DMLink, including message content, attachments, and
             timestamps, so conversations can be delivered, logged, and shown
             back to you in your dashboard.
           </li>
           <li>
-            Page views and link clicks on your public Auto DM profile,
+            Page views and link clicks on your public DMLink profile,
             including where the visit came from, used to power the analytics
             shown in your dashboard.
           </li>
@@ -95,11 +95,11 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Legal reasons</strong> — if required by law, subpoena, or
-            to protect the rights, property, or safety of Auto DM, our users,
+            to protect the rights, property, or safety of DMLink, our users,
             or others.
           </li>
           <li>
-            <strong>Business transfers</strong> — if Auto DM is involved in a
+            <strong>Business transfers</strong> — if DMLink is involved in a
             merger, acquisition, or asset sale, in which case we will notify
             you before data is transferred.
           </li>
@@ -113,7 +113,7 @@ export default function PrivacyPolicyPage() {
           connection and any automations set up for it. Historical records of
           comments and DMs already processed through those automations — used
           for your analytics and activity history — are retained with your
-          Auto DM account until you delete your account (Section 7).
+          DMLink account until you delete your account (Section 7).
         </p>
       </LegalSection>
 
@@ -162,7 +162,7 @@ export default function PrivacyPolicyPage() {
 
       <LegalSection heading="8. Children's privacy">
         <p>
-          Auto DM is not directed to children under 13 (or the minimum age
+          DMLink is not directed to children under 13 (or the minimum age
           required in your country), and we do not knowingly collect their
           data.
         </p>

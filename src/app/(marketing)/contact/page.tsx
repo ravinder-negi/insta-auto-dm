@@ -5,8 +5,8 @@ import { displayFont, homeCssVars, homeWrapperClass } from "../_components/home/
 import { ContactForm } from "@/features/contact/components/ContactForm";
 
 export const metadata: Metadata = {
-  title: "Contact Us — Auto DM",
-  description: "Have a question about Auto DM? Send us a message.",
+  title: "Contact Us — DMLink",
+  description: "Have a question about DMLink? Send us a message.",
 };
 
 export default function ContactPage() {

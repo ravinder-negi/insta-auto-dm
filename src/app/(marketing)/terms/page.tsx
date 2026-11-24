@@ -3,9 +3,9 @@ import Link from "next/link";
 import { LegalPage, LegalSection } from "../_components/LegalPage";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Auto DM",
+  title: "Terms of Service — DMLink",
   description:
-    "The terms that govern your use of Auto DM's Instagram automation platform.",
+    "The terms that govern your use of DMLink's Instagram automation platform.",
 };
 
 export default function TermsOfServicePage() {
@@ -13,14 +13,14 @@ export default function TermsOfServicePage() {
     <LegalPage title="Terms of Service" updated="October 5, 2026">
       <p>
         These Terms of Service (&quot;Terms&quot;) govern your access to and use
-        of Auto DM&apos;s website, dashboard, and related services
+        of DMLink&apos;s website, dashboard, and related services
         (collectively, the &quot;Service&quot;). By creating an account or using
         the Service, you agree to these Terms.
       </p>
 
       <LegalSection heading="1. The service">
         <p>
-          Auto DM lets you connect an Instagram professional account and
+          DMLink lets you connect an Instagram professional account and
           configure automations that reply to comments, respond to story
           replies, send direct messages, and capture leads through links and
           lead magnets. The Service relies on Meta&apos;s APIs and is subject
@@ -43,12 +43,12 @@ export default function TermsOfServicePage() {
       </LegalSection>
 
       <LegalSection heading="3. Acceptable use">
-        <p>You agree not to use Auto DM to:</p>
+        <p>You agree not to use DMLink to:</p>
         <ul className="list-disc space-y-1 pl-5">
           <li>Send spam, unsolicited bulk messages, or content unrelated to a user&apos;s own comment, reply, or request.</li>
           <li>Harass, deceive, or mislead recipients, or impersonate another person or business.</li>
           <li>Collect or process data from Instagram users in a way that violates applicable law or Meta&apos;s Platform Terms and Developer Policies.</li>
-          <li>Distribute malware, conduct phishing, or attempt to circumvent Instagram or Auto DM rate limits and security controls.</li>
+          <li>Distribute malware, conduct phishing, or attempt to circumvent Instagram or DMLink rate limits and security controls.</li>
           <li>Resell or sublicense access to the Service without our written consent.</li>
         </ul>
         <p>
@@ -60,7 +60,7 @@ export default function TermsOfServicePage() {
       <LegalSection heading="4. Your content and data">
         <p>
           You retain ownership of the content, flows, and lead data you create
-          or collect using Auto DM. You grant us a limited license to host,
+          or collect using DMLink. You grant us a limited license to host,
           process, and transmit that content solely to operate the Service on
           your behalf. You are responsible for having the rights and consents
           needed to collect and use any data your automations gather from
@@ -71,7 +71,7 @@ export default function TermsOfServicePage() {
       <LegalSection heading="5. Third-party platforms">
         <p>
           The Service depends on Instagram and Facebook APIs operated by Meta
-          Platforms, Inc., which Auto DM does not control. Meta may change,
+          Platforms, Inc., which DMLink does not control. Meta may change,
           restrict, or discontinue API access at any time, which may limit or
           interrupt features of the Service. We are not responsible for
           outages, policy changes, or data made unavailable by Meta.
@@ -90,7 +90,7 @@ export default function TermsOfServicePage() {
 
       <LegalSection heading="7. Limitation of liability">
         <p>
-          To the maximum extent permitted by law, Auto DM and its affiliates
+          To the maximum extent permitted by law, DMLink and its affiliates
           will not be liable for any indirect, incidental, special,
           consequential, or punitive damages, or any loss of profits,
           revenue, data, or goodwill, arising from your use of the Service.

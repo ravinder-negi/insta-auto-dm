@@ -1,4 +1,4 @@
-# Insta Auto DM
+# DMLink
 
 Next.js 16 (App Router, Turbopack) + Supabase. Automatically DMs Instagram commenters who use a keyword, plus a link-in-bio page, lead magnets and products.
 

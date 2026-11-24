@@ -1,7 +1,7 @@
 -- ============================================================
 -- Token health check.
 --
--- When a client removes Auto DM from Facebook / their business portfolio,
+-- When a client removes DMLink from Facebook / their business portfolio,
 -- Meta revokes the system-user token but does NOT call the deauthorize
 -- callback (tested 2026-11-19), and stops sending webhook events. Nothing
 -- then tries the token, so the webhook's code-190 check never runs and the

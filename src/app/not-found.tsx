@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BoltIcon } from "@/components/icons";
+import { Logo } from "@/components/ui/Logo";
 import { primaryButtonClass } from "@/components/ui/styles";
 
 export default function NotFound() {
@@ -10,9 +10,9 @@ export default function NotFound() {
 
       <Link
         href="/"
-        className="brand-gradient relative flex h-16 w-16 items-center justify-center rounded-2xl shadow-lg shadow-brand-500/30 transition-transform hover:scale-105"
+        className="relative transition-transform hover:scale-105"
       >
-        <BoltIcon className="h-8 w-8 text-white" />
+        <Logo className="h-16" />
       </Link>
 
       <p className="brand-text-gradient relative mt-8 text-8xl font-black tracking-tight sm:text-9xl">

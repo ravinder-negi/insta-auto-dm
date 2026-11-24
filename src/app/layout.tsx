@@ -5,7 +5,7 @@ import { buildBrandCssVars, DEFAULT_ACCENT } from "@/lib/utils/color";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Insta Auto DM",
+  title: "DMLink",
   description: "Automatically DM Instagram commenters who use a keyword.",
 };
 

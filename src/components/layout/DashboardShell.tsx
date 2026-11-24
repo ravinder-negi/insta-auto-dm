@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
@@ -22,10 +23,11 @@ import {
 import { SignOutDialog } from "./SignOutDialog";
 // import { ThemeToggle } from "./ThemeToggle";
 import { ToastProvider } from "@/components/ui/Toast";
+import { Logo } from "@/components/ui/Logo";
 import { UserMenu } from "./UserMenu";
 
-const NAV_COLLAPSE_STORAGE_KEY = "auto-dm-nav-collapsed-groups";
-const DOCK_OPEN_STORAGE_KEY = "auto-dm-dock-open";
+const NAV_COLLAPSE_STORAGE_KEY = "dmlink-nav-collapsed-groups";
+const DOCK_OPEN_STORAGE_KEY = "dmlink-dock-open";
 
 const noopSubscribe = () => () => {};
 
@@ -194,21 +196,14 @@ export function DashboardShell({
           onClick={toggleDockOpen}
           aria-expanded={dockOpen}
           aria-label={dockOpen ? "Collapse menu" : "Expand menu"}
-          className={`flex w-full shrink-0 items-center gap-3 px-4 pb-5 ${collapsed ? "justify-center px-0" : ""}`}
+          className={`flex w-full shrink-0 items-center gap-3 px-4 pb-3 ${collapsed ? "justify-center px-0" : ""}`}
         >
-          <span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-            style={{ backgroundColor: "var(--primary)" }}
-          >
-            <BoltIcon className="h-5 w-5 text-white" />
-          </span>
-          {!collapsed && (
-            <span className="min-w-0 text-left">
-              <span className="block text-base font-bold tracking-tight text-white">Auto DM</span>
-              <span className="block truncate text-[11px]" style={{ color: "#8F8AA3" }}>
-                Engage. Automate. Grow.
-              </span>
+          {collapsed ? (
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--primary)]">
+              <Image src="/whitelogo.png" alt="DMLink" width={446} height={268} className="h-auto w-8" />
             </span>
+          ) : (
+            <Logo variant="light" className="h-11" />
           )}
         </button>
 
@@ -347,10 +342,7 @@ export function DashboardShell({
               >
                 <MenuIcon className="h-5 w-5" />
               </button>
-              <span className="brand-gradient flex h-8 w-8 items-center justify-center rounded-lg">
-                <BoltIcon className="h-4 w-4 text-white" />
-              </span>
-              <span className="text-sm font-bold tracking-tight">Auto DM</span>
+              <Logo className="h-8" />
             </div>
 
             <div className="flex shrink-0 items-center gap-1.5">

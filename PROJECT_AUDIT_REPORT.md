@@ -1,4 +1,4 @@
-# Project Audit Report — Insta Auto DM
+# Project Audit Report — DMLink
 
 **Date:** 2026-11-03 · **Commit audited:** `9190109` (clean `main`) · **Mode:** read-only. No application code, dependencies, or schema were changed.
 

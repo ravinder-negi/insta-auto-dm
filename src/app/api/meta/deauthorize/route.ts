@@ -2,7 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { readSignedRequest } from "@/lib/meta/signedRequest";
 
 const REVOKED_MESSAGE =
-  "Auto DM's access was removed in Facebook settings. Reconnect to resume automations.";
+  "DMLink's access was removed in Facebook settings. Reconnect to resume automations.";
 
 /**
  * Meta Deauthorize callback: Meta POSTs here when a person removes the app

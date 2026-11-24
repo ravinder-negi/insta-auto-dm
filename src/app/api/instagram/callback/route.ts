@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
     const missing = missingScopeLabels(grantedScopes(debugBody));
     if (missing.length > 0) {
       throw new ConnectError(
-        `Auto DM needs permission to ${missing.join(", ")}. ` +
+        `DMLink needs permission to ${missing.join(", ")}. ` +
           "Please connect again and keep every permission switched on.",
       );
     }
@@ -217,7 +217,7 @@ export async function GET(request: NextRequest) {
         .map((account) => `@${account.username ?? account.id}`)
         .join(", ");
       throw new ConnectError(
-        `${names} is already connected to another Auto DM login. ` +
+        `${names} is already connected to another DMLink login. ` +
           "Disconnect it there first.",
       );
     }

@@ -122,7 +122,7 @@ export function gettingStarted({
     {
       key: "connect",
       title: "Connect your Instagram account",
-      detail: "Auto DM needs it to see comments and send DMs for you.",
+      detail: "DMLink needs it to see comments and send DMs for you.",
       done: accountCount > 0,
     },
     {

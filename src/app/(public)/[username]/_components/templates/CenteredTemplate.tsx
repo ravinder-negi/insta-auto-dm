@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRightIcon, BoltIcon } from "@/components/icons";
+import { ArrowRightIcon } from "@/components/icons";
+import { Logo } from "@/components/ui/Logo";
 import { resolveLinkVisual } from "@/features/links/linkTypeIcons";
 import { SOCIAL_PLATFORM_META } from "@/features/socials/socialPlatforms";
 import { getButtonRadiusClass, getThemeFontClassName } from "@/features/theme/themeOptions";
@@ -245,10 +246,7 @@ export function CenteredTemplate({
 
         <footer className="mt-3 flex w-full items-center justify-center gap-1.5 border-t border-black/10 pt-6 text-sm text-[var(--muted)]">
           <span>Made with</span>
-          <span style={{ color: "var(--brand-color)" }}>
-            <BoltIcon className="h-4 w-4" />
-          </span>
-          <span className="font-semibold text-[var(--muted)]">Auto DM</span>
+          <Logo variant="dark" className="h-5" />
         </footer>
       </div>
     </main>

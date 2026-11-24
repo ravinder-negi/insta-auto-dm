@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BoltIcon, ChatIcon, SendIcon, TrendingIcon, UsersIcon } from "@/components/icons";
 import { displayFont } from "@/app/(marketing)/_components/home/fonts";
+import { Logo } from "@/components/ui/Logo";
 
 const FEATURES = [
   { icon: BoltIcon, title: "Auto replies", desc: "Respond instantly", delay: "ha-d3" },
@@ -37,15 +38,7 @@ export function BrandingPanel() {
       <div className="ha-blob2 pointer-events-none absolute -right-30 -bottom-40 h-130 w-130 rounded-full bg-[var(--violet)] opacity-50 blur-[120px]" />
 
       <Link href="/" className="ha-fadeup relative flex w-fit items-center gap-3.5 transition-opacity hover:opacity-80">
-        <span className="flex h-11 w-11 flex-none items-center justify-center rounded-[13px] bg-[var(--accent)] text-white">
-          <BoltIcon className="h-6 w-6" />
-        </span>
-        <span className="leading-tight">
-          <span className={`${displayFont} block text-[22px] font-extrabold tracking-[-0.02em]`}>
-            Auto DM
-          </span>
-          <span className="block text-[13px] text-white/65">Engage. Automate. Grow.</span>
-        </span>
+        <Logo variant="light" className="h-12" preload />
       </Link>
 
       <div className="relative flex flex-wrap items-center gap-8">
