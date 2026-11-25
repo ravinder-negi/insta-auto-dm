@@ -11,11 +11,13 @@ export const metadata: Metadata = {
 
 export default function TermsOfServicePage() {
   return (
-    <LegalPage title="Terms of Service" updated="October 5, 2026">
+    <LegalPage title="Terms of Service" updated="November 25, 2026">
       <p>
         These Terms of Service (&quot;Terms&quot;) govern your access to and use
         of DMLink&apos;s website, dashboard, and related services
-        (collectively, the &quot;Service&quot;). By creating an account or using
+        (collectively, the &quot;Service&quot;), operated by{" "}
+        {COMPANY.legalName} (&quot;DMLink&quot;, &quot;we&quot;,
+        &quot;us&quot;). By creating an account or using
         the Service, you agree to these Terms.
       </p>
 

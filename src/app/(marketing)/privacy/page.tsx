@@ -13,7 +13,8 @@ export default function PrivacyPolicyPage() {
   return (
     <LegalPage title="Privacy Policy" updated="November 25, 2026">
       <p>
-        DMLink (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) provides tools that help
+        DMLink is operated by {COMPANY.legalName} (&quot;DMLink&quot;,
+        &quot;we&quot;, &quot;us&quot;, &quot;our&quot;), which provides tools that help
         Instagram creators and businesses automate replies, direct messages, and
         lead capture. This policy explains what information we collect, how we
         use it, and the choices you have — including the data we access through
@@ -152,6 +153,15 @@ export default function PrivacyPolicyPage() {
             .
           </li>
           <li>
+            Under India&apos;s Digital Personal Data Protection Act, 2023, you
+            may request a summary of your personal data and how it is
+            processed, correction or erasure of your data, withdraw your
+            consent at any time, and nominate another person to exercise
+            these rights on your behalf. To exercise them, contact our
+            Grievance Officer (Section 11). If your grievance is not resolved,
+            you may complain to the Data Protection Board of India.
+          </li>
+          <li>
             If you are in the EEA, UK, or similar jurisdictions, you may have
             additional rights under applicable data protection law, including
             the right to lodge a complaint with a supervisory authority.
@@ -161,9 +171,10 @@ export default function PrivacyPolicyPage() {
 
       <LegalSection heading="8. Children's privacy">
         <p>
-          DMLink is not directed to children under 13 (or the minimum age
-          required in your country), and we do not knowingly collect their
-          data.
+          DMLink is intended for users aged 18 and over. We do not knowingly
+          collect personal data from anyone under 18. If you believe a child
+          has provided us with personal data, contact our Grievance Officer
+          (Section 11) and we will delete it.
         </p>
       </LegalSection>
 
@@ -197,6 +208,31 @@ export default function PrivacyPolicyPage() {
           {COMPANY.legalName}
           <br />
           {COMPANY.address}
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="11. Grievance Officer">
+        <p>
+          In accordance with the Information Technology Act, 2000, the rules
+          made under it, and the Digital Personal Data Protection Act, 2023,
+          the name and contact details of our Grievance Officer are below. We
+          will acknowledge a grievance within 24 hours and aim to resolve it
+          within 15 days of receipt.
+        </p>
+        <p>
+          {COMPANY.grievanceOfficer.name}, Grievance Officer
+          <br />
+          {COMPANY.legalName}
+          <br />
+          {COMPANY.address}
+          <br />
+          Email:{" "}
+          <a
+            href={`mailto:${COMPANY.grievanceOfficer.email}`}
+            className="font-medium text-[var(--accent)] underline hover:no-underline"
+          >
+            {COMPANY.grievanceOfficer.email}
+          </a>
         </p>
       </LegalSection>
     </LegalPage>
