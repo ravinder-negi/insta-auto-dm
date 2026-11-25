@@ -17,7 +17,8 @@ export interface InstagramAccount {
   client_business_id: string | null;
   /** Unified Login configuration the token was issued under. */
   meta_config_id: string | null;
-  /** Facebook user who connected it; matches Meta's deauthorize/deletion callbacks. */
+  /** debug_token user_id at connect: the system user, not the person, so it
+   *  doesn't match signed_request.user_id in Meta's callbacks. */
   meta_user_id: string | null;
   /** pg_net request id of the pending hourly token health check. */
   token_check_request_id: number | null;

@@ -11,6 +11,11 @@ const REVOKED_MESSAGE =
  * Their token stops working, so their accounts are flagged expired: sweeps
  * and the webhook skip them, and the dashboard shows the reconnect banner.
  * Rows, rules and flows stay, so reconnecting picks up where it left off.
+ *
+ * Meta didn't call this when the app was removed from Business Integrations
+ * in testing, and meta_user_id is the system user's id rather than the
+ * person's, so the hourly token health check is what actually flags
+ * revoked tokens.
  */
 export async function POST(request: Request) {
   const payload = await readSignedRequest(request);

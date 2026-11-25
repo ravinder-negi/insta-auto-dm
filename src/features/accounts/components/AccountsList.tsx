@@ -457,7 +457,7 @@ export function AccountsList({
                   <ConfirmAction
                     action={() => handleDisconnect(selected.id, handle)}
                     title="Disconnect this account?"
-                    description={`@${handle} will stop listening for comments, and all its rules and DM flows will be permanently deleted. This can't be undone.`}
+                    description={`@${handle} will stop listening for comments, and all its rules, DM flows, leads and comment and DM history will be permanently deleted. This can't be undone.`}
                     confirmLabel="Disconnect"
                     trigger={
                       <button

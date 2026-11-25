@@ -6,6 +6,9 @@ import { displayFont } from "@/lib/linkInBioTheme";
 import { CheckIcon, DesktopIcon, ImageIcon, LayersIcon, MobileIcon, PaletteIcon, PencilIcon } from "@/components/icons";
 import { useToast } from "@/components/ui/Toast";
 import { updateTheme, type ThemeFormState } from "@/features/theme/actions";
+import { COMPANY } from "@/lib/company";
+
+const SITE_HOST = new URL(COMPANY.website).host;
 import {
   THEME_BUTTON_STYLE_OPTIONS,
   THEME_FONT_OPTIONS,
@@ -384,9 +387,7 @@ export function ThemeForm({
                   <span className="h-2.5 w-2.5 rounded-full bg-[#8EDDB9]" />
                 </span>
                 <span className="min-w-0 flex-1 truncate rounded-full bg-white px-3 py-1 text-xs text-[var(--muted)]">
-                  {profile.username
-                    ? `insta-auto-dm-xi.vercel.app/${profile.username}`
-                    : "insta-auto-dm-xi.vercel.app/username"}
+                  {`${SITE_HOST}/${profile.username || "username"}`}
                 </span>
               </div>
             )}

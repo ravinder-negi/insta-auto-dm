@@ -1486,6 +1486,13 @@ async function handleMessagingEvent(
   const instagramAccount = await resolveInstagramAccount(instagramAccountId);
   if (!instagramAccount || !instagramAccount.is_active) return;
 
+  // Any inbound message (text or not) opens the 24-hour window the cron
+  // sweeps check before sending by user id. Recorded before the early
+  // returns below so attachment-only messages count too.
+  if (event.message) {
+    await recordInboundMessage(instagramAccount.id, senderId, event.timestamp);
+  }
+
   if (!text && !shareAttachment) return;
 
   // A story reply is its own trigger, matched against story_reply rules
@@ -1725,6 +1732,29 @@ async function handleMessagingEvent(
  * already claimed (a redelivery). On any other error it lets the message
  * through: a lost dedupe is better than dropping a real reply.
  */
+/** Moves the sender's messaging window forward (never back). Best effort:
+ *  a failure only means a later scheduled send may be canceled. */
+async function recordInboundMessage(
+  instagramAccountId: string,
+  senderId: string,
+  timestampMs: number | undefined
+) {
+  const at =
+    typeof timestampMs === "number" && Number.isFinite(timestampMs)
+      ? new Date(Math.min(timestampMs, Date.now()))
+      : new Date();
+
+  const { error } = await supabaseAdmin.rpc("record_instagram_inbound_message", {
+    p_instagram_account_id: instagramAccountId,
+    p_ig_user_id: senderId,
+    p_at: at.toISOString(),
+  });
+
+  if (error) {
+    console.error("Failed to record inbound message window:", error.message);
+  }
+}
+
 async function claimInboundMessage(mid: string, instagramAccountId: string): Promise<boolean> {
   const { error } = await supabaseAdmin
     .from("processed_inbound_messages")

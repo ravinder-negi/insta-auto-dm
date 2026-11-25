@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { AuthBrandHeader } from "./AuthBrandHeader";
 import { AuthCard } from "./AuthCard";
 import { AuthSubmitButton } from "./AuthSubmitButton";
 import { PasswordField } from "./PasswordField";
@@ -19,7 +18,6 @@ export function ResetPasswordForm({ hasSession }: { hasSession: boolean }) {
   if (!hasSession) {
     return (
       <AuthCard>
-        <AuthBrandHeader />
         <div>
           <h1
             className={`${displayFont} text-[32px] leading-[1.1] font-extrabold tracking-[-0.03em] text-[var(--ink)]`}
@@ -43,8 +41,6 @@ export function ResetPasswordForm({ hasSession }: { hasSession: boolean }) {
 
   return (
     <AuthCard>
-      <AuthBrandHeader />
-
       <div>
         <h1
           className={`${displayFont} text-[32px] leading-[1.1] font-extrabold tracking-[-0.03em] text-[var(--ink)]`}

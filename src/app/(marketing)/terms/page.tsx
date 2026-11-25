@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, LegalSection } from "../_components/LegalPage";
+import { COMPANY } from "@/lib/company";
 
 export const metadata: Metadata = {
   title: "Terms of Service — DMLink",
@@ -128,7 +129,14 @@ export default function TermsOfServicePage() {
 
       <LegalSection heading="11. Contact us">
         <p>
-          Questions about these Terms can be sent to us through our{" "}
+          Questions about these Terms can be sent to us at{" "}
+          <a
+            href={`mailto:${COMPANY.email}`}
+            className="font-medium text-[var(--accent)] underline hover:no-underline"
+          >
+            {COMPANY.email}
+          </a>{" "}
+          or through our{" "}
           <Link
             href="/contact"
             className="font-medium text-[var(--accent)] underline hover:no-underline"
@@ -136,6 +144,11 @@ export default function TermsOfServicePage() {
             contact page
           </Link>
           .
+        </p>
+        <p>
+          {COMPANY.legalName}
+          <br />
+          {COMPANY.address}
         </p>
       </LegalSection>
     </LegalPage>

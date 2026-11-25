@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { followupFromMinutes } from "@/features/rules/components/wizard/shared";
+import {
+  MAX_TOTAL_DELAY_SECONDS,
+  followupFromMinutes,
+} from "@/features/rules/components/wizard/shared";
 import type { RuleWizardInitialValues } from "@/features/rules/components/wizard/RuleWizard";
 
 export type RuleFormState = { error: string } | { ok: true } | undefined;
@@ -35,8 +38,8 @@ const CARD_TITLE_MAX_LENGTH = 80;
 const CARD_SUBTITLE_MAX_LENGTH = 80;
 const MAX_FOLLOWUPS = 3;
 const MIN_DELAY_SECONDS = 1;
-const MAX_DELAY_SECONDS = 86400;
-const MAX_FOLLOWUP_DELAY_MINUTES = 10080;
+const MAX_DELAY_SECONDS = MAX_TOTAL_DELAY_SECONDS;
+const MAX_FOLLOWUP_DELAY_MINUTES = MAX_TOTAL_DELAY_SECONDS / 60;
 
 type KeywordMatch = (typeof KEYWORD_MATCHES)[number];
 
@@ -164,7 +167,7 @@ function readFollowups(formData: FormData): RuleFollowup[] | { error: string } {
       delayMinutes > MAX_FOLLOWUP_DELAY_MINUTES
     ) {
       return {
-        error: "Follow-up delays must be between 1 minute and 7 days.",
+        error: "Follow-up delays must be between 1 minute and 23 hours.",
       };
     }
 
@@ -308,7 +311,21 @@ function readRuleFields(
   }
 
   if (sendDelaySeconds > MAX_DELAY_SECONDS) {
-    return { ok: false, error: "The time delay can be at most 24 hours." };
+    return { ok: false, error: "The time delay can be at most 23 hours." };
+  }
+
+  // Follow-ups are timed from the primary DM, so the delay plus the latest
+  // follow-up must still fit inside Instagram's 24-hour messaging window.
+  if (
+    followups.some(
+      (followup) => sendDelaySeconds + followup.delay_minutes * 60 > MAX_DELAY_SECONDS
+    )
+  ) {
+    return {
+      ok: false,
+      error:
+        "The time delay plus each follow-up's delay can be at most 23 hours in total.",
+    };
   }
 
   if (buttons.length > 0 && !cardTitle) {

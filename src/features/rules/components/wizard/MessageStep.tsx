@@ -23,6 +23,9 @@ import {
   FOLLOWUP_UNITS,
   MAX_BUTTONS,
   MAX_FOLLOWUPS,
+  MAX_TOTAL_DELAY_SECONDS,
+  delayToSeconds,
+  followupToMinutes,
   type RuleFollowupValue,
   type RuleWizardValues,
   type UpdateValue,
@@ -167,6 +170,9 @@ export function MessageStep({
       ? CARD_TITLE_MAX_LENGTH + CARD_SUBTITLE_MAX_LENGTH
       : DM_MAX_LENGTH;
 
+  const delaySeconds = delayToSeconds(values.send_delay_value, values.send_delay_unit);
+  const delayTooLong = delaySeconds > MAX_TOTAL_DELAY_SECONDS;
+
   const delayValue = Number(values.send_delay_value);
   const delayLabel = Number.isFinite(delayValue) && delayValue > 0 ? delayValue : 1;
   const delayUnitLabel =
@@ -224,8 +230,13 @@ export function MessageStep({
           <ClockIcon className="h-3.5 w-3.5 shrink-0" />
           {`We'll wait ${delayLabel} ${delayUnitLabel.toLowerCase()}${
             delayLabel === 1 ? "" : "s"
-          } after someone triggers this automation before sending the first DM. Minimum is 1.`}
+          } after someone triggers this automation before sending the first DM. Minimum is 1, maximum is 23 hours.`}
         </p>
+        {delayTooLong && (
+          <p className="mt-1.5 text-xs" style={{ color: "var(--danger-strong)" }}>
+            The time delay can be at most 23 hours.
+          </p>
+        )}
       </div>
 
       <div className="border-t pt-6" style={{ borderColor: LINE }}>
@@ -669,7 +680,8 @@ export function MessageStep({
         </p>
         <p className="mt-1 text-xs" style={{ color: MUTED }}>
           Extra DMs sent after the primary one, each timed from when the
-          primary DM goes out.
+          primary DM goes out. Time delay plus follow-up delay: up to 23
+          hours. A longer total can&apos;t be saved.
         </p>
 
         <div className="mt-3 flex flex-col gap-3">
@@ -726,6 +738,14 @@ export function MessageStep({
                   </SelectField>
                 </div>
               </div>
+
+              {delaySeconds + followupToMinutes(followup) * 60 >
+                MAX_TOTAL_DELAY_SECONDS && (
+                <p className="mt-1.5 text-xs" style={{ color: "var(--danger-strong)" }}>
+                  Too late: the time delay plus this follow-up must be 23
+                  hours or less.
+                </p>
+              )}
 
               <textarea
                 rows={3}

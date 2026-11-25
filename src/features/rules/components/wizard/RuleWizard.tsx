@@ -18,6 +18,7 @@ import {
   delayFromSeconds,
   delayToSeconds,
   followupToMinutes,
+  MAX_TOTAL_DELAY_SECONDS,
   type KeywordMatch,
   type MediaScope,
   type RuleButtonValue,
@@ -285,14 +286,16 @@ export function RuleWizard({
     (values.dm_buttons.length === 0 ||
       values.dm_button_card_title.trim().length > 0);
 
-  const followupsValid = values.followups.every(
-    (followup) =>
-      followup.message.trim().length > 0 && followupToMinutes(followup) > 0
-  );
-
   const delaySeconds = delayToSeconds(
     values.send_delay_value,
     values.send_delay_unit
+  );
+
+  const followupsValid = values.followups.every(
+    (followup) =>
+      followup.message.trim().length > 0 &&
+      followupToMinutes(followup) > 0 &&
+      delaySeconds + followupToMinutes(followup) * 60 <= MAX_TOTAL_DELAY_SECONDS
   );
 
   const messageStepValid =
@@ -304,6 +307,7 @@ export function RuleWizard({
     (!values.require_follow || values.follow_prompt_message.trim().length > 0) &&
     (!values.collect_email || values.email_prompt_message.trim().length > 0) &&
     delaySeconds > 0 &&
+    delaySeconds <= MAX_TOTAL_DELAY_SECONDS &&
     buttonsValid &&
     followupsValid;
 

@@ -5,6 +5,10 @@ export type { KeywordMatch };
 
 export const MESSAGE_MAX_LENGTH = 1000;
 
+/** Instagram only allows a DM by user id within 24 hours of the person's
+ *  last message, so a no-reply nudge can wait at most 23 hours. */
+export const MAX_FOLLOWUP_DELAY_HOURS = 23;
+
 export const DEFAULT_PUBLIC_REPLY_MESSAGE = "Got it! Check your inbox 📩";
 
 export const DEFAULT_PUBLIC_REPLY_MESSAGES = [

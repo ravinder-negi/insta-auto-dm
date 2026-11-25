@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, LegalSection } from "../_components/LegalPage";
+import { COMPANY } from "@/lib/company";
 
 export const metadata: Metadata = {
   title: "Data Deletion Instructions — DMLink",
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function DataDeletionPage() {
   return (
-    <LegalPage title="Data Deletion Instructions" updated="November 19, 2026">
+    <LegalPage title="Data Deletion Instructions" updated="November 25, 2026">
       <p>
         You can remove your data from DMLink at any time, either by
         disconnecting your Instagram account or by deleting your DMLink
@@ -21,9 +22,10 @@ export default function DataDeletionPage() {
         <p>
           From your DMLink dashboard, go to{" "}
           <strong>Settings → Manage accounts</strong> and select{" "}
-          <strong>Disconnect</strong> next to your Instagram account. This
-          immediately and permanently removes that Instagram account from
-          DMLink and stops all automations for it.
+          <strong>Disconnect</strong> next to your Instagram account. We
+          remove the account from DMLink right away and delete everything that
+          came from it: automations, leads, and comment and DM history. Your
+          DMLink login stays, so you can connect another account later.
         </p>
       </LegalSection>
 
@@ -36,7 +38,14 @@ export default function DataDeletionPage() {
           stored conversations, comments, lead data, and uploaded files.
         </p>
         <p>
-          If you can&apos;t sign in, send us a message from our{" "}
+          If you can&apos;t sign in, email us at{" "}
+          <a
+            href={`mailto:${COMPANY.email}`}
+            className="font-medium text-[var(--accent)] underline hover:no-underline"
+          >
+            {COMPANY.email}
+          </a>{" "}
+          or send us a message from our{" "}
           <Link
             href="/contact"
             className="font-medium text-[var(--accent)] underline hover:no-underline"
@@ -54,24 +63,19 @@ export default function DataDeletionPage() {
         <p>
           You can also remove DMLink from your Facebook settings, under{" "}
           <strong>Settings &amp; privacy → Settings → Business integrations</strong>.
-          Removing it stops all automations for the Instagram accounts you
-          connected. If you also choose to delete the data DMLink received
-          from Facebook, we immediately and permanently delete those
-          Instagram accounts, their access tokens, automations, and stored
-          comment, DM and lead data. Facebook gives you a confirmation code
-          and a link where you can check the status of your request. Your
-          DMLink sign-in and profile stay until you delete your account as
-          described above.
+          This stops DMLink from using your Instagram account, so your
+          automations stop working. But it doesn&apos;t delete anything we
+          already have. To delete your data, follow Section 1 or Section 2
+          above.
         </p>
       </LegalSection>
 
       <LegalSection heading="4. What gets deleted and when">
         <p>
-          Disconnecting an Instagram account removes that connection and its
-          automations immediately. Historical comment and DM records already
-          processed through those automations are retained, tied to your
-          DMLink account, until you delete your account — at which point we
-          permanently delete your profile and all associated data. Some information may be retained for a limited time where
+          Disconnecting an Instagram account deletes that account&apos;s data
+          right away, including its comment and DM history. Deleting your
+          DMLink account deletes your profile and everything else right away.
+          Some information may be retained for a limited time where
           required to comply with legal obligations, resolve disputes, or
           enforce our agreements, as described in our{" "}
           <Link

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { AuthBrandHeader } from "./AuthBrandHeader";
 import { AuthCard } from "./AuthCard";
 import { AuthTextField } from "./AuthTextField";
 import { AuthSubmitButton } from "./AuthSubmitButton";
@@ -26,7 +25,6 @@ export function SignupForm() {
   if (state && "confirmEmail" in state) {
     return (
       <AuthCard>
-        <AuthBrandHeader />
         <div>
           <h1
             className={`${displayFont} text-[32px] leading-[1.1] font-extrabold tracking-[-0.03em] text-[var(--ink)]`}
@@ -52,8 +50,6 @@ export function SignupForm() {
 
   return (
     <AuthCard>
-      <AuthBrandHeader />
-
       <div>
         <h1
           className={`${displayFont} text-[38px] leading-[1.05] font-extrabold tracking-[-0.03em] text-[var(--ink)]`}

@@ -3,6 +3,7 @@ import { HomeHeader } from "../_components/home/HomeHeader";
 import { HomeFooter } from "../_components/home/HomeFooter";
 import { displayFont, homeCssVars, homeWrapperClass } from "../_components/home/fonts";
 import { ContactForm } from "@/features/contact/components/ContactForm";
+import { COMPANY } from "@/lib/company";
 
 export const metadata: Metadata = {
   title: "Contact Us — DMLink",
@@ -27,6 +28,19 @@ export default function ContactPage() {
 
         <div className="mt-8">
           <ContactForm />
+        </div>
+
+        <div className="mt-10 space-y-1.5 border-t border-[var(--line)] pt-6 text-[14px] text-[var(--muted)]">
+          <p>
+            Email:{" "}
+            <a
+              href={`mailto:${COMPANY.email}`}
+              className="font-medium text-[var(--accent)] underline hover:no-underline"
+            >
+              {COMPANY.email}
+            </a>
+          </p>
+          <p>Address: {COMPANY.legalName}, {COMPANY.address}</p>
         </div>
       </main>
 

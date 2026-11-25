@@ -19,6 +19,7 @@ import {
   BUTTON_LABEL_MAX_LENGTH,
   CARD_TITLE_MAX_LENGTH,
   MAX_BUTTONS,
+  MAX_FOLLOWUP_DELAY_HOURS,
   MESSAGE_MAX_LENGTH,
   emptyStep,
 } from "./shared";
@@ -197,6 +198,7 @@ function StepEditor({
               id={`followup-delay-${index}`}
               type="number"
               min={1}
+              max={MAX_FOLLOWUP_DELAY_HOURS}
               step={1}
               value={step.followup_delay_hours ?? ""}
               onChange={(event) =>
@@ -212,6 +214,10 @@ function StepEditor({
               hours, then send:
             </span>
           </div>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            Up to {MAX_FOLLOWUP_DELAY_HOURS} hours. A longer delay can&apos;t be
+            saved.
+          </p>
           <textarea
             required={step.followup_enabled}
             rows={2}

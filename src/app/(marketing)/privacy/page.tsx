@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, LegalSection } from "../_components/LegalPage";
+import { COMPANY } from "@/lib/company";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — DMLink",
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <LegalPage title="Privacy Policy" updated="October 5, 2026">
+    <LegalPage title="Privacy Policy" updated="November 25, 2026">
       <p>
         DMLink (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) provides tools that help
         Instagram creators and businesses automate replies, direct messages, and
@@ -109,11 +110,9 @@ export default function PrivacyPolicyPage() {
       <LegalSection heading="4. Data retention">
         <p>
           We retain account data for as long as your account is active.
-          Disconnecting an Instagram account immediately removes that
-          connection and any automations set up for it. Historical records of
-          comments and DMs already processed through those automations — used
-          for your analytics and activity history — are retained with your
-          DMLink account until you delete your account (Section 7).
+          Disconnecting an Instagram account immediately deletes that
+          connection and all data that came from it, including its
+          automations, leads, and comment and DM history.
         </p>
       </LegalSection>
 
@@ -139,7 +138,7 @@ export default function PrivacyPolicyPage() {
 
       <LegalSection heading="7. Your rights and choices">
         <ul className="list-disc space-y-1 pl-5">
-          <li>Access, correct, or export the data we hold about you from your dashboard.</li>
+          <li>See and update your data from your dashboard, and download your leads as a CSV file.</li>
           <li>Disconnect your Instagram account at any time, which immediately stops our access to it.</li>
           <li>
             Delete your account and associated data at any time from
@@ -178,8 +177,14 @@ export default function PrivacyPolicyPage() {
 
       <LegalSection heading="10. Contact us">
         <p>
-          Questions about this policy or your data can be sent to us through
-          our{" "}
+          Questions about this policy or your data can be sent to us at{" "}
+          <a
+            href={`mailto:${COMPANY.email}`}
+            className="font-medium text-[var(--accent)] underline hover:no-underline"
+          >
+            {COMPANY.email}
+          </a>{" "}
+          or through our{" "}
           <Link
             href="/contact"
             className="font-medium text-[var(--accent)] underline hover:no-underline"
@@ -187,6 +192,11 @@ export default function PrivacyPolicyPage() {
             contact page
           </Link>
           .
+        </p>
+        <p>
+          {COMPANY.legalName}
+          <br />
+          {COMPANY.address}
         </p>
       </LegalSection>
     </LegalPage>

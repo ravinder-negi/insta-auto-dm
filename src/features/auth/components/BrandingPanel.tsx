@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { BoltIcon, ChatIcon, SendIcon, TrendingIcon, UsersIcon } from "@/components/icons";
 import { displayFont } from "@/app/(marketing)/_components/home/fonts";
-import { Logo } from "@/components/ui/Logo";
 
 const FEATURES = [
   { icon: BoltIcon, title: "Auto replies", desc: "Respond instantly", delay: "ha-d3" },
@@ -36,11 +34,6 @@ export function BrandingPanel() {
     >
       <div className="ha-blob1 pointer-events-none absolute -top-30 -left-30 h-115 w-115 rounded-full bg-[var(--accent)] opacity-35 blur-[120px]" />
       <div className="ha-blob2 pointer-events-none absolute -right-30 -bottom-40 h-130 w-130 rounded-full bg-[var(--violet)] opacity-50 blur-[120px]" />
-
-      <Link href="/" className="ha-fadeup relative flex w-fit items-center gap-3.5 transition-opacity hover:opacity-80">
-        <Logo variant="light" className="h-12" preload />
-      </Link>
-
       <div className="relative flex flex-wrap items-center gap-8">
         <div className="flex min-w-0 flex-1 basis-75 flex-col items-start gap-6.5">
           <div className="ha-fadeup ha-d1 inline-flex items-center gap-2.5 rounded-full border border-white/20 px-4 py-1.5 text-xs font-bold tracking-[0.1em] text-[#E4DEF7] uppercase">

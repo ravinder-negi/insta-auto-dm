@@ -10,6 +10,7 @@ import { StepsStep } from "./StepsStep";
 import { TriggerStep } from "./TriggerStep";
 import {
   DEFAULT_PUBLIC_REPLY_MESSAGES,
+  MAX_FOLLOWUP_DELAY_HOURS,
   emptyStep,
   type FlowWizardAccountOption,
   type KeywordMatch,
@@ -146,6 +147,7 @@ export function FlowWizard({
       flowStep.followup_enabled &&
       (!flowStep.followup_delay_hours ||
         flowStep.followup_delay_hours <= 0 ||
+        flowStep.followup_delay_hours > MAX_FOLLOWUP_DELAY_HOURS ||
         !flowStep.followup_message?.trim())
     ) {
       return false;

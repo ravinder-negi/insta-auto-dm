@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
+import { COMPANY } from "@/lib/company";
 
 export function HomeFooter() {
   return (
@@ -55,7 +56,15 @@ export function HomeFooter() {
           </div>
         </div>
         <div className="flex flex-wrap justify-between gap-3 border-t border-[var(--line)] pt-6 text-[13px] text-[var(--muted)]">
-          <span>&copy; {new Date().getFullYear()} DMLink. All rights reserved.</span>
+          <div className="flex flex-col gap-1">
+            <span>
+              &copy; {new Date().getFullYear()} {COMPANY.legalName}. All rights reserved.
+            </span>
+            <span>{COMPANY.address}</span>
+            <a href={`mailto:${COMPANY.email}`} className="hover:underline">
+              {COMPANY.email}
+            </a>
+          </div>
           <span>Not affiliated with or endorsed by Instagram or Meta.</span>
         </div>
       </div>

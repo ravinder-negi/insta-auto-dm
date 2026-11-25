@@ -137,8 +137,12 @@ export async function GET(request: NextRequest) {
       .then((response) => (response.ok ? response.json() : null))
       .catch(() => null);
 
-    // The person who logged in, as Meta names them in the deauthorize and
-    // data deletion callbacks (signed_request.user_id).
+    // debug_token's user_id. With this system-user configuration it's the
+    // business integration's system user, not the person who logged in, so
+    // it won't match signed_request.user_id in the deauthorize and data
+    // deletion callbacks. Meta also doesn't send those callbacks when an
+    // integration is removed from Business Integrations (tested Nov 2026);
+    // revoked tokens are caught by the hourly token health check instead.
     const metaUserId = debugTokenUserId(debugBody);
 
     const missing = missingScopeLabels(grantedScopes(debugBody));

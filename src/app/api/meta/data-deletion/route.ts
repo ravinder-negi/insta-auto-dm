@@ -15,6 +15,12 @@ const STATUS_PATH = "/data-deletion/status";
  *
  * Meta requires `{ url, confirmation_code }` back, where `url` lets the
  * person check the request's status.
+ *
+ * In practice this rarely matches anything: meta_user_id holds the system
+ * user's id, not the person's (see the Instagram connect callback), and Meta
+ * didn't call this when the app was removed from Business Integrations in
+ * testing. It stays registered because Meta requires a deletion URL. Users
+ * delete their data by disconnecting or deleting their account.
  */
 export async function POST(request: Request) {
   const payload = await readSignedRequest(request);

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { DmFlowIntentMap, DmFlowStepOption, KeywordMatch } from "@/types";
 import type { FlowWizardInitialValues } from "@/features/flows/components/wizard/FlowWizard";
 import { isValidStepTarget } from "@/features/flows/components/wizard/stepOps";
+import { MAX_FOLLOWUP_DELAY_HOURS } from "@/features/flows/components/wizard/shared";
 
 export type FlowFormState = { error: string } | { ok: true } | undefined;
 
@@ -158,6 +159,16 @@ function readFlowFields(
       return {
         ok: false,
         error: "Follow-up needs both a delay (hours) and a reminder message.",
+      };
+    }
+    if (
+      step.expects_reply &&
+      step.followup_enabled &&
+      (step.followup_delay_hours ?? 0) > MAX_FOLLOWUP_DELAY_HOURS
+    ) {
+      return {
+        ok: false,
+        error: `Follow-up delays can be at most ${MAX_FOLLOWUP_DELAY_HOURS} hours.`,
       };
     }
     if (

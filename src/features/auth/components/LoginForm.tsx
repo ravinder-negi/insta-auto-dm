@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { PasswordField } from "./PasswordField";
-import { AuthBrandHeader } from "./AuthBrandHeader";
 import { AuthCard } from "./AuthCard";
 import { AuthTextField } from "./AuthTextField";
 import { AuthSubmitButton } from "./AuthSubmitButton";
@@ -20,8 +19,6 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 
   return (
     <AuthCard>
-      <AuthBrandHeader />
-
       <div>
         <h1
           className={`${displayFont} text-[38px] leading-[1.05] font-extrabold tracking-[-0.03em] text-[var(--ink)]`}

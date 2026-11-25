@@ -53,11 +53,16 @@ export const DELAY_UNITS = [
   { value: "minute", label: "Minute", seconds: 60 },
 ] as const;
 
+/** No "Days": follow-ups must fit inside Instagram's 24-hour window. */
 export const FOLLOWUP_UNITS = [
   { value: "minute", label: "Minutes", minutes: 1 },
   { value: "hour", label: "Hours", minutes: 60 },
-  { value: "day", label: "Days", minutes: 1440 },
 ] as const;
+
+/** Instagram only allows a DM by user id within 24 hours of the person's
+ *  last message. The time delay plus any follow-up's delay (follow-ups are
+ *  timed from the primary DM) must stay within this. */
+export const MAX_TOTAL_DELAY_SECONDS = 23 * 60 * 60;
 
 export type DelayUnit = (typeof DELAY_UNITS)[number]["value"];
 export type FollowupUnit = (typeof FOLLOWUP_UNITS)[number]["value"];

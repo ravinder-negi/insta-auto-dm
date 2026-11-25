@@ -25,6 +25,7 @@ export async function proxy(request: NextRequest) {
           response = NextResponse.next({ request });
           for (const { name, value, options } of cookiesToSet) {
             response.cookies.set(name, value, options);
+            //console.log(`Set cookie: ${name}=${value}; options=${JSON.stringify(options)}`);
           }
         },
       },
