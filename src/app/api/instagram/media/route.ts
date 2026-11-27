@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     "fields",
     isStory
       ? "id,media_type,media_url,thumbnail_url,timestamp"
-      : "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp"
+      : "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,media_product_type,shortcode"
   );
   mediaUrl.searchParams.set("limit", "25");
   mediaUrl.searchParams.set("access_token", account.accessToken);
@@ -69,15 +69,24 @@ export async function GET(request: NextRequest) {
     thumbnail_url?: string;
     permalink?: string;
     timestamp: string;
+    like_count?: number;
+    comments_count?: number;
+    media_product_type?: string;
+    shortcode?: string;
   }
 
   const items = ((mediaBody?.data ?? []) as InstagramMediaItem[]).map((item) => ({
     id: item.id,
     caption: item.caption ?? null,
     media_type: item.media_type,
+    media_url: item.media_url ?? null,
     thumbnail_url: item.thumbnail_url ?? item.media_url ?? null,
     permalink: item.permalink ?? null,
     timestamp: item.timestamp,
+    like_count: item.like_count ?? null,
+    comments_count: item.comments_count ?? null,
+    media_product_type: item.media_product_type ?? null,
+    shortcode: item.shortcode ?? null,
   }));
 
   return NextResponse.json({ items });
